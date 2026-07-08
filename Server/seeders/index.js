@@ -1,0 +1,308 @@
+'use strict';
+const bcrypt = require('bcryptjs');
+const { v4: uuidv4 } = require('uuid');
+const {
+  Role, AdminUser, Category, Vendor, Warehouse, Product,
+  WarehouseStock, Banner, Customer, Order, OrderItem,
+  Cart, Coupon, Affiliate, LoyaltyLedger, Wishlist,
+} = require('../models');
+
+const isTableEmpty = async (Model) => {
+  const count = await Model.count();
+  return count === 0;
+};
+
+const seedAll = async () => {
+  console.log('🌱 Checking seed requirements...');
+
+  // ─── Roles ────────────────────────────────────────────────────────────────
+  if (await isTableEmpty(Role)) {
+    await Role.bulkCreate([
+      { name: 'ADMIN', permissions: { all: true } },
+      { name: 'STAFF', permissions: { orders: true, products: true, customers: true } },
+    ]);
+    console.log('✅ Roles seeded');
+  }
+
+  // ─── Admin Users ──────────────────────────────────────────────────────────
+  if (await isTableEmpty(AdminUser)) {
+    const adminRole = await Role.findOne({ where: { name: 'ADMIN' } });
+    const staffRole = await Role.findOne({ where: { name: 'STAFF' } });
+    const hash = await bcrypt.hash('Admin@123', 10);
+    await AdminUser.bulkCreate([
+      { name: 'Sai Arjun Kumar', email: 'admin@billubazaar.com', password: hash, roleId: adminRole.id },
+      { name: 'Priya Sharma', email: 'staff@billubazaar.com', password: await bcrypt.hash('Staff@123', 10), roleId: staffRole.id },
+    ]);
+    console.log('✅ Admin users seeded');
+  }
+
+  // ─── Categories ───────────────────────────────────────────────────────────
+  if (await isTableEmpty(Category)) {
+    const parents = await Category.bulkCreate([
+      { name: 'Party Wear', slug: 'party-wear', description: 'Glamorous ensembles for every celebration', image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400', sortOrder: 1, attributes: [{ key: 'occasion', values: ['Wedding', 'Cocktail', 'Gala'] }] },
+      { name: 'Fashion', slug: 'fashion', description: 'Contemporary fashion for the modern woman', image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400', sortOrder: 2, attributes: [{ key: 'fit', values: ['Regular', 'Slim', 'Relaxed'] }] },
+      { name: 'Accessories', slug: 'accessories', description: 'Curated accessories to complete your look', image: 'https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?w=400', sortOrder: 3, attributes: [] },
+      { name: 'Perfumes', slug: 'perfumes', description: 'Signature fragrances from world-class perfumers', image: 'https://images.unsplash.com/photo-1541643600914-78b084683702?w=400', sortOrder: 4, attributes: [{ key: 'family', values: ['Floral', 'Oriental', 'Woody', 'Fresh'] }] },
+      { name: 'Jewelry', slug: 'jewelry', description: 'Exquisite jewelry crafted with precision', image: 'https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?w=400', sortOrder: 5, attributes: [{ key: 'material', values: ['Gold', 'Silver', 'Diamond', 'Platinum'] }] },
+      { name: 'Footwear', slug: 'footwear', description: 'Luxury footwear for every step', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400', sortOrder: 6, attributes: [{ key: 'size', values: ['35', '36', '37', '38', '39', '40', '41'] }] },
+    ]);
+
+    // Sub-categories
+    await Category.bulkCreate([
+      { name: 'Lehengas', slug: 'lehengas', parentId: parents[0].id, image: 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=400', sortOrder: 1 },
+      { name: 'Evening Gowns', slug: 'evening-gowns', parentId: parents[0].id, image: 'https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=400', sortOrder: 2 },
+      { name: 'Kaftans', slug: 'kaftans', parentId: parents[0].id, image: 'https://images.unsplash.com/photo-1618932260643-eee4a2f652a6?w=400', sortOrder: 3 },
+      { name: 'Kurtas & Sets', slug: 'kurtas-sets', parentId: parents[1].id, image: 'https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=400', sortOrder: 1 },
+      { name: 'Dresses', slug: 'dresses', parentId: parents[1].id, image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400', sortOrder: 2 },
+    ]);
+    console.log('✅ Categories seeded (11 total)');
+  }
+
+  // ─── Vendors ──────────────────────────────────────────────────────────────
+  if (await isTableEmpty(Vendor)) {
+    await Vendor.bulkCreate([
+      { name: 'Zara Couture House', email: 'zara.couture@vendor.com', phone: '9876543210', gstin: '27AAACZ1234A1Z5', commissionRate: 12.5, rating: 4.7 },
+      { name: 'Rani Jewels Pvt Ltd', email: 'rani.jewels@vendor.com', phone: '9765432109', gstin: '27AAACR5678B2Z3', commissionRate: 8.0, rating: 4.9 },
+      { name: 'Aromatic House India', email: 'aromatic@vendor.com', phone: '9654321098', gstin: '27AAACA9012C3Z1', commissionRate: 10.0, rating: 4.5 },
+      { name: 'Sole Luxe Footwear', email: 'sole.luxe@vendor.com', phone: '9543210987', gstin: '27AAACS3456D4Z8', commissionRate: 11.0, rating: 4.6 },
+      { name: 'Glam Accessories Co.', email: 'glam.acc@vendor.com', phone: '9432109876', gstin: '27AAACG7890E5Z2', commissionRate: 9.5, rating: 4.4 },
+      { name: 'Royal Threads Mumbai', email: 'royal.threads@vendor.com', phone: '9321098765', gstin: '27AAACR2345F6Z7', commissionRate: 13.0, rating: 4.8 },
+    ]);
+    console.log('✅ Vendors seeded');
+  }
+
+  // ─── Warehouses ───────────────────────────────────────────────────────────
+  if (await isTableEmpty(Warehouse)) {
+    await Warehouse.bulkCreate([
+      { name: 'Mumbai Central Warehouse', code: 'MUM-01', city: 'Mumbai', state: 'Maharashtra', pincode: '400001', contactName: 'Rahul Mehta', contactPhone: '9900990099' },
+      { name: 'Delhi North Fulfillment', code: 'DEL-01', city: 'Delhi', state: 'Delhi', pincode: '110001', contactName: 'Anjali Singh', contactPhone: '9811881188' },
+      { name: 'Bangalore South Hub', code: 'BLR-01', city: 'Bangalore', state: 'Karnataka', pincode: '560001', contactName: 'Vikram Rao', contactPhone: '9922992299' },
+    ]);
+    console.log('✅ Warehouses seeded');
+  }
+
+  // ─── Coupons ──────────────────────────────────────────────────────────────
+  if (await isTableEmpty(Coupon)) {
+    const now = new Date();
+    const future = new Date(now.getTime() + 90 * 86400000);
+    await Coupon.bulkCreate([
+      { code: 'WELCOME20', type: 'PERCENT', value: 20, minOrderValue: 999, maxDiscount: 2000, validFrom: now, validUntil: future, description: 'Welcome offer — 20% off your first order' },
+      { code: 'FLAT500', type: 'FLAT', value: 500, minOrderValue: 2500, validFrom: now, validUntil: future, description: 'Flat ₹500 off on orders above ₹2500' },
+      { code: 'FREESHIP', type: 'FREE_SHIPPING', value: 0, minOrderValue: 1499, validFrom: now, validUntil: future, description: 'Free shipping on orders above ₹1499' },
+      { code: 'LUXE15', type: 'PERCENT', value: 15, minOrderValue: 3999, maxDiscount: 3000, validFrom: now, validUntil: future, description: 'Luxury collection — 15% off' },
+      { code: 'FESTIVE30', type: 'PERCENT', value: 30, minOrderValue: 5999, maxDiscount: 5000, validFrom: now, validUntil: future, description: 'Festive season special — 30% off' },
+      { code: 'BILLU10', type: 'PERCENT', value: 10, minOrderValue: 0, validFrom: now, validUntil: future, description: 'Always-on 10% loyalty code' },
+    ]);
+    console.log('✅ Coupons seeded');
+  }
+
+  // ─── Affiliates ───────────────────────────────────────────────────────────
+  if (await isTableEmpty(Affiliate)) {
+    await Affiliate.bulkCreate([
+      { name: 'Meera Kapoor', email: 'meera.kapoor@influencer.com', referralCode: 'MEERA2024', commissionRate: 7.0, totalEarnings: 45000, totalClicks: 8500, totalOrders: 234 },
+      { name: 'StyleByRiya', email: 'riya.style@blogger.com', referralCode: 'RIYA2024', commissionRate: 6.5, totalEarnings: 32000, totalClicks: 6200, totalOrders: 178 },
+      { name: 'FashionWithPriya', email: 'priya.fashion@yt.com', referralCode: 'PRIYA2024', commissionRate: 8.0, totalEarnings: 67000, totalClicks: 12000, totalOrders: 312 },
+      { name: 'GlamBySana', email: 'sana.glam@insta.com', referralCode: 'SANA2024', commissionRate: 5.5, totalEarnings: 18500, totalClicks: 4100, totalOrders: 95 },
+      { name: 'Luxe Looks India', email: 'luxelooks@partner.com', referralCode: 'LUXE2024', commissionRate: 9.0, totalEarnings: 89000, totalClicks: 15000, totalOrders: 420 },
+    ]);
+    console.log('✅ Affiliates seeded');
+  }
+
+  // ─── Banners ──────────────────────────────────────────────────────────────
+  if (await isTableEmpty(Banner)) {
+    const countdownDate = new Date(Date.now() + 3 * 86400000);
+    await Banner.bulkCreate([
+      { title: 'The Grand Festive Edit', subtitle: 'Celebrate in luxury. New arrivals every Friday.', ctaText: 'Explore Collection', ctaLink: '/products', image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=1440', type: 'HERO', position: 1, isActive: true },
+      { title: 'Up to 40% Off Party Wear', subtitle: 'For the season\'s most glamorous moments.', ctaText: 'Shop Party Wear', ctaLink: '/products?category=party-wear', image: 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=1440', type: 'HERO', position: 2, isActive: true },
+      { title: 'Deal of the Month', subtitle: 'Emerald Silk Kaftan — Now ₹4,999 only', ctaText: 'Grab Now', ctaLink: '/products', image: 'https://images.unsplash.com/photo-1618932260643-eee4a2f652a6?w=800', type: 'COUNTDOWN', position: 1, badgeText: '52% OFF', countdown: countdownDate, isActive: true },
+      { title: 'Signature Fragrances', subtitle: 'Discover our curated perfume collection', ctaText: 'Shop Perfumes', ctaLink: '/products?category=perfumes', image: 'https://images.unsplash.com/photo-1541643600914-78b084683702?w=800', type: 'PROMO', position: 1, isActive: true },
+      { title: 'Jewelry That Tells A Story', subtitle: 'Heirloom-quality pieces for every occasion', ctaText: 'Explore Jewelry', ctaLink: '/products?category=jewelry', image: 'https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?w=800', type: 'PROMO', position: 2, isActive: true },
+      { title: 'New Season Footwear', subtitle: '30% off select styles. Limited time.', ctaText: 'Shop Footwear', ctaLink: '/products?category=footwear', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800', type: 'DEAL', position: 1, badgeText: '30% OFF', isActive: true },
+      { title: 'The Bridal Edit', subtitle: 'Timeless pieces for your most cherished day', ctaText: 'View Bridal', ctaLink: '/products?tag=bridal', image: 'https://images.unsplash.com/photo-1594552072238-b8a33785b6cd?w=800', type: 'BRAND', position: 1, isActive: true },
+      { title: 'Summer Resort Collection', subtitle: 'Lightweight luxury for the sun-soaked days ahead', ctaText: 'Shop Resort', ctaLink: '/products?tag=resort', image: 'https://images.unsplash.com/photo-1570976447640-ac859083963f?w=800', type: 'PROMO', position: 3, isActive: true },
+    ]);
+    console.log('✅ Banners seeded (8 total)');
+  }
+
+  // ─── Products ─────────────────────────────────────────────────────────────
+  if (await isTableEmpty(Product)) {
+    const cats = await Category.findAll({ where: { parentId: null } });
+    const catMap = {};
+    cats.forEach(c => { catMap[c.slug] = c.id; });
+
+    const subCats = await Category.findAll({ where: { parentId: cats.map(c => c.id) } });
+    subCats.forEach(c => { catMap[c.slug] = c.id; });
+
+    const vendors = await Vendor.findAll();
+    const vMap = vendors.reduce((acc, v, i) => { acc[i] = v.id; return acc; }, {});
+
+    const products = [
+      // ── Party Wear ───────────────────────────────────────────────────────
+      { name: 'Emerald Silk Kaftan', slug: 'emerald-silk-kaftan', categoryId: catMap['kaftans'] || catMap['party-wear'], vendorId: vMap[5], price: 4999, comparePrice: 10500, sku: 'KFT-001', stock: 45, isFeatured: true, isNewArrival: true, rating: 4.8, reviewCount: 124, description: 'Draped in pure Kanjivaram silk with hand-embroidered gold motifs, this emerald kaftan is an ode to timeless Indian elegance. The flowing silhouette flatters every body type while the zari borders add festive opulence.', shortDescription: 'Hand-embroidered pure silk kaftan with gold zari borders.', images: ['https://images.unsplash.com/photo-1618932260643-eee4a2f652a6?w=600', 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=600', 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=600'], tags: ['festive', 'silk', 'kaftan', 'party-wear'], attributes: { fabric: 'Pure Silk', occasion: 'Festive', sizes: ['S', 'M', 'L', 'XL', 'XXL'] } },
+      { name: 'Rose Gold Lehenga Set', slug: 'rose-gold-lehenga-set', categoryId: catMap['lehengas'] || catMap['party-wear'], vendorId: vMap[5], price: 18999, comparePrice: 28000, sku: 'LHG-001', stock: 18, isFeatured: true, isBestSeller: true, rating: 4.9, reviewCount: 87, description: 'A breathtaking rose gold lehenga crafted with micro-sequin embroidery on georgette fabric. The flared skirt is paired with a heavily embellished blouse and tissue dupatta that catches every light. Perfect for sangeet and reception ceremonies.', shortDescription: 'Micro-sequin rose gold lehenga for weddings and receptions.', images: ['https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=600', 'https://images.unsplash.com/photo-1594552072238-b8a33785b6cd?w=600', 'https://images.unsplash.com/photo-1619679640967-4a1b13498acf?w=600'], tags: ['lehenga', 'wedding', 'bridal', 'rose-gold'], attributes: { fabric: 'Georgette + Tissue', occasion: 'Wedding', sizes: ['S', 'M', 'L', 'XL'] } },
+      { name: 'Midnight Navy Anarkali', slug: 'midnight-navy-anarkali', categoryId: catMap['party-wear'], vendorId: vMap[0], price: 7499, comparePrice: 12000, sku: 'ANK-001', stock: 32, isNewArrival: true, rating: 4.7, reviewCount: 56, description: 'A regal midnight navy Anarkali in chanderi silk with delicate silver threadwork along the hemline. The floor-length silhouette paired with a churidar bottom creates an effortlessly graceful ensemble for festive evenings.', shortDescription: 'Chanderi silk Anarkali with silver threadwork. Floor-length grace.', images: ['https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=600', 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=600', 'https://images.unsplash.com/photo-1594552072238-b8a33785b6cd?w=600'], tags: ['anarkali', 'festive', 'navy', 'chanderi'], attributes: { fabric: 'Chanderi Silk', occasion: 'Festive', sizes: ['S', 'M', 'L', 'XL', 'XXL'] } },
+      { name: 'Scarlet Velvet Gown', slug: 'scarlet-velvet-gown', categoryId: catMap['evening-gowns'] || catMap['party-wear'], vendorId: vMap[0], price: 12500, comparePrice: 20000, sku: 'GWN-001', stock: 22, isFeatured: true, rating: 4.8, reviewCount: 43, description: 'This floor-length scarlet velvet gown commands every room it enters. The structured bodice with a sweetheart neckline transitions into a dramatic A-line skirt. Fully lined with invisible side zipper for a flawless silhouette.', shortDescription: 'Floor-length scarlet velvet gown with sweetheart neckline.', images: ['https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=600', 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=600', 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600'], tags: ['gown', 'velvet', 'evening', 'party-wear'], attributes: { fabric: 'Italian Velvet', occasion: 'Gala', sizes: ['XS', 'S', 'M', 'L', 'XL'] } },
+      { name: 'Champagne Sequin Saree', slug: 'champagne-sequin-saree', categoryId: catMap['party-wear'], vendorId: vMap[5], price: 8999, comparePrice: 14500, sku: 'SAR-001', stock: 28, isBestSeller: true, rating: 4.6, reviewCount: 92, description: 'All-over champagne sequin embroidery on soft net fabric creates a luminous effect under party lights. Comes with a heavily embellished unstitched blouse piece and matching petticoat. Pre-stitched for easy drape.', shortDescription: 'All-over sequin saree with matching blouse piece. Pre-stitched.', images: ['https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600', 'https://images.unsplash.com/photo-1596783074918-c84cb06531ca?w=600', 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=600'], tags: ['saree', 'sequin', 'party', 'bridal'], attributes: { fabric: 'Net', occasion: 'Party', sizes: ['Free Size'] } },
+      { name: 'Ivory Pearl Sharara Set', slug: 'ivory-pearl-sharara-set', categoryId: catMap['party-wear'], vendorId: vMap[5], price: 9500, comparePrice: 15000, sku: 'SHR-001', stock: 20, isNewArrival: true, rating: 4.7, reviewCount: 34, description: 'An ivory sharara set adorned with delicate pearl clusters and cutdana embroidery. The voluminous sharara paired with a fitted kurta and chiffon dupatta creates an ethereal silhouette ideal for mehendi and sangeet functions.', shortDescription: 'Pearl-embellished ivory sharara set for wedding functions.', images: ['https://images.unsplash.com/photo-1619679640967-4a1b13498acf?w=600', 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=600', 'https://images.unsplash.com/photo-1594552072238-b8a33785b6cd?w=600'], tags: ['sharara', 'wedding', 'ivory', 'pearl'], attributes: { fabric: 'Georgette', occasion: 'Mehendi', sizes: ['S', 'M', 'L', 'XL'] } },
+      { name: 'Cobalt Blue Peplum Gown', slug: 'cobalt-blue-peplum-gown', categoryId: catMap['evening-gowns'] || catMap['party-wear'], vendorId: vMap[0], price: 11200, comparePrice: 17500, sku: 'GWN-002', stock: 15, isFeatured: true, rating: 4.5, reviewCount: 28, description: 'A structured cobalt blue peplum gown in premium scuba fabric. The peplum waist creates an hourglass silhouette while the midi-length hem makes it ideal for cocktail parties and corporate galas.', shortDescription: 'Structured cobalt peplum midi gown in scuba fabric.', images: ['https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=600', 'https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=600', 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600'], tags: ['gown', 'peplum', 'cocktail', 'blue'], attributes: { fabric: 'Premium Scuba', occasion: 'Cocktail', sizes: ['XS', 'S', 'M', 'L'] } },
+
+      // ── Fashion ──────────────────────────────────────────────────────────
+      { name: 'Terracotta Block Print Kurta Set', slug: 'terracotta-block-print-kurta-set', categoryId: catMap['kurtas-sets'] || catMap['fashion'], vendorId: vMap[0], price: 3299, comparePrice: 5500, sku: 'KRT-001', stock: 65, isBestSeller: true, rating: 4.7, reviewCount: 156, description: 'Handcrafted using the ancient Bagru block printing tradition, this terracotta kurta set features intricate geometric motifs on breathable cotton. Paired with matching straight pants and dupatta, it effortlessly bridges traditional craft and modern fashion.', shortDescription: 'Bagru block print cotton kurta set with matching pants.', images: ['https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=600', 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600', 'https://images.unsplash.com/photo-1594938298603-c8148c4b4869?w=600'], tags: ['kurta', 'cotton', 'block-print', 'casual'], attributes: { fabric: 'Pure Cotton', occasion: 'Casual', sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'] } },
+      { name: 'Sage Green Linen Maxi Dress', slug: 'sage-green-linen-maxi-dress', categoryId: catMap['dresses'] || catMap['fashion'], vendorId: vMap[0], price: 4200, comparePrice: 7000, sku: 'DRS-001', stock: 40, isNewArrival: true, rating: 4.6, reviewCount: 74, description: 'Effortlessly chic in washed sage linen, this maxi dress features an adjustable tie-waist and tiered hemline for movement and flow. The V-neckline and puff sleeves add a touch of romance. Perfect for brunch, vacations, or day-to-evening dressing.', shortDescription: 'Washed sage linen tiered maxi with tie-waist and puff sleeves.', images: ['https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600', 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600', 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=600'], tags: ['maxi', 'linen', 'dress', 'casual', 'resort'], attributes: { fabric: 'Washed Linen', occasion: 'Casual', sizes: ['XS', 'S', 'M', 'L', 'XL'] } },
+      { name: 'White Chikankari Palazzo Set', slug: 'white-chikankari-palazzo-set', categoryId: catMap['kurtas-sets'] || catMap['fashion'], vendorId: vMap[0], price: 4800, comparePrice: 8000, sku: 'PLZ-001', stock: 35, isBestSeller: true, rating: 4.8, reviewCount: 203, description: 'Lucknow\'s finest chikankari artistry meets contemporary silhouettes in this white palazzo set. Each stitch is done by hand by master karigars, resulting in a garment that is as much a work of art as it is clothing. The wide-leg palazzo and long kurta create an elegant, flowing look.', shortDescription: 'Handmade Lucknowi chikankari palazzo set. Artisan crafted.', images: ['https://images.unsplash.com/photo-1594938298603-c8148c4b4869?w=600', 'https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=600', 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600'], tags: ['chikankari', 'palazzo', 'white', 'handmade'], attributes: { fabric: 'Georgette', occasion: 'Semi-Formal', sizes: ['S', 'M', 'L', 'XL', 'XXL'] } },
+      { name: 'Indigo Ikat Wrap Dress', slug: 'indigo-ikat-wrap-dress', categoryId: catMap['dresses'] || catMap['fashion'], vendorId: vMap[0], price: 3599, comparePrice: 5999, sku: 'DRS-002', stock: 48, isNewArrival: true, rating: 4.5, reviewCount: 61, description: 'This indigo ikat wrap dress celebrates India\'s rich textile heritage. Woven on traditional looms in Pochampally, the distinctive ikat pattern is created by resist-dyeing the yarns before weaving. The adjustable wrap silhouette fits multiple sizes effortlessly.', shortDescription: 'Handloom Pochampally ikat wrap dress. One-size-adjustable.', images: ['https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600', 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600', 'https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=600'], tags: ['ikat', 'handloom', 'wrap-dress', 'indigo'], attributes: { fabric: 'Handloom Cotton', occasion: 'Casual', sizes: ['S', 'M', 'L'] } },
+
+      // ── Accessories ──────────────────────────────────────────────────────
+      { name: 'Oxidised Silver Jhumka Earrings', slug: 'oxidised-silver-jhumka-earrings', categoryId: catMap['accessories'], vendorId: vMap[4], price: 899, comparePrice: 1500, sku: 'ACC-001', stock: 120, isBestSeller: true, rating: 4.7, reviewCount: 312, description: 'Handcrafted oxidised silver jhumkas with intricate filigree work and dangling beads. Each pair is unique, made by artisans from Rajasthan. Lightweight yet dramatic, these earrings pair beautifully with ethnic and fusion ensembles.', shortDescription: 'Rajasthani handcrafted oxidised silver filigree jhumkas.', images: ['https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?w=600', 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600', 'https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?w=600'], tags: ['earrings', 'jhumka', 'silver', 'oxidised', 'handmade'], attributes: { material: 'Oxidised Silver', closure: 'Hook', weight: '18g' } },
+      { name: 'Braided Tan Leather Tote', slug: 'braided-tan-leather-tote', categoryId: catMap['accessories'], vendorId: vMap[4], price: 5400, comparePrice: 8500, sku: 'ACC-002', stock: 30, isFeatured: true, rating: 4.8, reviewCount: 89, description: 'Crafted from full-grain vegetable-tanned leather in rich tan, this tote features hand-braided handles and a spacious interior with a suede lining. Multiple interior pockets keep your essentials organised. Ages beautifully with use.', shortDescription: 'Full-grain vegetable-tanned leather tote with braided handles.', images: ['https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=600', 'https://images.unsplash.com/photo-1473188588951-666fce8e7c68?w=600', 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=600'], tags: ['bag', 'leather', 'tote', 'tan'], attributes: { material: 'Full-grain Leather', dimensions: '38×30×12cm', color: 'Tan' } },
+      { name: 'Crystal-Studded Hair Pins Set', slug: 'crystal-studded-hair-pins-set', categoryId: catMap['accessories'], vendorId: vMap[4], price: 649, comparePrice: 1100, sku: 'ACC-003', stock: 200, rating: 4.5, reviewCount: 178, description: 'Set of 6 Swarovski-inspired crystal-studded hair pins in gold tone. Each pin features a different floral or geometric design, making them perfect for bridal hair styling, updos, or adding sparkle to everyday looks.', shortDescription: 'Set of 6 crystal-studded gold hair pins. Bridal-ready.', images: ['https://images.unsplash.com/photo-1611078489935-0cb964de46d6?w=600', 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600', 'https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?w=600'], tags: ['hair', 'accessories', 'crystal', 'bridal'], attributes: { material: 'Alloy + Crystal', count: '6 pins', color: 'Gold' } },
+      { name: 'Handwoven Silk Scarf', slug: 'handwoven-silk-scarf', categoryId: catMap['accessories'], vendorId: vMap[4], price: 2199, comparePrice: 3500, sku: 'ACC-004', stock: 55, isNewArrival: true, rating: 4.6, reviewCount: 47, description: 'A 180×90cm handwoven silk scarf in vibrant geometric patterns inspired by traditional Patola weaves. Versatile enough to be worn as a scarf, head wrap, or belt. Machine washable.', shortDescription: 'Patola-inspired handwoven silk scarf, 180×90cm.', images: ['https://images.unsplash.com/photo-1601924994987-69e26d50dc26?w=600', 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600', 'https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=600'], tags: ['scarf', 'silk', 'handwoven', 'patola'], attributes: { material: 'Pure Silk', dimensions: '180×90cm' } },
+
+      // ── Perfumes ─────────────────────────────────────────────────────────
+      { name: 'Oud Royale Eau de Parfum', slug: 'oud-royale-eau-de-parfum', categoryId: catMap['perfumes'], vendorId: vMap[2], price: 7999, comparePrice: 12000, sku: 'PRF-001', stock: 60, isFeatured: true, isBestSeller: true, rating: 4.9, reviewCount: 231, description: 'A masterpiece of oriental perfumery, Oud Royale opens with saffron and rose absolute before settling into a complex heart of vintage oud, amber, and sandalwood. The dry-down is a warm embrace of musk and vanilla that lasts 12+ hours. A statement fragrance.', shortDescription: 'Oriental oud fragrance. Saffron, rose, amber, vintage oud. 12h+ longevity.', images: ['https://images.unsplash.com/photo-1541643600914-78b084683702?w=600', 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=600', 'https://images.unsplash.com/photo-1563170351-be82bc888aa4?w=600'], tags: ['oud', 'oriental', 'perfume', 'luxury', 'unisex'], attributes: { size: '100ml', family: 'Oriental', longevity: '12+ hours', gender: 'Unisex' } },
+      { name: 'Rose Santal Elixir', slug: 'rose-santal-elixir', categoryId: catMap['perfumes'], vendorId: vMap[2], price: 5499, comparePrice: 8500, sku: 'PRF-002', stock: 75, isNewArrival: true, rating: 4.7, reviewCount: 142, description: 'A delicate yet lasting composition of Bulgarian rose attar, white sandalwood, and cedarwood base. The fragrance opens with fresh raspberry before blooming into a full rose heart, finally settling into a creamy sandalwood signature. Feminine and sophisticated.', shortDescription: 'Bulgarian rose and white sandalwood EDP. Feminine, sophisticated.', images: ['https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=600', 'https://images.unsplash.com/photo-1541643600914-78b084683702?w=600', 'https://images.unsplash.com/photo-1563170351-be82bc888aa4?w=600'], tags: ['rose', 'sandalwood', 'floral', 'perfume', 'feminine'], attributes: { size: '75ml', family: 'Floral', longevity: '8-10 hours', gender: 'Women' } },
+      { name: 'Vetiver & Black Pepper Cologne', slug: 'vetiver-black-pepper-cologne', categoryId: catMap['perfumes'], vendorId: vMap[2], price: 4299, comparePrice: 6800, sku: 'PRF-003', stock: 50, rating: 4.6, reviewCount: 88, description: 'A woody, aromatic composition for the modern man. Opens with a sharp black pepper accord that gradually softens into a heart of Haitian vetiver and earthy patchouli. The base is warm tobacco and oakmoss for a confident, lasting impression.', shortDescription: 'Woody aromatic for men. Black pepper, Haitian vetiver, tobacco.', images: ['https://images.unsplash.com/photo-1563170351-be82bc888aa4?w=600', 'https://images.unsplash.com/photo-1541643600914-78b084683702?w=600', 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=600'], tags: ['vetiver', 'pepper', 'woody', 'cologne', 'men'], attributes: { size: '100ml', family: 'Woody', longevity: '10 hours', gender: 'Men' } },
+
+      // ── Jewelry ──────────────────────────────────────────────────────────
+      { name: 'Kundan Polki Necklace Set', slug: 'kundan-polki-necklace-set', categoryId: catMap['jewelry'], vendorId: vMap[1], price: 24999, comparePrice: 38000, sku: 'JWL-001', stock: 12, isFeatured: true, isBestSeller: true, rating: 4.9, reviewCount: 67, description: 'A magnificent Kundan Polki necklace set featuring uncut diamonds set in 22K gold, with hand-painted meenakari enamel work on the reverse. The set includes matching jhumka earrings and maang tikka. A bridal heirloom piece crafted by master goldsmiths of Jaipur.', shortDescription: 'Kundan Polki necklace with earrings and tikka. 22K gold, meenakari.', images: ['https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?w=600', 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600', 'https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?w=600'], tags: ['kundan', 'polki', 'necklace', 'bridal', 'gold', 'jewelry'], attributes: { material: 'Kundan + Polki', gold: '22K', includes: 'Necklace + Earrings + Tikka' }, spin_images: [], model_3d_url: null },
+      { name: 'Diamond Tennis Bracelet', slug: 'diamond-tennis-bracelet', categoryId: catMap['jewelry'], vendorId: vMap[1], price: 89999, comparePrice: 125000, sku: 'JWL-002', stock: 6, isFeatured: true, rating: 5.0, reviewCount: 23, description: 'An eternal symbol of elegance — this platinum tennis bracelet features 3.5 carats of G-VS2 round brilliant diamonds set in four-prong settings. Includes a GIA certificate. Secure box clasp with safety catch.', shortDescription: '3.5ct G-VS2 diamond tennis bracelet in platinum. GIA certified.', images: ['https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600', 'https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?w=600', 'https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?w=600'], tags: ['diamond', 'bracelet', 'platinum', 'tennis', 'luxury'], attributes: { material: 'Platinum', diamonds: '3.5ct G-VS2', certification: 'GIA' }, spin_images: [], model_3d_url: null },
+      { name: 'Gold Mangalsutra Pendant', slug: 'gold-mangalsutra-pendant', categoryId: catMap['jewelry'], vendorId: vMap[1], price: 32000, comparePrice: 45000, sku: 'JWL-003', stock: 18, isBestSeller: true, rating: 4.8, reviewCount: 95, description: 'A contemporary mangalsutra pendant in 18K yellow gold featuring a diamond-set lotus design with black and white enamel detailing. Comes with a 16-inch black bead chain. A perfect blend of tradition and modern aesthetics.', shortDescription: 'Contemporary diamond lotus mangalsutra in 18K gold. Modern classic.', images: ['https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?w=600', 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600', 'https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?w=600'], tags: ['mangalsutra', 'gold', 'diamond', 'pendant', 'bridal'], attributes: { material: '18K Gold', style: 'Contemporary', chainLength: '16 inches' }, spin_images: [], model_3d_url: null },
+      { name: 'Pearl Drop Ear Studs', slug: 'pearl-drop-ear-studs', categoryId: catMap['jewelry'], vendorId: vMap[1], price: 8999, comparePrice: 14000, sku: 'JWL-004', stock: 40, isNewArrival: true, rating: 4.7, reviewCount: 58, description: 'Freshwater baroque pearls in natural ivory lustre, accented with 14K gold bezels and tiny diamond chips. The slightly irregular shape of baroque pearls gives each pair a unique, organic character. Ideal for brides and formal occasions.', shortDescription: 'Baroque freshwater pearl studs with 14K gold and diamond accents.', images: ['https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?w=600', 'https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?w=600', 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600'], tags: ['pearl', 'earrings', 'gold', 'baroque', 'elegant'], attributes: { material: '14K Gold + Freshwater Pearl', pearlSize: '9-10mm' }, spin_images: [], model_3d_url: null },
+
+      // ── Footwear ─────────────────────────────────────────────────────────
+      { name: 'Crushed Velvet Block Heel Sandals', slug: 'crushed-velvet-block-heel-sandals', categoryId: catMap['footwear'], vendorId: vMap[3], price: 4299, comparePrice: 7000, sku: 'FTW-001', stock: 52, isFeatured: true, isBestSeller: true, rating: 4.7, reviewCount: 114, description: 'Opulent crushed emerald velvet block-heel sandals with an ankle strap and gold hardware buckle. The 7.5cm block heel provides comfortable height without compromising on comfort. Perfect for festive occasions and formal dinners.', shortDescription: 'Emerald crushed velvet block heels, 7.5cm. Gold hardware.', images: ['https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600', 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=600', 'https://images.unsplash.com/photo-1515347619252-60a4bf4fff4f?w=600'], tags: ['heels', 'velvet', 'sandals', 'block-heel', 'festive'], attributes: { material: 'Crushed Velvet', heelHeight: '7.5cm', sizes: ['35', '36', '37', '38', '39', '40', '41'] } },
+      { name: 'Leather Kolhapuri Flats', slug: 'leather-kolhapuri-flats', categoryId: catMap['footwear'], vendorId: vMap[3], price: 1899, comparePrice: 3200, sku: 'FTW-002', stock: 80, isBestSeller: true, rating: 4.8, reviewCount: 267, description: 'Authentic Kolhapuri chappals crafted by master cobblers in Kolhapur, Maharashtra. Made from vegetable-tanned buffalo leather with intricate hand-punched designs. The leather insole moulds to your foot over time for a bespoke fit. Officially GI-tagged.', shortDescription: 'GI-tagged authentic Kolhapuri chappals. Vegetable-tanned leather.', images: ['https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=600', 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600', 'https://images.unsplash.com/photo-1515347619252-60a4bf4fff4f?w=600'], tags: ['kolhapuri', 'flats', 'leather', 'handmade', 'GI'], attributes: { material: 'Vegetable-tanned Leather', style: 'Traditional', sizes: ['35', '36', '37', '38', '39', '40', '41', '42', '43'] } },
+      { name: 'Gold Embroidered Jutis', slug: 'gold-embroidered-jutis', categoryId: catMap['footwear'], vendorId: vMap[3], price: 2799, comparePrice: 4500, sku: 'FTW-003', stock: 45, isNewArrival: true, rating: 4.6, reviewCount: 89, description: 'Handcrafted Punjabi jutis embroidered with metallic gold thread and tiny mirrors in a traditional phulkari pattern. The velvet upper sits on a cushioned insole for surprising comfort. Each pair takes 3 days to embroider and is completely handmade.', shortDescription: 'Handembroidered phulkari jutis with gold thread and mirror work.', images: ['https://images.unsplash.com/photo-1515347619252-60a4bf4fff4f?w=600', 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600', 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=600'], tags: ['jutis', 'embroidered', 'gold', 'phulkari', 'handmade'], attributes: { material: 'Velvet + Gold Thread', style: 'Traditional', sizes: ['35', '36', '37', '38', '39', '40'] } },
+      { name: 'Croc-Textured Kitten Heel Mules', slug: 'croc-textured-kitten-heel-mules', categoryId: catMap['footwear'], vendorId: vMap[3], price: 5999, comparePrice: 9500, sku: 'FTW-004', stock: 28, isFeatured: true, rating: 4.7, reviewCount: 52, description: 'Italian-inspired croc-embossed leather mules in warm caramel brown with a 4.5cm kitten heel. The slip-on silhouette and square toe lend a modern, architectural feel while the padded insole ensures all-day comfort. Pairs equally well with sarees and power suits.', shortDescription: 'Croc-embossed leather kitten heel mules in caramel. Versatile luxury.', images: ['https://images.unsplash.com/photo-1515347619252-60a4bf4fff4f?w=600', 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=600', 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600'], tags: ['mules', 'kitten-heel', 'croc', 'leather', 'luxury'], attributes: { material: 'Croc-embossed Leather', heelHeight: '4.5cm', sizes: ['35', '36', '37', '38', '39', '40', '41'] } },
+
+      // ── More Varied Products ──────────────────────────────────────────────
+      { name: 'Amethyst Drop Pendant', slug: 'amethyst-drop-pendant', categoryId: catMap['jewelry'], vendorId: vMap[1], price: 3499, comparePrice: 5800, sku: 'JWL-005', stock: 38, isNewArrival: true, rating: 4.6, reviewCount: 41, description: 'A deep purple amethyst teardrop pendant set in sterling silver with a fine 18-inch silver chain included. Amethyst is associated with calm and clarity. Hand-polished finish brings out the natural colour depth of the stone.', shortDescription: 'Deep purple amethyst teardrop pendant in sterling silver.', images: ['https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600', 'https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?w=600', 'https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?w=600'], tags: ['pendant', 'amethyst', 'silver', 'gemstone'], attributes: { material: 'Sterling Silver + Amethyst', chainLength: '18 inches' } },
+      { name: 'Jasmine & Tuberose Body Mist', slug: 'jasmine-tuberose-body-mist', categoryId: catMap['perfumes'], vendorId: vMap[2], price: 1299, comparePrice: 2000, sku: 'PRF-004', stock: 150, isBestSeller: true, rating: 4.5, reviewCount: 334, description: 'A light, uplifting body mist capturing the essence of an Indian summer garden. Fresh jasmine sambac and velvety tuberose are supported by a base of light musk and cedarwood. A 200ml generous bottle for all-day freshness.', shortDescription: 'Jasmine sambac and tuberose body mist, 200ml. Light, all-day fresh.', images: ['https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=600', 'https://images.unsplash.com/photo-1541643600914-78b084683702?w=600', 'https://images.unsplash.com/photo-1563170351-be82bc888aa4?w=600'], tags: ['jasmine', 'tuberose', 'body-mist', 'floral', 'fresh'], attributes: { size: '200ml', family: 'Floral', gender: 'Women' } },
+      { name: 'Mustard Bandhani Dupatta', slug: 'mustard-bandhani-dupatta', categoryId: catMap['accessories'], vendorId: vMap[4], price: 1799, comparePrice: 3000, sku: 'ACC-005', stock: 70, rating: 4.7, reviewCount: 123, description: 'A vibrant mustard Bandhani dupatta made by tying hundreds of tiny knots before dyeing — a traditional Rajasthani resist-dyeing art form. The resulting pattern of tiny dots in white and red on saffron yellow is stunning and unique. Semi-transparent georgette fabric.', shortDescription: 'Traditional Rajasthani Bandhani tie-dye dupatta in mustard.', images: ['https://images.unsplash.com/photo-1601924994987-69e26d50dc26?w=600', 'https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?w=600', 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600'], tags: ['bandhani', 'dupatta', 'rajasthani', 'mustard', 'handmade'], attributes: { fabric: 'Georgette', technique: 'Bandhani Tie-dye', dimensions: '2.5m × 1m' } },
+      { name: 'Forest Green Palazzo Pants', slug: 'forest-green-palazzo-pants', categoryId: catMap['fashion'], vendorId: vMap[0], price: 2199, comparePrice: 3500, sku: 'PNT-001', stock: 58, isNewArrival: true, rating: 4.5, reviewCount: 77, description: 'Wide-leg palazzo pants in a deep forest green, crafted from fluid crepe that drapes beautifully. High-waisted with an elasticated back for comfort, and a subtle flare that makes legs look long. Pair with a fitted blouse for a statement look.', shortDescription: 'Fluid crepe wide-leg palazzo in forest green. High-waisted.', images: ['https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600', 'https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=600', 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600'], tags: ['palazzo', 'pants', 'green', 'wide-leg', 'crepe'], attributes: { fabric: 'Crepe', closure: 'Elasticated Waist', sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'] } },
+      { name: 'Embossed Leather Clutch', slug: 'embossed-leather-clutch', categoryId: catMap['accessories'], vendorId: vMap[4], price: 3200, comparePrice: 5200, sku: 'ACC-006', stock: 35, isFeatured: true, rating: 4.8, reviewCount: 62, description: 'A compact evening clutch in deep burgundy embossed leather with a gold chain shoulder strap. Features a magnetic clasp, satin interior, card slots, and a mirror. Small enough to be elegant, spacious enough for essentials.', shortDescription: 'Burgundy embossed leather evening clutch with gold chain.', images: ['https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=600', 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=600', 'https://images.unsplash.com/photo-1473188588951-666fce8e7c68?w=600'], tags: ['clutch', 'leather', 'evening', 'burgundy', 'bag'], attributes: { material: 'Embossed Leather', color: 'Burgundy', strap: 'Gold Chain' } },
+      { name: 'Saffron Banarasi Silk Saree', slug: 'saffron-banarasi-silk-saree', categoryId: catMap['party-wear'], vendorId: vMap[5], price: 15999, comparePrice: 25000, sku: 'SAR-002', stock: 14, isFeatured: true, isBestSeller: true, rating: 4.9, reviewCount: 108, description: 'A resplendent Banarasi pure silk saree in saffron gold with intricate zari brocade throughout the body and a heavy pallu featuring the signature Banarasi kalga and jaal motifs. Woven on a traditional handloom by master weavers of Varanasi. Comes with an unstitched blouse piece.', shortDescription: 'Handloom Banarasi pure silk saree in saffron, zari brocade.', images: ['https://images.unsplash.com/photo-1596783074918-c84cb06531ca?w=600', 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600', 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=600'], tags: ['banarasi', 'saree', 'silk', 'zari', 'bridal', 'handloom'], attributes: { fabric: 'Pure Banarasi Silk', technique: 'Handloom', blouse: 'Included (unstitched)' } },
+    ];
+
+    await Product.bulkCreate(products);
+    console.log(`✅ Products seeded (${products.length} total)`);
+
+    // ── Warehouse Stock ───────────────────────────────────────────────────
+    const allProducts = await Product.findAll();
+    const warehouses = await Warehouse.findAll();
+    const stocks = [];
+    allProducts.forEach(p => {
+      warehouses.forEach(w => {
+        stocks.push({ warehouseId: w.id, productId: p.id, quantity: Math.floor(Math.random() * 30) + 5, reorderLevel: 5 });
+      });
+    });
+    await WarehouseStock.bulkCreate(stocks);
+    console.log('✅ Warehouse stock seeded');
+  }
+
+  // ─── Customers ────────────────────────────────────────────────────────────
+  if (await isTableEmpty(Customer)) {
+    const hash = (pw) => bcrypt.hash(pw, 10);
+    const customers = await Customer.bulkCreate([
+      { name: 'Priya Nair', email: 'priya.nair@gmail.com', password: await hash('Pass@123'), phone: '9876543200', loyaltyPoints: 1450, isVerified: true, referralCode: 'PRIYA001', whatsappOptIn: true, address: { line1: '14 Palm Beach Road', city: 'Mumbai', state: 'Maharashtra', pincode: '400001' } },
+      { name: 'Aisha Sharma', email: 'aisha.sharma@outlook.com', password: await hash('Pass@123'), phone: '9765432100', loyaltyPoints: 2300, isVerified: true, referralCode: 'AISHA002', whatsappOptIn: false, address: { line1: '22 Rajpur Road', city: 'Delhi', state: 'Delhi', pincode: '110001' } },
+      { name: 'Kavya Reddy', email: 'kavya.reddy@yahoo.com', password: await hash('Pass@123'), phone: '9654321000', loyaltyPoints: 890, isVerified: true, referralCode: 'KAVYA003', whatsappOptIn: true, address: { line1: '5 Jubilee Hills', city: 'Hyderabad', state: 'Telangana', pincode: '500033' } },
+      { name: 'Sunita Patel', email: 'sunita.patel@gmail.com', password: await hash('Pass@123'), phone: '9543210900', loyaltyPoints: 3200, isVerified: true, referralCode: 'SUNIT004', whatsappOptIn: true, address: { line1: '9 Paldi', city: 'Ahmedabad', state: 'Gujarat', pincode: '380007' } },
+      { name: 'Nisha Menon', email: 'nisha.menon@gmail.com', password: await hash('Pass@123'), phone: '9432109800', loyaltyPoints: 540, isVerified: true, referralCode: 'NISHA005', whatsappOptIn: false, address: { line1: '3 Marine Drive', city: 'Kochi', state: 'Kerala', pincode: '682001' } },
+      { name: 'Ritu Agarwal', email: 'ritu.agarwal@gmail.com', password: await hash('Pass@123'), phone: '9321098700', loyaltyPoints: 1800, isVerified: true, referralCode: 'RITU006', whatsappOptIn: true, address: { line1: '17 MG Road', city: 'Jaipur', state: 'Rajasthan', pincode: '302001' } },
+      { name: 'Deepa Krishnan', email: 'deepa.krishnan@gmail.com', password: await hash('Pass@123'), phone: '9210987600', loyaltyPoints: 650, isVerified: false, referralCode: 'DEEPA007', whatsappOptIn: false, address: { line1: '8 Anna Nagar', city: 'Chennai', state: 'Tamil Nadu', pincode: '600040' } },
+      { name: 'Anjali Singh', email: 'anjali.singh@hotmail.com', password: await hash('Pass@123'), phone: '9109876500', loyaltyPoints: 4100, isVerified: true, referralCode: 'ANJAL008', whatsappOptIn: true, address: { line1: '24 Hazratganj', city: 'Lucknow', state: 'Uttar Pradesh', pincode: '226001' } },
+      { name: 'Meenakshi Pillai', email: 'meenakshi.pillai@gmail.com', password: await hash('Pass@123'), phone: '9098765400', loyaltyPoints: 920, isVerified: true, referralCode: 'MEENA009', whatsappOptIn: false, address: { line1: '6 Adyar', city: 'Chennai', state: 'Tamil Nadu', pincode: '600020' } },
+      { name: 'Lakshmi Iyer', email: 'lakshmi.iyer@gmail.com', password: await hash('Pass@123'), phone: '8987654300', loyaltyPoints: 2700, isVerified: true, referralCode: 'LAKSH010', whatsappOptIn: true, address: { line1: '11 Indiranagar', city: 'Bangalore', state: 'Karnataka', pincode: '560038' } },
+      { name: 'Pooja Chopra', email: 'pooja.chopra@gmail.com', password: await hash('Pass@123'), phone: '8876543200', loyaltyPoints: 380, isVerified: true, referralCode: 'POOJA011', whatsappOptIn: true, address: { line1: '32 Sector 15', city: 'Chandigarh', state: 'Punjab', pincode: '160015' } },
+      { name: 'Divya Bhat', email: 'divya.bhat@gmail.com', password: await hash('Pass@123'), phone: '8765432100', loyaltyPoints: 1100, isVerified: false, referralCode: 'DIVYA012', whatsappOptIn: false, address: { line1: '7 Malad West', city: 'Mumbai', state: 'Maharashtra', pincode: '400095' } },
+      { name: 'Shruti Verma', email: 'shruti.verma@gmail.com', password: await hash('Pass@123'), phone: '8654321000', loyaltyPoints: 1650, isVerified: true, referralCode: 'SHRUT013', whatsappOptIn: true, address: { line1: '19 Dwarka', city: 'Delhi', state: 'Delhi', pincode: '110075' } },
+      { name: 'Archana Desai', email: 'archana.desai@gmail.com', password: await hash('Pass@123'), phone: '8543210900', loyaltyPoints: 2100, isVerified: true, referralCode: 'ARCHA014', whatsappOptIn: true, address: { line1: '4 FC Road', city: 'Pune', state: 'Maharashtra', pincode: '411004' } },
+      { name: 'Pallavi Kulkarni', email: 'pallavi.kulkarni@gmail.com', password: await hash('Pass@123'), phone: '8432109800', loyaltyPoints: 760, isVerified: true, referralCode: 'PALLA015', whatsappOptIn: false, address: { line1: '13 Koramangala', city: 'Bangalore', state: 'Karnataka', pincode: '560034' } },
+    ]);
+
+    // Create carts for each customer
+    await Cart.bulkCreate(customers.map(c => ({ customerId: c.id })));
+    console.log('✅ Customers seeded (15 total) + carts created');
+  }
+
+  // ─── Orders ───────────────────────────────────────────────────────────────
+  if (await isTableEmpty(Order)) {
+    const customers = await Customer.findAll();
+    const products = await Product.findAll();
+    const statuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+    const payStatuses = { PENDING: 'UNPAID', CONFIRMED: 'PAID', PROCESSING: 'PAID', SHIPPED: 'PAID', DELIVERED: 'PAID', CANCELLED: 'REFUNDED' };
+    const payMethods = ['Razorpay UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'COD'];
+    const orders = [];
+    const orderItems = [];
+
+    for (let i = 0; i < 32; i++) {
+      const cust = customers[i % customers.length];
+      const status = statuses[i % statuses.length];
+      const numItems = (i % 3) + 1;
+      const items = [];
+      let subtotal = 0;
+
+      for (let j = 0; j < numItems; j++) {
+        const prod = products[(i * 3 + j) % products.length];
+        const qty = (j % 2) + 1;
+        const price = parseFloat(prod.price);
+        items.push({ productId: prod.id, productName: prod.name, productImage: prod.images[0], quantity: qty, unitPrice: price, totalPrice: price * qty, selectedVariant: { size: 'M', color: 'Default' } });
+        subtotal += price * qty;
+      }
+
+      const discount = i % 4 === 0 ? subtotal * 0.1 : 0;
+      const shipping = subtotal > 1499 ? 0 : 99;
+      const tax = subtotal * 0.05;
+      const total = subtotal - discount + shipping + tax;
+      const daysAgo = (i + 1) * 2;
+
+      orders.push({
+        orderNumber: `BB${String(1000 + i).padStart(6, '0')}`,
+        customerId: cust.id,
+        status,
+        paymentStatus: payStatuses[status],
+        paymentMethod: payMethods[i % payMethods.length],
+        paymentGatewayRef: `pay_${uuidv4().slice(0, 14)}`,
+        subtotal,
+        discountAmount: discount,
+        shippingAmount: shipping,
+        taxAmount: tax,
+        totalAmount: total,
+        shippingAddress: cust.address || { line1: 'Test Address', city: 'Mumbai', state: 'Maharashtra', pincode: '400001' },
+        trackingNumber: status === 'SHIPPED' || status === 'DELIVERED' ? `AWB${Date.now() + i}` : null,
+        createdAt: new Date(Date.now() - daysAgo * 86400000),
+        _items: items,
+      });
+    }
+
+    for (const orderData of orders) {
+      const items = orderData._items;
+      delete orderData._items;
+      const created = await Order.create(orderData);
+      for (const item of items) {
+        orderItems.push({ ...item, orderId: created.id });
+      }
+    }
+
+    await OrderItem.bulkCreate(orderItems);
+    console.log('✅ Orders seeded (32 total) + order items created');
+
+    // LoyaltyLedger entries
+    const allOrders = await Order.findAll({ where: { paymentStatus: 'PAID' } });
+    const ledgerEntries = allOrders.map(o => ({
+      customerId: o.customerId,
+      type: 'EARN',
+      points: Math.floor(o.totalAmount / 100),
+      balance: Math.floor(o.totalAmount / 100),
+      description: `Points earned on order ${o.orderNumber}`,
+      orderId: o.id,
+    }));
+    await LoyaltyLedger.bulkCreate(ledgerEntries);
+    console.log('✅ Loyalty ledger seeded');
+  }
+
+  console.log('🎉 All seed data ready — Billu Bazaar is stocked!');
+};
+
+module.exports = seedAll;

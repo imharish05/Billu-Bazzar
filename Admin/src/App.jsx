@@ -1,0 +1,47 @@
+import { Routes, Route, Navigate } from 'react-router-dom';
+import LoginPage from './pages/LoginPage';
+import DashboardPage from './pages/DashboardPage';
+import ProductsAdminPage from './pages/ProductsAdminPage';
+import CategoriesAdminPage from './pages/CategoriesAdminPage';
+import OrdersAdminPage from './pages/OrdersAdminPage';
+import CustomersAdminPage from './pages/CustomersAdminPage';
+import BannersAdminPage from './pages/BannersAdminPage';
+import VendorsAdminPage from './pages/VendorsAdminPage';
+import WarehousesAdminPage from './pages/WarehousesAdminPage';
+import CouponsAdminPage from './pages/CouponsAdminPage';
+import AffiliatesAdminPage from './pages/AffiliatesAdminPage';
+import LoyaltyAdminPage from './pages/LoyaltyAdminPage';
+import PaymentsAdminPage from './pages/PaymentsAdminPage';
+import ReportsAdminPage from './pages/ReportsAdminPage';
+import SettingsAdminPage from './pages/SettingsAdminPage';
+import NotFoundAdminPage from './pages/NotFoundAdminPage';
+
+/* Protected route — redirect to /login if no admin token */
+const Protected = ({ children }) => {
+  const token = localStorage.getItem('bb_admin_token');
+  return token ? children : <Navigate to="/login" replace />;
+};
+
+const App = () => (
+  <Routes>
+    <Route path="/login" element={<LoginPage />} />
+    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+    <Route path="/dashboard"   element={<Protected><DashboardPage /></Protected>} />
+    <Route path="/products"    element={<Protected><ProductsAdminPage /></Protected>} />
+    <Route path="/categories"  element={<Protected><CategoriesAdminPage /></Protected>} />
+    <Route path="/orders"      element={<Protected><OrdersAdminPage /></Protected>} />
+    <Route path="/customers"   element={<Protected><CustomersAdminPage /></Protected>} />
+    <Route path="/banners"     element={<Protected><BannersAdminPage /></Protected>} />
+    <Route path="/vendors"     element={<Protected><VendorsAdminPage /></Protected>} />
+    <Route path="/warehouses"  element={<Protected><WarehousesAdminPage /></Protected>} />
+    <Route path="/coupons"     element={<Protected><CouponsAdminPage /></Protected>} />
+    <Route path="/affiliates"  element={<Protected><AffiliatesAdminPage /></Protected>} />
+    <Route path="/loyalty"     element={<Protected><LoyaltyAdminPage /></Protected>} />
+    <Route path="/payments"    element={<Protected><PaymentsAdminPage /></Protected>} />
+    <Route path="/reports"     element={<Protected><ReportsAdminPage /></Protected>} />
+    <Route path="/settings"    element={<Protected><SettingsAdminPage /></Protected>} />
+    <Route path="*"            element={<NotFoundAdminPage />} />
+  </Routes>
+);
+
+export default App;
