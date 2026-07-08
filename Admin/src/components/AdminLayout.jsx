@@ -2,29 +2,54 @@ import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
-  LayoutDashboard, Package, Tag, ShoppingBag, Users, Image, Ticket, Star,
-  Warehouse, UserCheck, BarChart3, Settings, LogOut, Menu, X, ChevronRight,
+  LayoutDashboard, Package, Tag, ShoppingBag, Users, Image, Ticket,
+  Warehouse, UserCheck, BarChart3, Settings, LogOut, Menu, X,
   Store, CreditCard, Gift
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from './Logo';
 import { logout } from '../redux/slices/authSlice';
 
-const NAV_ITEMS = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/products', label: 'Products', icon: Package },
-  { to: '/categories', label: 'Categories', icon: Tag },
-  { to: '/orders', label: 'Orders', icon: ShoppingBag },
-  { to: '/customers', label: 'Customers', icon: Users },
-  { to: '/banners', label: 'Banners', icon: Image },
-  { to: '/vendors', label: 'Vendors', icon: Store },
-  { to: '/warehouses', label: 'Warehouses', icon: Warehouse },
-  { to: '/coupons', label: 'Coupons', icon: Ticket },
-  { to: '/affiliates', label: 'Affiliates', icon: UserCheck },
-  { to: '/loyalty', label: 'Loyalty', icon: Gift },
-  { to: '/payments', label: 'Payments', icon: CreditCard },
-  { to: '/reports', label: 'Reports', icon: BarChart3 },
-  { to: '/settings', label: 'Settings', icon: Settings },
+const NAV_SECTIONS = [
+  {
+    heading: null,
+    items: [
+      { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { to: '/products', label: 'Products', icon: Package },
+      { to: '/categories', label: 'Categories', icon: Tag },
+      { to: '/orders', label: 'Orders', icon: ShoppingBag },
+      { to: '/customers', label: 'Customers', icon: Users },
+    ],
+  },
+  {
+    heading: 'Marketing',
+    items: [
+      { to: '/banners', label: 'Banners', icon: Image },
+      { to: '/coupons', label: 'Coupons', icon: Ticket },
+      { to: '/affiliates', label: 'Affiliates', icon: UserCheck },
+      { to: '/loyalty', label: 'Loyalty', icon: Gift },
+    ],
+  },
+  {
+    heading: 'Operations',
+    items: [
+      { to: '/vendors', label: 'Vendors', icon: Store },
+      { to: '/warehouses', label: 'Warehouses', icon: Warehouse },
+    ],
+  },
+  {
+    heading: 'Finance',
+    items: [
+      { to: '/payments', label: 'Payments', icon: CreditCard },
+      { to: '/reports', label: 'Reports', icon: BarChart3 },
+    ],
+  },
+  {
+    heading: null,
+    items: [
+      { to: '/settings', label: 'Settings', icon: Settings },
+    ],
+  },
 ];
 
 const AdminLayout = ({ children, title = '' }) => {
@@ -45,23 +70,32 @@ const AdminLayout = ({ children, title = '' }) => {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-4 px-2" aria-label="Admin navigation">
-        {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium mb-0.5 transition-all border-l-2 ${
-                isActive
-                  ? 'bg-amber-50 text-brand-gold border-brand-gold'
-                  : 'border-transparent text-brand-grey hover:bg-brand-light hover:text-brand-text'
-              }`
-            }
-            id={`nav-${label.toLowerCase()}`}
-            onClick={() => setSidebarOpen(false)}
-          >
-            <Icon size={17} strokeWidth={1.5} />
-            {label}
-          </NavLink>
+        {NAV_SECTIONS.map((section, si) => (
+          <div key={si}>
+            {section.heading && (
+              <p className="px-3 py-2 text-[10px] font-bold text-brand-grey uppercase tracking-[0.15em]">
+                {section.heading}
+              </p>
+            )}
+            {section.items.map(({ to, label, icon: Icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium mb-0.5 transition-all border-l-2 ${
+                    isActive
+                      ? 'bg-amber-50 text-brand-gold border-brand-gold'
+                      : 'border-transparent text-brand-grey hover:bg-brand-light hover:text-brand-text'
+                  }`
+                }
+                id={`nav-${label.toLowerCase()}`}
+                onClick={() => setSidebarOpen(false)}
+              >
+                <Icon size={17} strokeWidth={1.5} />
+                {label}
+              </NavLink>
+            ))}
+          </div>
         ))}
       </nav>
 

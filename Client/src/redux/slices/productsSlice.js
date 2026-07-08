@@ -16,10 +16,20 @@ export const fetchFeatured = createAsyncThunk('products/featured', async (_, { r
   catch (err) { return rejectWithValue(err.response?.data?.message); }
 });
 
+export const fetchNewArrivals = createAsyncThunk('products/fetchNewArrivals', async (limit = 8, { rejectWithValue }) => {
+  try { const res = await api.get('/products', { params: { newArrival: true, limit } }); return res.data.products; }
+  catch (err) { return rejectWithValue(err.response?.data?.message); }
+});
+
+export const fetchBestSellers = createAsyncThunk('products/fetchBestSellers', async (limit = 8, { rejectWithValue }) => {
+  try { const res = await api.get('/products', { params: { bestSeller: true, limit } }); return res.data.products; }
+  catch (err) { return rejectWithValue(err.response?.data?.message); }
+});
+
 const productsSlice = createSlice({
   name: 'products',
   initialState: {
-    items: [], featured: [], current: null,
+    items: [], featured: [], newArrivals: [], bestSellers: [], current: null,
     total: 0, page: 1, totalPages: 1,
     loading: false, error: null,
     filters: { category: '', minPrice: '', maxPrice: '', sort: 'createdAt', order: 'DESC' },
@@ -35,7 +45,9 @@ const productsSlice = createSlice({
       .addCase(fetchProducts.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
       .addCase(fetchProduct.pending, (state) => { state.loading = true; state.current = null; })
       .addCase(fetchProduct.fulfilled, (state, action) => { state.loading = false; state.current = action.payload; })
-      .addCase(fetchFeatured.fulfilled, (state, action) => { state.featured = action.payload; });
+      .addCase(fetchFeatured.fulfilled, (state, action) => { state.featured = action.payload; })
+      .addCase(fetchNewArrivals.fulfilled, (state, action) => { state.newArrivals = action.payload; })
+      .addCase(fetchBestSellers.fulfilled, (state, action) => { state.bestSellers = action.payload; });
   },
 });
 

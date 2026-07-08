@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { X, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { closeCart, removeLocal, addLocal } from '../redux/slices/cartSlice';
-import currencyJs from 'currency.js';
+import { formatPrice } from '../utils/currency';
 
 const FREE_SHIPPING_THRESHOLD = 1499;
 
@@ -11,11 +11,12 @@ const FREE_SHIPPING_THRESHOLD = 1499;
 const CartDrawer = () => {
   const dispatch = useDispatch();
   const { isOpen, items, subtotal } = useSelector(s => s.cart);
+  const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
 
   const progressPct = Math.min((subtotal / FREE_SHIPPING_THRESHOLD) * 100, 100);
   const remaining = Math.max(FREE_SHIPPING_THRESHOLD - subtotal, 0);
 
-  const fmt = (v) => currencyJs(v, { symbol: '₹', precision: 0 }).format();
+  const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
 
   return (
     <AnimatePresence>

@@ -7,6 +7,7 @@ import bannersReducer from './slices/bannersSlice';
 import wishlistReducer from './slices/wishlistSlice';
 import ordersReducer from './slices/ordersSlice';
 import uiReducer from './slices/uiSlice';
+import currencyReducer from './slices/currencySlice';
 
 const store = configureStore({
   reducer: {
@@ -18,6 +19,7 @@ const store = configureStore({
     wishlist: wishlistReducer,
     orders: ordersReducer,
     ui: uiReducer,
+    currency: currencyReducer,
   },
 });
 

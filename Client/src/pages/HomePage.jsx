@@ -3,10 +3,13 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { motion, useInView } from 'framer-motion';
 import { ChevronRight, Play, Star, ArrowRight, Clock } from 'lucide-react';
-import { fetchProducts, fetchFeatured } from '../redux/slices/productsSlice';
+import { fetchProducts, fetchFeatured, fetchNewArrivals, fetchBestSellers } from '../redux/slices/productsSlice';
 import { fetchCategories } from '../redux/slices/categoriesSlice';
 import { fetchBanners } from '../redux/slices/bannersSlice';
+import api from '../services/api';
 import ProductCard from '../components/ProductCard';
+import HeroBanner from '../components/HeroBanner';
+import ExclusiveCollection from '../components/ExclusiveCollection';
 import Footer from '../components/Footer';
 
 /* ── Countdown Timer hook ─────────────────────────────────────────────────── */
@@ -100,11 +103,12 @@ const testimonials = [
  * ══════════════════════════════════════════════════════════════════════════ */
 const HomePage = () => {
   const dispatch = useDispatch();
-  const { items: products, featured, loading } = useSelector(s => s.products);
+  const { items: products, featured, newArrivals, bestSellers, loading } = useSelector(s => s.products);
   const { items: categories } = useSelector(s => s.categories);
   const { items: banners } = useSelector(s => s.banners);
   const [activeTab, setActiveTab] = useState('all');
   const [videoPlaying, setVideoPlaying] = useState(false);
+  const [dbInfluencers, setDbInfluencers] = useState([]);
 
   // Countdown target — 3 days from now (seeded countdown banner)
   const countdown = useCountdown(new Date(Date.now() + 3 * 86400000));
@@ -112,133 +116,57 @@ const HomePage = () => {
   useEffect(() => {
     dispatch(fetchProducts({ limit: 16 }));
     dispatch(fetchFeatured());
+    dispatch(fetchNewArrivals(8));
+    dispatch(fetchBestSellers(8));
     dispatch(fetchCategories());
-    dispatch(fetchBanners());
+    dispatch(fetchBanners('HERO'));
+    
+    // Fetch active affiliates
+    api.get('/affiliates')
+      .then(res => {
+        const active = (res.data.affiliates || []).filter(a => a.isActive);
+        if (active.length) {
+          const mapped = active.map((aff, i) => ({
+            name: aff.name,
+            handle: `@${aff.referralCode.toLowerCase()}_style`,
+            img: i === 0 ? 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400'
+               : i === 1 ? 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=400'
+               : i === 2 ? 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400'
+               : 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400',
+            products: aff.totalOrders || 12,
+            followers: aff.totalClicks > 1000 ? `${(aff.totalClicks/1000).toFixed(1)}M` : `${aff.totalClicks || 150} followers`,
+          }));
+          setDbInfluencers(mapped);
+        }
+      })
+      .catch(err => console.error(err));
+
     // SEO meta
     document.title = 'Billu Bazaar — India\'s Luxury Fashion Destination';
     const meta = document.querySelector('meta[name="description"]');
     if (meta) meta.setAttribute('content', 'Discover luxury party wear, jewelry, perfumes and accessories at Billu Bazaar. Handcrafted, curated, and delivered with love across India.');
   }, [dispatch]);
 
-  const heroBanner = banners.find(b => b.type === 'HERO') || {
-    title: 'The Grand Festive Edit',
-    subtitle: 'Celebrate in luxury. New arrivals every Friday.',
-    ctaText: 'Explore Collection',
-    ctaLink: '/products',
-    image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=1440',
+  const featuredProducts = (featured.length ? featured : products).slice(0, 8);
+  
+  const getCategorySlug = (tabId) => {
+    if (tabId === 'party') return 'party-wear';
+    return tabId;
   };
 
-  const featuredProducts = (featured.length ? featured : products).slice(0, 8);
+  const displayNewArrivals = newArrivals.length ? newArrivals : products;
   const filteredProducts = activeTab === 'all'
-    ? featuredProducts
-    : featuredProducts.filter(p => p.isNewArrival || p.isBestSeller || p.isFeatured);
+    ? displayNewArrivals.slice(0, 8)
+    : activeTab === 'featured'
+      ? featuredProducts
+      : displayNewArrivals.filter(p => p.category?.slug === getCategorySlug(activeTab)).slice(0, 8);
 
   const parentCategories = categories.filter(c => !c.parentId).slice(0, 8);
 
   return (
     <main id="main-content">
-      {/* ── SECTION 1: Hero ──────────────────────────────────────────────── */}
-      <section className="relative min-h-screen flex items-center overflow-hidden" aria-label="Hero banner">
-        {/* Hero background image */}
-        <div className="absolute inset-0">
-          <img
-            src={heroBanner.image}
-            alt="Billu Bazaar — Luxury Fashion"
-            className="w-full h-full object-cover"
-            priority="true"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
-        </div>
-
-        {/* Floating product cards — reference-site pattern */}
-        <div className="absolute right-8 md:right-16 top-1/2 -translate-y-1/2 hidden xl:flex flex-col gap-4 z-10">
-          {(featured.slice(0, 2)).map((product, i) => (
-            <motion.div
-              key={product.id}
-              initial={{ opacity: 0, x: 60 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.8 + i * 0.3, duration: 0.6 }}
-              className="bg-white/90 backdrop-blur-sm shadow-lg w-52 p-3 flex gap-3 items-center hover:shadow-xl transition-shadow cursor-pointer border border-white/40"
-            >
-              <img src={product.images?.[0]} alt={product.name} className="w-14 h-16 object-cover flex-shrink-0" />
-              <div>
-                <p className="text-xs font-medium text-brand-text line-clamp-2">{product.name}</p>
-                <p className="text-brand-gold font-semibold text-sm mt-1">₹{Number(product.price).toLocaleString('en-IN')}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Glass surface 5: Hero overlay panel */}
-        <div className="relative z-10 max-w-site mx-auto px-6 md:px-16 w-full">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.8 }}
-            className="glass-hero-panel max-w-xl p-8 md:p-12"
-          >
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="text-brand-gold text-xs tracking-[0.25em] uppercase mb-4"
-            >
-              Festive Collection 2025
-            </motion.p>
-
-            {/* React Bits Split Text pattern — inline implementation */}
-            <motion.h1
-              className="font-playfair text-4xl md:text-6xl font-bold text-white leading-tight mb-6"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.7 }}
-            >
-              {heroBanner.title.split(' ').map((word, i) => (
-                <motion.span
-                  key={i}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 + i * 0.1 }}
-                  className="inline-block mr-3"
-                >
-                  {word}
-                </motion.span>
-              ))}
-            </motion.h1>
-
-            <motion.p
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9 }}
-              className="text-white/80 text-base md:text-lg mb-8 max-w-sm"
-            >
-              {heroBanner.subtitle}
-            </motion.p>
-
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.0 }}
-              className="flex flex-wrap gap-4"
-            >
-              <Link to={heroBanner.ctaLink || '/products'} className="btn-primary" id="hero-cta-primary">
-                {heroBanner.ctaText || 'Explore Collection'}
-              </Link>
-              <Link to="/products?newArrival=true" className="btn-outline border-white text-white hover:bg-white hover:text-brand-text" id="hero-cta-secondary">
-                New Arrivals
-              </Link>
-            </motion.div>
-          </motion.div>
-        </div>
-
-        {/* Scroll indicator */}
-        <motion.div
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
-          animate={{ y: [0, 8, 0] }} transition={{ repeat: Infinity, duration: 2 }}
-          aria-hidden="true"
-        >
-          <div className="w-px h-12 bg-white/40" />
-          <span className="text-white/60 text-xs uppercase tracking-widest">Scroll</span>
-        </motion.div>
-      </section>
+      {/* ── SECTION 1: Hero Banner Carousel ──────────────────────────────── */}
+      <HeroBanner />
 
       {/* ── SECTION 2: Category Quick-Nav Grid ──────────────────────────── */}
       <section className="py-16 md:py-24 bg-brand-bg" aria-label="Browse categories">
@@ -378,7 +306,10 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* ── SECTION 5: Curated Collection Editorial Banner ──────────────── */}
+      {/* ── SECTION 5: Exclusive Collection Carousel (HP-08) ────────────── */}
+      <ExclusiveCollection />
+
+      {/* ── SECTION 6: Curated Collection Editorial Banner ──────────────── */}
       <section className="py-16 md:py-24 bg-brand-light" aria-label="Curated collection">
         <div className="max-w-site mx-auto px-6 md:px-8">
           <div className="grid md:grid-cols-2 gap-0 shadow-lg overflow-hidden">
@@ -411,7 +342,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* ── SECTION 6: Video CTA Banner ─────────────────────────────────── */}
+      {/* ── SECTION 7: Video CTA Banner ─────────────────────────────────── */}
       <section className="relative h-96 md:h-[500px] overflow-hidden flex items-center justify-center" aria-label="Brand video">
         <div
           className="absolute inset-0 bg-cover bg-center"
@@ -441,7 +372,7 @@ const HomePage = () => {
         </ScrollReveal>
       </section>
 
-      {/* ── SECTION 7: Dual Promo Tiles ─────────────────────────────────── */}
+      {/* ── SECTION 8: Dual Promo Tiles ─────────────────────────────────── */}
       <section className="py-16 md:py-24 bg-white" aria-label="Promotional offers">
         <div className="max-w-site mx-auto px-6 md:px-8">
           <div className="grid md:grid-cols-2 gap-6">
@@ -486,7 +417,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* ── SECTION 8: Influencer Showcase ──────────────────────────────── */}
+      {/* ── SECTION 9: Influencer Showcase ──────────────────────────────── */}
       <section className="py-16 md:py-24 bg-brand-bg" aria-label="Style influencers">
         <div className="max-w-site mx-auto px-6 md:px-8">
           <ScrollReveal>
@@ -494,7 +425,7 @@ const HomePage = () => {
           </ScrollReveal>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-            {influencers.map((person, i) => (
+            {(dbInfluencers.length ? dbInfluencers : influencers).map((person, i) => (
               <ScrollReveal key={person.handle} delay={i * 0.1}>
                 <div className="group cursor-pointer">
                   <div className="relative aspect-[3/4] overflow-hidden mb-4">
@@ -520,7 +451,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* ── SECTION 9: Sponsor/Brand Logo Strip (Marquee) ───────────────── */}
+      {/* ── SECTION 10: Sponsor/Brand Logo Strip (Marquee) ──────────────── */}
       <section className="py-10 border-y border-brand-light overflow-hidden bg-white" aria-label="Brand partners">
         <div className="relative">
           <motion.div
@@ -541,7 +472,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* ── SECTION 10: Best Sellers + Testimonials ─────────────────────── */}
+      {/* ── SECTION 11: Best Sellers + Testimonials ─────────────────────── */}
       <section className="py-16 md:py-24 bg-brand-light" aria-label="Best sellers and testimonials">
         <div className="max-w-site mx-auto px-6 md:px-8">
           <ScrollReveal>
@@ -550,9 +481,11 @@ const HomePage = () => {
 
           {/* Best sellers — top 4 */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-20">
-            {(featured.filter(p => p.isBestSeller).slice(0, 4).length
-              ? featured.filter(p => p.isBestSeller).slice(0, 4)
-              : products.slice(0, 4)
+            {(bestSellers.length
+              ? bestSellers.slice(0, 4)
+              : products.filter(p => p.isBestSeller).slice(0, 4).length
+                ? products.filter(p => p.isBestSeller).slice(0, 4)
+                : products.slice(0, 4)
             ).map((product, i) => (
               <ProductCard key={product.id} product={product} index={i} />
             ))}
@@ -577,7 +510,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* ── SECTION 11: Editorial/Blog Teaser Row ───────────────────────── */}
+      {/* ── SECTION 12: Editorial/Blog Teaser Row ───────────────────────── */}
       <section className="py-16 md:py-24 bg-white" aria-label="Editorial and style guides">
         <div className="max-w-site mx-auto px-6 md:px-8">
           <ScrollReveal>

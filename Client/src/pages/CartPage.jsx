@@ -5,16 +5,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, ShoppingBag, ChevronRight, Tag } from 'lucide-react';
 import { removeLocal, addLocal, clearLocal, openCart } from '../redux/slices/cartSlice';
 import Footer from '../components/Footer';
-import currencyJs from 'currency.js';
+import { formatPrice } from '../utils/currency';
 
-const fmt = (v) => currencyJs(v, { symbol: '₹', precision: 0 }).format();
 const FREE_SHIP = 1499;
 
 const CartPage = () => {
   const dispatch = useDispatch();
   const { items, subtotal } = useSelector(s => s.cart);
+  const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
   const [couponCode, setCouponCode] = useState('');
   const [couponApplied, setCouponApplied] = useState(null);
+
+  const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
 
   const shipping = subtotal >= FREE_SHIP ? 0 : 99;
   const discount = couponApplied ? subtotal * 0.2 : 0;

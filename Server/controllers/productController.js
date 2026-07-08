@@ -6,7 +6,14 @@ const getAll = async (req, res) => {
   try {
     const { page = 1, limit = 20, category, search, minPrice, maxPrice, sort = 'createdAt', order = 'DESC', featured, newArrival, bestSeller } = req.query;
     const where = { isActive: true };
-    if (category) where.categoryId = category;
+    if (category) {
+      if (isNaN(category)) {
+        const foundCat = await Category.findOne({ where: { slug: category, isActive: true } });
+        where.categoryId = foundCat ? foundCat.id : -1;
+      } else {
+        where.categoryId = parseInt(category);
+      }
+    }
     if (minPrice || maxPrice) where.price = {};
     if (minPrice) where.price[Op.gte] = minPrice;
     if (maxPrice) where.price[Op.lte] = maxPrice;
@@ -80,4 +87,22 @@ const getFeatured = async (req, res) => {
   }
 };
 
-module.exports = { getAll, getOne, create, update, remove, getFeatured };
+const search = async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.trim().length < 1) return res.json({ success: true, products: [] });
+    const products = await Product.findAll({
+      where: {
+        isActive: true,
+        name: { [Op.like]: `%${q.trim()}%` },
+      },
+      limit: 8,
+      attributes: ['id', 'name', 'slug', 'price', 'images', 'discountPercent'],
+    });
+    res.json({ success: true, products });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+module.exports = { getAll, getOne, create, update, remove, getFeatured, search };

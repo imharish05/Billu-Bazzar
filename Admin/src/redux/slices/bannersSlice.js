@@ -76,11 +76,11 @@ const bannersSlice = createSlice({
       .addCase(createBanner.rejected, (state, action) => { state.actionLoading = false; state.error = action.payload })
       .addCase(updateBanner.fulfilled, (state, action) => {
         const updated = action.payload.banner || action.payload
-        const idx = state.items.findIndex((b) => b._id === updated._id)
+        const idx = state.items.findIndex((b) => b.id === updated.id)
         if (idx !== -1) state.items[idx] = updated
       })
       .addCase(deleteBanner.fulfilled, (state, action) => {
-        state.items = state.items.filter((b) => b._id !== action.payload)
+        state.items = state.items.filter((b) => b.id !== action.payload)
       })
   },
 })

@@ -6,9 +6,7 @@ import { Heart, ShoppingBag, Eye, Star } from 'lucide-react';
 import { openQuickView } from '../redux/slices/uiSlice';
 import { addLocal, openCart } from '../redux/slices/cartSlice';
 import { toggleItem } from '../redux/slices/wishlistSlice';
-import currencyJs from 'currency.js';
-
-const fmt = (v) => currencyJs(v, { symbol: '₹', precision: 0 }).format();
+import { formatPrice } from '../utils/currency';
 
 /**
  * ProductCard — used in grids, carousels, search results.
@@ -18,8 +16,11 @@ const fmt = (v) => currencyJs(v, { symbol: '₹', precision: 0 }).format();
 const ProductCard = ({ product, index = 0 }) => {
   const dispatch = useDispatch();
   const wishlist = useSelector(s => s.wishlist.items);
+  const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
   const [imgLoaded, setImgLoaded] = useState(false);
   const isWishlisted = wishlist.includes(product.id);
+
+  const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
 
   const discount = product.comparePrice
     ? Math.round(((product.comparePrice - product.price) / product.comparePrice) * 100)

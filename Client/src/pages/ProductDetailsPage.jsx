@@ -9,9 +9,7 @@ import { toggleItem } from '../redux/slices/wishlistSlice';
 import { openQuickView } from '../redux/slices/uiSlice';
 import Footer from '../components/Footer';
 import ProductCard from '../components/ProductCard';
-import currencyJs from 'currency.js';
-
-const fmt = (v) => currencyJs(v, { symbol: '₹', precision: 0 }).format();
+import { formatPrice } from '../utils/currency';
 
 /* Seeded review data — displayed per product */
 const mockReviews = [
@@ -27,6 +25,9 @@ const ProductDetailsPage = () => {
   const { current: product, loading } = useSelector(s => s.products);
   const { items: wishlist } = useSelector(s => s.wishlist);
   const { items: cartItems } = useSelector(s => s.cart);
+  const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
+
+  const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState('');

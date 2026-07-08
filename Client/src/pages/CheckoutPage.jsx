@@ -6,9 +6,7 @@ import { Check, MapPin, CreditCard, Package, ChevronRight } from 'lucide-react';
 import { placeOrder } from '../redux/slices/ordersSlice';
 import { clearLocal } from '../redux/slices/cartSlice';
 import Footer from '../components/Footer';
-import currencyJs from 'currency.js';
-
-const fmt = (v) => currencyJs(v, { symbol: '₹', precision: 0 }).format();
+import { formatPrice } from '../utils/currency';
 
 const STEPS = [
   { id: 1, label: 'Delivery', icon: MapPin },
@@ -21,10 +19,13 @@ const CheckoutPage = () => {
   const navigate = useNavigate();
   const { items, subtotal } = useSelector(s => s.cart);
   const { isAuthenticated, customer } = useSelector(s => s.auth);
+  const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
   const [step, setStep] = useState(1);
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [placing, setPlacing] = useState(false);
+
+  const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
 
   const [address, setAddress] = useState({
     name: customer?.name || '',

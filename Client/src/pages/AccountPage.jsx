@@ -6,9 +6,7 @@ import { User, Package, Heart, Star, Headphones, MessageCircle, LogOut, Edit3, G
 import { fetchMyOrders } from '../redux/slices/ordersSlice';
 import { logout } from '../redux/slices/authSlice';
 import Footer from '../components/Footer';
-import currencyJs from 'currency.js';
-
-const fmt = (v) => currencyJs(v, { symbol: '₹', precision: 0 }).format();
+import { formatPrice } from '../utils/currency';
 
 const STATUS_COLORS = {
   PENDING: 'bg-yellow-50 text-yellow-700',
@@ -35,6 +33,9 @@ const AccountPage = () => {
   const { isAuthenticated, customer } = useSelector(s => s.auth);
   const { items: orders, loading } = useSelector(s => s.orders);
   const { items: wishlistIds } = useSelector(s => s.wishlist);
+  const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
+
+  const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'profile');
   const [editing, setEditing] = useState(false);
 

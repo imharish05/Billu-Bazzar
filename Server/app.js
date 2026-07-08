@@ -33,6 +33,8 @@ app.use('/api/orders',     require('./routes/orderRoutes'));
 app.use('/api/cart',       require('./routes/cartRoutes'));
 app.use('/api/banners',    require('./routes/bannerRoutes'));
 app.use('/api/customers',  require('./routes/customerRoutes'));
+app.use('/api/marketing-messages', require('./routes/marketingMessageRoutes'));
+app.use('/api/affiliates',  require('./routes/affiliateRoutes'));
 
 // ── Health Check ──────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));

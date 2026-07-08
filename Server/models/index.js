@@ -26,6 +26,9 @@ const Wishlist      = require('./Wishlist');
 const LoyaltyLedger = require('./LoyaltyLedger');
 const SupportTicket = require('./SupportTicket');
 const Banner        = require('./Banner');
+const Review        = require('./Review');
+const StockAlert    = require('./StockAlert');
+const MarketingMessage = require('./MarketingMessage');
 
 // ── Associations ─────────────────────────────────────────────────────────────
 
@@ -83,6 +86,20 @@ Wishlist.belongsTo(Customer,  { foreignKey: 'customerId', as: 'customer' });
 Wishlist.belongsTo(Product,   { foreignKey: 'productId', as: 'product' });
 Product.hasMany(Wishlist,     { foreignKey: 'productId', as: 'wishlistedBy' });
 
+// Review gates verified-purchase product feedback.
+Product.hasMany(Review,     { foreignKey: 'productId', as: 'reviews' });
+Review.belongsTo(Product,   { foreignKey: 'productId', as: 'product' });
+Customer.hasMany(Review,    { foreignKey: 'customerId', as: 'reviews' });
+Review.belongsTo(Customer,  { foreignKey: 'customerId', as: 'customer' });
+Order.hasMany(Review,       { foreignKey: 'orderId', as: 'reviews' });
+Review.belongsTo(Order,     { foreignKey: 'orderId', as: 'order' });
+
+// Stock alerts queue Notify-Me emails when a SKU is restocked.
+Product.hasMany(StockAlert,    { foreignKey: 'productId', as: 'stockAlerts' });
+StockAlert.belongsTo(Product,  { foreignKey: 'productId', as: 'product' });
+Customer.hasMany(StockAlert,   { foreignKey: 'customerId', as: 'stockAlerts' });
+StockAlert.belongsTo(Customer, { foreignKey: 'customerId', as: 'customer' });
+
 // LoyaltyLedger ↔ Customer / Order
 Customer.hasMany(LoyaltyLedger,      { foreignKey: 'customerId', as: 'loyaltyLedger' });
 LoyaltyLedger.belongsTo(Customer,   { foreignKey: 'customerId', as: 'customer' });
@@ -104,4 +121,5 @@ module.exports = {
   Order, OrderItem,
   Wishlist, LoyaltyLedger,
   SupportTicket, Banner,
+  Review, StockAlert, MarketingMessage,
 };

@@ -1,10 +1,28 @@
 'use strict';
 const { Banner } = require('../models');
+const fs = require('fs');
+const path = require('path');
+
+// Helper to delete local file
+const deleteLocalFile = (imagePath) => {
+  if (imagePath && imagePath.startsWith('/uploads/')) {
+    const localPath = path.join(__dirname, '..', imagePath.substring(1)); // strip leading slash
+    try {
+      if (fs.existsSync(localPath)) {
+        fs.unlinkSync(localPath);
+        console.log(`[Upload] Deleted local file: ${localPath}`);
+      }
+    } catch (err) {
+      console.error(`[Upload] Error deleting local file: ${err.message}`);
+    }
+  }
+};
 
 const getAll = async (req, res) => {
   try {
-    const { type } = req.query;
-    const where = { isActive: true };
+    const { type, all } = req.query;
+    const where = {};
+    if (!all) where.isActive = true;
     if (type) where.type = type;
     const banners = await Banner.findAll({ where, order: [['position', 'ASC']] });
     res.json({ success: true, banners });
@@ -15,7 +33,13 @@ const getAll = async (req, res) => {
 
 const create = async (req, res) => {
   try {
-    const banner = await Banner.create(req.body);
+    const data = { ...req.body };
+    if (req.file) {
+      const normalizedPath = req.file.path.replace(/\\/g, '/');
+      const uploadsIndex = normalizedPath.indexOf('uploads');
+      data.image = '/' + normalizedPath.substring(uploadsIndex);
+    }
+    const banner = await Banner.create(data);
     res.status(201).json({ success: true, banner });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -26,7 +50,14 @@ const update = async (req, res) => {
   try {
     const banner = await Banner.findByPk(req.params.id);
     if (!banner) return res.status(404).json({ success: false, message: 'Banner not found' });
-    await banner.update(req.body);
+    const data = { ...req.body };
+    if (req.file) {
+      deleteLocalFile(banner.image);
+      const normalizedPath = req.file.path.replace(/\\/g, '/');
+      const uploadsIndex = normalizedPath.indexOf('uploads');
+      data.image = '/' + normalizedPath.substring(uploadsIndex);
+    }
+    await banner.update(data);
     res.json({ success: true, banner });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -35,7 +66,10 @@ const update = async (req, res) => {
 
 const remove = async (req, res) => {
   try {
-    await Banner.destroy({ where: { id: req.params.id } });
+    const banner = await Banner.findByPk(req.params.id);
+    if (!banner) return res.status(404).json({ success: false, message: 'Banner not found' });
+    deleteLocalFile(banner.image);
+    await banner.destroy();
     res.json({ success: true, message: 'Banner deleted' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

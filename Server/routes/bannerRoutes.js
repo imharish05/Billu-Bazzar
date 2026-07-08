@@ -2,10 +2,11 @@
 const router = require('express').Router();
 const { getAll, create, update, remove } = require('../controllers/bannerController');
 const { verifyAdmin } = require('../middleware/auth');
+const upload = require('../middleware/upload');
 
 router.get('/', getAll);
-router.post('/', verifyAdmin, create);
-router.put('/:id', verifyAdmin, update);
+router.post('/', verifyAdmin, upload.single('image'), create);
+router.put('/:id', verifyAdmin, upload.single('image'), update);
 router.delete('/:id', verifyAdmin, remove);
 
 module.exports = router;

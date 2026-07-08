@@ -36,6 +36,7 @@ const ProductListingPage = () => {
 
   const [filters, setFilters] = useState({
     category: searchParams.get('category') || '',
+    search: searchParams.get('search') || '',
     minPrice: searchParams.get('minPrice') || '',
     maxPrice: searchParams.get('maxPrice') || '',
     sort: 'createdAt',
@@ -49,6 +50,31 @@ const ProductListingPage = () => {
     dispatch(fetchProducts({ ...filters, limit: 16 }));
     document.title = 'Shop All — Billu Bazaar';
   }, [filters, dispatch]);
+
+  useEffect(() => {
+    const category = searchParams.get('category') || '';
+    const search = searchParams.get('search') || '';
+    const minPrice = searchParams.get('minPrice') || '';
+    const maxPrice = searchParams.get('maxPrice') || '';
+    setFilters(prev => {
+      if (
+        prev.category !== category ||
+        prev.search !== search ||
+        prev.minPrice !== minPrice ||
+        prev.maxPrice !== maxPrice
+      ) {
+        return {
+          ...prev,
+          category,
+          search,
+          minPrice,
+          maxPrice,
+          page: 1,
+        };
+      }
+      return prev;
+    });
+  }, [searchParams]);
 
   useEffect(() => {
     dispatch(fetchCategories());
@@ -198,7 +224,7 @@ const ProductListingPage = () => {
             </div>
             <h2 className="font-playfair text-2xl mb-2">No products found</h2>
             <p className="text-brand-grey mb-6">Try adjusting your filters or browse a different category.</p>
-            <button onClick={() => setFilters({ category: '', minPrice: '', maxPrice: '', sort: 'createdAt', order: 'DESC', page: 1 })} className="btn-primary">
+            <button onClick={() => setSearchParams({})} className="btn-primary">
               Clear Filters
             </button>
           </div>

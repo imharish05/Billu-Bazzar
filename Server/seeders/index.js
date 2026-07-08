@@ -4,7 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const {
   Role, AdminUser, Category, Vendor, Warehouse, Product,
   WarehouseStock, Banner, Customer, Order, OrderItem,
-  Cart, Coupon, Affiliate, LoyaltyLedger, Wishlist,
+  Cart, Coupon, Affiliate, LoyaltyLedger, Wishlist, MarketingMessage,
 } = require('../models');
 
 const isTableEmpty = async (Model) => {
@@ -300,6 +300,16 @@ const seedAll = async () => {
     }));
     await LoyaltyLedger.bulkCreate(ledgerEntries);
     console.log('✅ Loyalty ledger seeded');
+  }
+
+  // ─── Marketing Messages ───────────────────────────────────────────────────
+  if (await isTableEmpty(MarketingMessage)) {
+    await MarketingMessage.bulkCreate([
+      { message: 'Free shipping on orders above ₹1499 · Use code WELCOME20 for 20% off', position: 0, isActive: true },
+      { message: 'New Arrivals: Zara Couture and Rani Jewels are now in stock!', position: 1, isActive: true },
+      { message: 'Join the Billu Bazaar Circle for exclusive offers and updates.', position: 2, isActive: true }
+    ]);
+    console.log('✅ Marketing messages seeded');
   }
 
   console.log('🎉 All seed data ready — Billu Bazaar is stocked!');

@@ -5,17 +5,22 @@ export default {
     extend: {
       colors: {
         brand: {
-          bg:    '#FAFAF8',
-          text:  '#1A1A1A',
-          gold:  '#C9A24B',
+          bg:    'var(--color-background)',
+          text:  'var(--color-foreground)',
+          gold:  'var(--color-accent)',
           white: '#FFFFFF',
-          grey:  '#6B6B6B',
-          light: '#F0EEE8',
+          grey:  'var(--color-grey)',
+          light: 'var(--color-border)',
         },
+        primary: 'var(--color-primary)',
+        secondary: 'var(--color-secondary)',
+        accent: 'var(--color-accent)',
+        muted: 'var(--color-muted)',
+        border: 'var(--color-border)',
       },
       fontFamily: {
-        playfair: ['"Playfair Display"', 'Georgia', 'serif'],
-        inter:    ['Inter', 'system-ui', 'sans-serif'],
+        playfair: ['Cormorant', 'Georgia', 'serif'],
+        inter:    ['Montserrat', 'system-ui', 'sans-serif'],
       },
       fontSize: {
         'display': ['64px', { lineHeight: '1.1', fontWeight: '700' }],
@@ -29,7 +34,7 @@ export default {
         'sm':   '0 1px 3px rgba(0,0,0,0.08)',
         'md':   '0 4px 12px rgba(0,0,0,0.1)',
         'lg':   '0 8px 32px rgba(0,0,0,0.12)',
-        'gold': '0 0 20px rgba(201,162,75,0.3)',
+        'gold': '0 0 20px rgba(var(--color-gold-rgb),0.3)',
       },
       keyframes: {
         shimmer: {

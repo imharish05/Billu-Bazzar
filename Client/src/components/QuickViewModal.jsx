@@ -4,16 +4,17 @@ import { X, Star, Heart, ShoppingBag, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { closeQuickView } from '../redux/slices/uiSlice';
 import { addLocal, openCart } from '../redux/slices/cartSlice';
-import currencyJs from 'currency.js';
-
-const fmt = (v) => currencyJs(v, { symbol: '₹', precision: 0 }).format();
+import { formatPrice } from '../utils/currency';
 
 /* Glass surface 2: Quick-view modal — rgba(255,255,255,0.60) + blur(16px) + gold-tinted border glow */
 const QuickViewModal = () => {
   const dispatch = useDispatch();
   const { isQuickViewOpen, quickViewProduct: product } = useSelector(s => s.ui);
+  const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
 
   if (!product) return null;
+
+  const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
 
   const handleAddToCart = () => {
     dispatch(addLocal({ productId: product.id, name: product.name, image: product.images?.[0], priceAtAdd: product.price, quantity: 1 }));

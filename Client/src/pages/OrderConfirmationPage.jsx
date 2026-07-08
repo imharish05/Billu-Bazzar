@@ -3,9 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CheckCircle, Package, Download, MessageCircle, MapPin } from 'lucide-react';
 import Footer from '../components/Footer';
-import currencyJs from 'currency.js';
-
-const fmt = (v) => currencyJs(v, { symbol: '₹', precision: 0 }).format();
+import { formatPrice } from '../utils/currency';
 
 /* Mock tracking steps */
 const trackingSteps = [
@@ -18,6 +16,9 @@ const trackingSteps = [
 
 const OrderConfirmationPage = () => {
   const { current: order } = useSelector(s => s.orders);
+  const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
+
+  const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
 
   return (
     <main id="main-content">
