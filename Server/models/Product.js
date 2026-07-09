@@ -30,8 +30,36 @@ const Product = sequelize.define('Product', {
   weight: { type: DataTypes.DECIMAL(8, 2) },
   dimensions: { type: DataTypes.JSON },
   isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
-  seoTitle: { type: DataTypes.STRING(200) },
   seoDescription: { type: DataTypes.STRING(300) },
+  discountPercent: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      const price = parseFloat(this.getDataValue('price'));
+      const comparePrice = parseFloat(this.getDataValue('comparePrice'));
+      if (comparePrice && comparePrice > price) {
+        return Math.round(((comparePrice - price) / comparePrice) * 100);
+      }
+      return 0;
+    }
+  },
+});
+
+Product.afterCreate(async (product, options) => {
+  try {
+    const { syncProductKeywords } = require('../services/searchSyncService');
+    await syncProductKeywords(product);
+  } catch (err) {
+    console.error('[ProductHook] Error in afterCreate hook:', err.message);
+  }
+});
+
+Product.afterUpdate(async (product, options) => {
+  try {
+    const { syncProductKeywords } = require('../services/searchSyncService');
+    await syncProductKeywords(product);
+  } catch (err) {
+    console.error('[ProductHook] Error in afterUpdate hook:', err.message);
+  }
 });
 
 module.exports = Product;

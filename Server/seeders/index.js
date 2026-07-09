@@ -127,14 +127,35 @@ const seedAll = async () => {
   // ─── Products ─────────────────────────────────────────────────────────────
   if (await isTableEmpty(Product)) {
     const cats = await Category.findAll({ where: { parentId: null } });
-    const catMap = {};
-    cats.forEach(c => { catMap[c.slug] = c.id; });
+    const rawCatMap = {};
+    cats.forEach(c => { rawCatMap[c.slug] = c.id; });
 
     const subCats = await Category.findAll({ where: { parentId: cats.map(c => c.id) } });
-    subCats.forEach(c => { catMap[c.slug] = c.id; });
+    subCats.forEach(c => { rawCatMap[c.slug] = c.id; });
 
     const vendors = await Vendor.findAll();
-    const vMap = vendors.reduce((acc, v, i) => { acc[i] = v.id; return acc; }, {});
+    const rawVMap = vendors.reduce((acc, v, i) => { acc[i] = v.id; return acc; }, {});
+
+    // Proxy wrapper for category lookups with fuzzy matching and safety fallback
+    const catMap = new Proxy(rawCatMap, {
+      get: (target, prop) => {
+        if (typeof prop !== 'string') return target[prop];
+        if (target[prop]) return target[prop];
+        // Fuzzy matching (e.g. 'footwear' matches 'foot-wear')
+        const normalized = prop.replace(/-/g, '').toLowerCase();
+        const matchedKey = Object.keys(target).find(k => k.replace(/-/g, '').toLowerCase() === normalized);
+        if (matchedKey) return target[matchedKey];
+        // Safe database fallback
+        return cats[0]?.id || subCats[0]?.id || 1;
+      }
+    });
+
+    // Proxy wrapper for vendor lookups with safety fallback
+    const vMap = new Proxy(rawVMap, {
+      get: (target, prop) => {
+        return target[prop] || vendors[0]?.id || 1;
+      }
+    });
 
     const products = [
       // ── Party Wear ───────────────────────────────────────────────────────

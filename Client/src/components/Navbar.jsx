@@ -8,6 +8,15 @@ import { toggleCart } from '../redux/slices/cartSlice';
 import { toggleMobileMenu, closeMobileMenu } from '../redux/slices/uiSlice';
 import { logout } from '../redux/slices/authSlice';
 import { setCurrency } from '../redux/slices/currencySlice';
+import {
+  fetchAutocomplete,
+  fetchTrending,
+  trackSearch,
+  setQuery,
+  setDropdownOpen,
+  clearSearch
+} from '../redux/slices/searchSlice';
+import { formatPrice } from '../utils/currency';
 import api from '../services/api';
 
 /* Glass surface 1: Navbar — rgba(250,250,248,0.72) + blur(12px) + 1px border */
@@ -28,12 +37,19 @@ const Navbar = () => {
   const { items } = useSelector(s => s.cart);
   const { isAuthenticated, customer } = useSelector(s => s.auth);
   const { mobileMenuOpen } = useSelector(s => s.ui);
-  const { code: currencyCode } = useSelector(s => s.currency);
+  const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
+  const {
+    query: searchQueryState,
+    suggestions: autocompleteSuggestions,
+    products: autocompleteProducts,
+    trending: trendingSearches,
+    loading: searchLoadingState,
+    isDropdownOpen: searchDropdownOpenState
+  } = useSelector(s => s.search);
+
   const [scrolled, setScrolled] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [suggestions, setSuggestions] = useState([]);
-  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
-  const [searchLoading, setSearchLoading] = useState(false);
+  const [localQuery, setLocalQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(-1);
   const searchRef = useRef(null);
   const debounceTimer = useRef(null);
 
@@ -46,55 +62,221 @@ const Navbar = () => {
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
-        setSuggestionsOpen(false);
+        dispatch(setDropdownOpen(false));
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [dispatch]);
 
-  const fetchSuggestions = useCallback(async (q) => {
+  const fetchSuggestions = useCallback((q) => {
     if (!q || q.trim().length < 1) {
-      setSuggestions([]);
-      setSuggestionsOpen(false);
+      dispatch(clearSearch());
       return;
     }
-    setSearchLoading(true);
-    try {
-      // TODO: Replace with Typesense-backed search when wired
-      const res = await api.get('/products/search', { params: { q: q.trim() } });
-      setSuggestions(res.data.products || []);
-      setSuggestionsOpen(true);
-    } catch {
-      setSuggestions([]);
-    } finally {
-      setSearchLoading(false);
-    }
-  }, []);
+    dispatch(fetchAutocomplete(q.trim()));
+  }, [dispatch]);
 
   const handleSearchInput = (e) => {
     const val = e.target.value;
-    setSearchQuery(val);
+    setLocalQuery(val);
+    dispatch(setQuery(val));
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => fetchSuggestions(val), 250);
+    debounceTimer.current = setTimeout(() => {
+      fetchSuggestions(val);
+    }, 300);
+  };
+
+  const handleSearchFocus = () => {
+    dispatch(setDropdownOpen(true));
+    if (localQuery.trim().length === 0) {
+      dispatch(fetchTrending());
+    }
   };
 
   const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    const q = searchQuery.trim();
+    if (e) e.preventDefault();
+    const q = localQuery.trim();
     if (!q) return;
-    setSuggestionsOpen(false);
+    dispatch(setDropdownOpen(false));
+    dispatch(trackSearch(q));
     navigate(`/products?search=${encodeURIComponent(q)}`);
   };
 
+  const handleKeywordClick = (kw) => {
+    setLocalQuery(kw);
+    dispatch(setQuery(kw));
+    dispatch(setDropdownOpen(false));
+    dispatch(trackSearch(kw));
+    navigate(`/products?search=${encodeURIComponent(kw)}`);
+  };
+
   const handleSuggestionClick = (product) => {
-    setSuggestionsOpen(false);
-    setSearchQuery('');
+    dispatch(setDropdownOpen(false));
+    setLocalQuery('');
+    dispatch(clearSearch());
     navigate(`/products/${product.slug}`);
   };
 
+  const handleKeyDown = (e) => {
+    if (!searchDropdownOpenState) return;
+
+    const list = localQuery.trim().length === 0 ? trendingSearches : autocompleteSuggestions;
+    
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev + 1 < list.length ? prev + 1 : 0));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev - 1 >= 0 ? prev - 1 : list.length - 1));
+    } else if (e.key === 'Escape') {
+      dispatch(setDropdownOpen(false));
+      setActiveIndex(-1);
+    } else if (e.key === 'Enter') {
+      if (activeIndex >= 0 && activeIndex < list.length) {
+        e.preventDefault();
+        handleKeywordClick(list[activeIndex]);
+        setActiveIndex(-1);
+      }
+    }
+  };
+
+  const highlightMatch = (text, highlight) => {
+    if (!highlight) return <span>{text}</span>;
+    const parts = text.split(new RegExp(`(${highlight.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi'));
+    return (
+      <span>
+        {parts.map((part, i) =>
+          part.toLowerCase() === highlight.toLowerCase() ? (
+            <strong key={i} className="font-extrabold text-brand-text">{part}</strong>
+          ) : (
+            <span key={i} className="text-brand-grey">{part}</span>
+          )
+        )}
+      </span>
+    );
+  };
+
+  const renderDropdown = () => {
+    const list = localQuery.trim().length === 0 ? (trendingSearches.length ? trendingSearches : TRENDING_KEYWORDS) : autocompleteSuggestions;
+    return (
+      <AnimatePresence>
+        {searchDropdownOpenState && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            className="absolute top-full left-0 right-0 bg-white border border-brand-light shadow-lg mt-1 z-50 max-h-96 overflow-y-auto rounded-lg"
+            role="listbox"
+            aria-label="Search suggestions"
+          >
+            {/* Trending searches */}
+            {localQuery.trim().length === 0 && (
+              <div className="p-4">
+                <p className="text-[10px] font-bold text-brand-grey uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <TrendingUp size={12} className="text-brand-gold" /> Trending Searches
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {list.map((kw, i) => (
+                    <button
+                      key={kw}
+                      type="button"
+                      onClick={() => handleKeywordClick(kw)}
+                      className={`text-xs px-3 py-1.5 transition-all border rounded-full ${
+                        activeIndex === i
+                          ? 'bg-brand-gold border-brand-gold text-white font-semibold shadow-sm'
+                          : 'bg-brand-light/50 text-brand-grey hover:text-brand-gold border-brand-light hover:border-brand-gold'
+                      }`}
+                      id={`trending-kw-${i}`}
+                    >
+                      {kw}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Keyword Suggestions */}
+            {localQuery.trim().length > 0 && autocompleteSuggestions.length > 0 && (
+              <div className="border-b border-brand-light/50 py-2">
+                <p className="px-4 py-1.5 text-[10px] font-bold text-brand-grey uppercase tracking-wider">Suggested Keywords</p>
+                {autocompleteSuggestions.map((kw, i) => (
+                  <button
+                    key={kw}
+                    type="button"
+                    onClick={() => handleKeywordClick(kw)}
+                    className={`w-full flex items-center justify-between px-4 py-2.5 text-left text-sm transition-colors ${
+                      activeIndex === i
+                        ? 'bg-brand-light text-brand-gold font-medium'
+                        : 'hover:bg-brand-light/50 text-brand-text'
+                    }`}
+                    id={`suggest-kw-${i}`}
+                  >
+                    <span>{highlightMatch(kw, localQuery)}</span>
+                    <ArrowRight size={12} className="text-brand-grey/50" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Product Previews */}
+            {localQuery.trim().length > 0 && autocompleteProducts.length > 0 && (
+              <div className="py-2">
+                <p className="px-4 py-1.5 text-[10px] font-bold text-brand-grey uppercase tracking-wider">Product Matches</p>
+                {autocompleteProducts.map(product => (
+                  <button
+                    key={product.id}
+                    type="button"
+                    onClick={() => handleSuggestionClick(product)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-brand-light/50 transition-colors text-left"
+                  >
+                    <div className="w-10 h-12 bg-brand-light flex-shrink-0 overflow-hidden border border-brand-light rounded">
+                      {product.image && (
+                        <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-brand-text truncate">{product.name}</p>
+                      <p className="text-xs text-brand-gold font-semibold mt-0.5">
+                        {formatPrice(product.price, currencyCode, currencyRate)}
+                        {product.comparePrice > product.price && (
+                          <span className="text-brand-grey text-[10px] line-through ml-2 font-normal">
+                            {formatPrice(product.comparePrice, currencyCode, currencyRate)}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <ArrowRight size={14} className="text-brand-grey flex-shrink-0" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* No matches */}
+            {localQuery.trim().length > 0 && autocompleteSuggestions.length === 0 && autocompleteProducts.length === 0 && !searchLoadingState && (
+              <div className="p-6 text-center text-brand-grey text-sm">
+                No matches found for "{localQuery}"
+              </div>
+            )}
+
+            {/* Submit full search */}
+            {localQuery.trim().length > 0 && (
+              <button
+                type="button"
+                onClick={() => handleSearchSubmit()}
+                className="w-full text-center py-3 text-xs font-semibold text-brand-gold border-t border-brand-light hover:bg-brand-light/50 transition-colors uppercase tracking-wider"
+              >
+                View all results for "{localQuery.trim()}"
+              </button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  };
+
   const cartCount = items.reduce((s, i) => s + i.quantity, 0);
-  const isEmpty = searchQuery.trim().length === 0;
+  const isEmpty = localQuery.trim().length === 0;
 
   return (
     <>
@@ -120,9 +302,10 @@ const Navbar = () => {
               <form onSubmit={handleSearchSubmit} role="search" className="relative">
                 <input
                   type="search"
-                  value={searchQuery}
+                  value={localQuery}
                   onChange={handleSearchInput}
-                  onFocus={() => { if (suggestions.length || searchQuery.trim()) setSuggestionsOpen(true); }}
+                  onFocus={handleSearchFocus}
+                  onKeyDown={handleKeyDown}
                   placeholder="Search luxury..."
                   className="w-full border border-brand-light bg-brand-bg px-4 py-2 pr-20 text-sm focus:outline-none focus:border-brand-gold transition-colors font-inter"
                   aria-label="Search products"
@@ -130,7 +313,7 @@ const Navbar = () => {
                   autoComplete="off"
                 />
                 <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                  {searchLoading && (
+                  {searchLoadingState && (
                     <div className="w-4 h-4 border-2 border-brand-gold border-t-transparent rounded-full animate-spin" />
                   )}
                   <button
@@ -148,80 +331,7 @@ const Navbar = () => {
                 </div>
               </form>
 
-              {/* Predictive suggestions dropdown */}
-              <AnimatePresence>
-                {suggestionsOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    className="absolute top-full left-0 right-0 bg-white border border-brand-light shadow-lg mt-1 z-50 max-h-80 overflow-y-auto"
-                  >
-                    {/* Trending keywords */}
-                    {suggestions.length === 0 && !searchLoading && (
-                      <div className="p-3">
-                        <p className="text-[10px] font-bold text-brand-grey uppercase tracking-wider mb-2 flex items-center gap-1">
-                          <TrendingUp size={12} /> Trending
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {TRENDING_KEYWORDS.map(kw => (
-                            <button
-                              key={kw}
-                              type="button"
-                              onClick={() => { setSearchQuery(kw); setSuggestionsOpen(false); navigate(`/products?search=${encodeURIComponent(kw)}`); }}
-                              className="text-xs text-brand-grey hover:text-brand-gold border border-brand-light px-2.5 py-1 transition-colors"
-                            >
-                              {kw}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Product suggestions */}
-                    {suggestions.length > 0 && (
-                      <div>
-                        <p className="px-3 pt-3 pb-1 text-[10px] font-bold text-brand-grey uppercase tracking-wider">Products</p>
-                        {suggestions.map(product => (
-                          <button
-                            key={product.id}
-                            type="button"
-                            onClick={() => handleSuggestionClick(product)}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-brand-light transition-colors text-left"
-                          >
-                            <div className="w-10 h-12 bg-brand-light flex-shrink-0 overflow-hidden">
-                              {product.images?.[0] && (
-                                <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-brand-text truncate">{product.name}</p>
-                              <p className="text-xs text-brand-gold font-semibold">
-                                ₹{Number(product.price).toLocaleString('en-IN')}
-                                {product.discountPercent > 0 && (
-                                  <span className="text-red-400 ml-1">-{product.discountPercent}%</span>
-                                )}
-                              </p>
-                            </div>
-                            <ArrowRight size={14} className="text-brand-grey flex-shrink-0" />
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* View all results */}
-                    {searchQuery.trim().length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => { setSuggestionsOpen(false); navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`); }}
-                        className="w-full text-center py-2 text-xs font-medium text-brand-gold border-t border-brand-light hover:bg-brand-light transition-colors"
-                      >
-                        View all results for "{searchQuery.trim()}"
-                      </button>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {renderDropdown()}
             </div>
 
             {/* Actions */}
@@ -230,26 +340,26 @@ const Navbar = () => {
                 <button
                   type="button"
                   onClick={() => dispatch(setCurrency(currencyCode === 'INR' ? 'AED' : 'INR'))}
-                  className="flex items-center bg-brand-light/70 border border-brand-light rounded-full p-[3px] relative cursor-pointer focus-visible:outline-brand-gold h-[26px] w-[76px]"
+                  className="flex items-center bg-neutral-100/90 hover:bg-neutral-200/60 border border-neutral-200/80 rounded-full p-[3px] relative cursor-pointer focus-visible:outline-brand-gold transition-all duration-300 shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] h-[32px] w-[86px]"
                   aria-label={`Switch currency from ${currencyCode}`}
                   id="nav-currency-toggle-desktop"
                 >
                   <motion.div
-                    className="absolute bg-brand-gold rounded-full"
+                    className="absolute bg-gradient-to-r from-amber-500 via-brand-gold to-amber-600 rounded-full shadow-[0_2px_5px_rgba(217,119,6,0.3)]"
                     animate={{
-                      left: currencyCode === 'INR' ? '3px' : '39px',
+                      left: currencyCode === 'INR' ? '3px' : '43px',
                     }}
                     style={{
-                      width: '34px',
-                      height: '18px',
+                      width: '40px',
+                      height: '26px',
                       top: '3px',
                     }}
                     transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                   />
-                  <span className={`relative z-10 text-[9px] font-bold tracking-wider w-[34px] text-center uppercase transition-colors duration-200 ${currencyCode === 'INR' ? 'text-white font-extrabold' : 'text-brand-grey hover:text-brand-text'}`}>
+                  <span className={`relative z-10 text-[10px] font-bold tracking-widest w-[40px] text-center uppercase transition-all duration-300 ${currencyCode === 'INR' ? 'text-white scale-105' : 'text-brand-grey hover:text-brand-text scale-95 opacity-80'}`}>
                     INR
                   </span>
-                  <span className={`relative z-10 text-[9px] font-bold tracking-wider w-[34px] text-center uppercase transition-colors duration-200 ${currencyCode === 'AED' ? 'text-white font-extrabold' : 'text-brand-grey hover:text-brand-text'}`}>
+                  <span className={`relative z-10 text-[10px] font-bold tracking-widest w-[40px] text-center uppercase transition-all duration-300 ${currencyCode === 'AED' ? 'text-white scale-105' : 'text-brand-grey hover:text-brand-text scale-95 opacity-80'}`}>
                     AED
                   </span>
                 </button>
@@ -299,26 +409,26 @@ const Navbar = () => {
                   <button
                     type="button"
                     onClick={() => dispatch(setCurrency(currencyCode === 'INR' ? 'AED' : 'INR'))}
-                    className="flex items-center bg-brand-light/70 border border-brand-light rounded-full p-[2px] relative cursor-pointer focus-visible:outline-brand-gold h-[22px] w-[64px]"
+                    className="flex items-center bg-neutral-100/90 border border-neutral-200/80 rounded-full p-[2px] relative cursor-pointer focus-visible:outline-brand-gold shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] h-[26px] w-[68px]"
                     aria-label={`Switch currency from ${currencyCode}`}
                     id="nav-currency-toggle-mobile"
                   >
                     <motion.div
-                      className="absolute bg-brand-gold rounded-full"
+                      className="absolute bg-gradient-to-r from-amber-500 via-brand-gold to-amber-600 rounded-full shadow-[0_2px_4px_rgba(217,119,6,0.25)]"
                       animate={{
-                        left: currencyCode === 'INR' ? '2px' : '32px',
+                        left: currencyCode === 'INR' ? '2px' : '34px',
                       }}
                       style={{
-                        width: '28px',
-                        height: '16px',
+                        width: '32px',
+                        height: '20px',
                         top: '2px',
                       }}
                       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                     />
-                    <span className={`relative z-10 text-[8px] font-bold tracking-wider w-[28px] text-center uppercase transition-colors duration-200 ${currencyCode === 'INR' ? 'text-white font-extrabold' : 'text-brand-grey hover:text-brand-text'}`}>
+                    <span className={`relative z-10 text-[9px] font-bold tracking-widest w-[32px] text-center uppercase transition-all duration-300 ${currencyCode === 'INR' ? 'text-white scale-105' : 'text-brand-grey hover:text-brand-text scale-95 opacity-80'}`}>
                       INR
                     </span>
-                    <span className={`relative z-10 text-[8px] font-bold tracking-wider w-[28px] text-center uppercase transition-colors duration-200 ${currencyCode === 'AED' ? 'text-white font-extrabold' : 'text-brand-grey hover:text-brand-text'}`}>
+                    <span className={`relative z-10 text-[9px] font-bold tracking-widest w-[32px] text-center uppercase transition-all duration-300 ${currencyCode === 'AED' ? 'text-white scale-105' : 'text-brand-grey hover:text-brand-text scale-95 opacity-80'}`}>
                       AED
                     </span>
                   </button>
@@ -342,9 +452,10 @@ const Navbar = () => {
               <form onSubmit={handleSearchSubmit} role="search" className="relative">
                 <input
                   type="search"
-                  value={searchQuery}
+                  value={localQuery}
                   onChange={handleSearchInput}
-                  onFocus={() => { if (suggestions.length || searchQuery.trim()) setSuggestionsOpen(true); }}
+                  onFocus={handleSearchFocus}
+                  onKeyDown={handleKeyDown}
                   placeholder="Search luxury..."
                   className="w-full border border-brand-light bg-brand-bg px-3 py-2 pr-16 text-xs focus:outline-none focus:border-brand-gold transition-colors font-inter"
                   aria-label="Search products"
@@ -365,45 +476,8 @@ const Navbar = () => {
                 </button>
               </form>
 
-              {/* Mobile predictive dropdown */}
-              <AnimatePresence>
-                {suggestionsOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    className="absolute top-full left-0 right-0 bg-white border border-brand-light shadow-lg mt-0 z-50 max-h-72 overflow-y-auto"
-                  >
-                    {suggestions.length === 0 && !searchLoading && (
-                      <div className="p-3">
-                        <p className="text-[10px] font-bold text-brand-grey uppercase tracking-wider mb-2 flex items-center gap-1"><TrendingUp size={12} /> Trending</p>
-                        <div className="flex flex-wrap gap-2">
-                          {TRENDING_KEYWORDS.map(kw => (
-                            <button key={kw} type="button" onClick={() => { setSearchQuery(kw); setSuggestionsOpen(false); navigate(`/products?search=${encodeURIComponent(kw)}`); }}
-                              className="text-xs text-brand-grey hover:text-brand-gold border border-brand-light px-2 py-0.5 transition-colors">{kw}</button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {suggestions.length > 0 && (
-                      <div>
-                        {suggestions.map(product => (
-                          <button key={product.id} type="button" onClick={() => handleSuggestionClick(product)}
-                            className="w-full flex items-center gap-3 px-3 py-2 hover:bg-brand-light transition-colors text-left">
-                            <div className="w-8 h-10 bg-brand-light flex-shrink-0 overflow-hidden">
-                              {product.images?.[0] && <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-medium text-brand-text truncate">{product.name}</p>
-                              <p className="text-[10px] text-brand-gold font-semibold">₹{Number(product.price).toLocaleString('en-IN')}</p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {renderDropdown()}
+
             </div>
           </div>
         </nav>

@@ -34,6 +34,15 @@ const getAll = async (req, res) => {
 const create = async (req, res) => {
   try {
     const data = { ...req.body };
+    if (data.type === 'COUNTDOWN') {
+      const existing = await Banner.findOne({ where: { type: 'COUNTDOWN' } });
+      if (existing) {
+        if (req.file) {
+          try { fs.unlinkSync(req.file.path); } catch (e) {}
+        }
+        return res.status(400).json({ success: false, message: 'A countdown banner already exists. Please edit the existing one instead.' });
+      }
+    }
     if (req.file) {
       const normalizedPath = req.file.path.replace(/\\/g, '/');
       const uploadsIndex = normalizedPath.indexOf('uploads');
@@ -49,8 +58,23 @@ const create = async (req, res) => {
 const update = async (req, res) => {
   try {
     const banner = await Banner.findByPk(req.params.id);
-    if (!banner) return res.status(404).json({ success: false, message: 'Banner not found' });
+    if (!banner) {
+      if (req.file) {
+        try { fs.unlinkSync(req.file.path); } catch (e) {}
+      }
+      return res.status(404).json({ success: false, message: 'Banner not found' });
+    }
     const data = { ...req.body };
+    if (data.type === 'COUNTDOWN' && banner.type !== 'COUNTDOWN') {
+      const { Op } = require('sequelize');
+      const existing = await Banner.findOne({ where: { type: 'COUNTDOWN', id: { [Op.ne]: banner.id } } });
+      if (existing) {
+        if (req.file) {
+          try { fs.unlinkSync(req.file.path); } catch (e) {}
+        }
+        return res.status(400).json({ success: false, message: 'A countdown banner already exists. Please edit the existing one instead.' });
+      }
+    }
     if (req.file) {
       deleteLocalFile(banner.image);
       const normalizedPath = req.file.path.replace(/\\/g, '/');

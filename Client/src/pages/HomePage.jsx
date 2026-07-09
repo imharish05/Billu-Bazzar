@@ -1,8 +1,8 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { motion, useInView } from 'framer-motion';
-import { ChevronRight, Play, Star, ArrowRight, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Play, Star, ArrowRight, Clock } from 'lucide-react';
 import { fetchProducts, fetchFeatured, fetchNewArrivals, fetchBestSellers } from '../redux/slices/productsSlice';
 import { fetchCategories } from '../redux/slices/categoriesSlice';
 import { fetchBanners } from '../redux/slices/bannersSlice';
@@ -14,21 +14,27 @@ import Footer from '../components/Footer';
 
 /* ── Countdown Timer hook ─────────────────────────────────────────────────── */
 const useCountdown = (targetDate) => {
-  const calc = () => {
+  const calc = useCallback(() => {
+    if (!targetDate) return { d: 0, h: 0, m: 0, s: 0 };
     const diff = new Date(targetDate) - new Date();
-    if (diff <= 0) return { d: 0, h: 0, m: 0, s: 0 };
+    if (isNaN(diff) || diff <= 0) return { d: 0, h: 0, m: 0, s: 0 };
     return {
       d: Math.floor(diff / 86400000),
       h: Math.floor((diff % 86400000) / 3600000),
       m: Math.floor((diff % 3600000) / 60000),
       s: Math.floor((diff % 60000) / 1000),
     };
-  };
-  const [time, setTime] = useState(calc);
+  }, [targetDate]);
+
+  const [time, setTime] = useState(() => calc());
+
   useEffect(() => {
+    setTime(calc());
+    if (!targetDate) return;
     const id = setInterval(() => setTime(calc()), 1000);
     return () => clearInterval(id);
-  });
+  }, [targetDate, calc]);
+
   return time;
 };
 
@@ -110,8 +116,79 @@ const HomePage = () => {
   const [videoPlaying, setVideoPlaying] = useState(false);
   const [dbInfluencers, setDbInfluencers] = useState([]);
 
-  // Countdown target — 3 days from now (seeded countdown banner)
-  const countdown = useCountdown(new Date(Date.now() + 3 * 86400000));
+  // Category Carousel State & Refs
+  const catScrollRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+  const [autoplayResetTrigger, setAutoplayResetTrigger] = useState(0);
+
+  const parentCategories = categories.filter(c => !c.parentId).slice(0, 8);
+  const fallbackCategories = [
+    { id: 1, name: 'Party Wear', slug: 'party-wear', image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=300' },
+    { id: 2, name: 'Fashion', slug: 'fashion', image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300' },
+    { id: 3, name: 'Accessories', slug: 'accessories', image: 'https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?w=300' },
+    { id: 4, name: 'Perfumes', slug: 'perfumes', image: 'https://images.unsplash.com/photo-1541643600914-78b084683702?w=300' },
+    { id: 5, name: 'Jewelry', slug: 'jewelry', image: 'https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?w=300' },
+    { id: 6, name: 'Footwear', slug: 'footwear', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300' },
+  ];
+  const categoriesList = parentCategories.length ? parentCategories : fallbackCategories;
+
+  const updateCatScrollState = useCallback(() => {
+    const el = catScrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 2);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    const el = catScrollRef.current;
+    if (!el) return;
+    updateCatScrollState();
+    el.addEventListener('scroll', updateCatScrollState, { passive: true });
+    window.addEventListener('resize', updateCatScrollState);
+    return () => {
+      el.removeEventListener('scroll', updateCatScrollState);
+      window.removeEventListener('resize', updateCatScrollState);
+    };
+  }, [updateCatScrollState, categoriesList.length]);
+
+  const scrollCategories = useCallback((dir) => {
+    const el = catScrollRef.current;
+    if (!el) return;
+    let gap = 16;
+    if (window.innerWidth >= 1024) gap = 32;
+    else if (window.innerWidth >= 768) gap = 24;
+    const scrollAmount = el.clientWidth + gap;
+    el.scrollBy({ left: dir * scrollAmount, behavior: 'smooth' });
+    setAutoplayResetTrigger(prev => prev + 1);
+  }, []);
+
+  const handleCatTouchStart = () => {
+    setAutoplayResetTrigger(prev => prev + 1);
+  };
+
+  // Category Autoplay scroller
+  useEffect(() => {
+    if (categoriesList.length <= 3) return;
+    const interval = setInterval(() => {
+      const el = catScrollRef.current;
+      if (!el) return;
+      const isAtEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 10;
+      if (isAtEnd) {
+        el.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        let gap = 16;
+        if (window.innerWidth >= 1024) gap = 32;
+        else if (window.innerWidth >= 768) gap = 24;
+        el.scrollBy({ left: el.clientWidth + gap, behavior: 'smooth' });
+      }
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [categoriesList.length, autoplayResetTrigger]);
+
+  const countdownBanner = banners.find(b => b.type === 'COUNTDOWN');
+  const countdown = useCountdown(countdownBanner?.countdown);
+  const isExpired = countdownBanner?.countdown ? (new Date(countdownBanner.countdown) - new Date() <= 0) : false;
 
   useEffect(() => {
     dispatch(fetchProducts({ limit: 16 }));
@@ -119,7 +196,7 @@ const HomePage = () => {
     dispatch(fetchNewArrivals(8));
     dispatch(fetchBestSellers(8));
     dispatch(fetchCategories());
-    dispatch(fetchBanners('HERO'));
+    dispatch(fetchBanners());
     
     // Fetch active affiliates
     api.get('/affiliates')
@@ -161,88 +238,133 @@ const HomePage = () => {
       ? featuredProducts
       : displayNewArrivals.filter(p => p.category?.slug === getCategorySlug(activeTab)).slice(0, 8);
 
-  const parentCategories = categories.filter(c => !c.parentId).slice(0, 8);
+
 
   return (
     <main id="main-content">
       {/* ── SECTION 1: Hero Banner Carousel ──────────────────────────────── */}
       <HeroBanner />
 
-      {/* ── SECTION 2: Category Quick-Nav Grid ──────────────────────────── */}
-      <section className="py-16 md:py-24 bg-brand-bg" aria-label="Browse categories">
+      {/* ── SECTION 2: Category Quick-Nav Carousel ──────────────────────── */}
+      <section className="py-16 md:py-24 bg-brand-bg overflow-hidden" aria-label="Browse categories">
         <div className="max-w-site mx-auto px-6 md:px-8">
           <ScrollReveal>
             <SectionHeader eyebrow="Shop by Category" title="Curated for Every Occasion" />
           </ScrollReveal>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-            {(parentCategories.length ? parentCategories : [
-              { id: 1, name: 'Party Wear', slug: 'party-wear', image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=300' },
-              { id: 2, name: 'Fashion', slug: 'fashion', image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300' },
-              { id: 3, name: 'Accessories', slug: 'accessories', image: 'https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?w=300' },
-              { id: 4, name: 'Perfumes', slug: 'perfumes', image: 'https://images.unsplash.com/photo-1541643600914-78b084683702?w=300' },
-              { id: 5, name: 'Jewelry', slug: 'jewelry', image: 'https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?w=300' },
-              { id: 6, name: 'Footwear', slug: 'footwear', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300' },
-            ]).map((cat, i) => (
-              <ScrollReveal key={cat.id} delay={i * 0.08} className="col-span-1">
-                <Link
-                  to={`/products?category=${cat.slug}`}
-                  className="group flex flex-col items-center gap-3 focus-visible:outline-2 focus-visible:outline-brand-gold focus-visible:rounded-lg"
-                  id={`cat-nav-${cat.id}`}
-                >
-                  <div className="relative w-full aspect-square rounded-full overflow-hidden border-2 border-transparent group-hover:border-brand-gold transition-all duration-300 shadow-sm">
-                    <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+          <ScrollReveal delay={0.15}>
+            <div className="relative">
+              {/* Scroll Buttons */}
+              <button
+                onClick={() => scrollCategories(-1)}
+                className={`absolute left-1 md:-left-4 top-[40%] -translate-y-1/2 z-10 w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/95 border border-neutral-200/80 flex items-center justify-center text-brand-text shadow-lg hover:shadow-xl transition-all duration-300 focus-visible:outline-brand-gold ${
+                  canScrollLeft ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'
+                }`}
+                aria-label="Scroll categories left"
+                id="cat-scroll-left"
+              >
+                <ChevronLeft size={16} className="md:w-5 md:h-5" strokeWidth={1.5} />
+              </button>
+
+              <button
+                onClick={() => scrollCategories(1)}
+                className={`absolute right-1 md:-right-4 top-[40%] -translate-y-1/2 z-10 w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/95 border border-neutral-200/80 flex items-center justify-center text-brand-text shadow-lg hover:shadow-xl transition-all duration-300 focus-visible:outline-brand-gold ${
+                  canScrollRight ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'
+                }`}
+                aria-label="Scroll categories right"
+                id="cat-scroll-right"
+              >
+                <ChevronRight size={16} className="md:w-5 md:h-5" strokeWidth={1.5} />
+              </button>
+
+              {/* Carousel Container */}
+              <div
+                ref={catScrollRef}
+                className="flex gap-4 md:gap-6 lg:gap-8 overflow-x-auto scrollbar-hide pb-4"
+                onScroll={updateCatScrollState}
+                onTouchStart={handleCatTouchStart}
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {categoriesList.map((cat, i) => (
+                  <div key={cat.id} className="flex-shrink-0 w-[calc((100%-32px)/3)] md:w-[calc((100%-72px)/4)] lg:w-[calc((100%-160px)/6)]">
+                    <Link
+                      to={`/products?category=${cat.slug}`}
+                      className="group flex flex-col items-center gap-3 focus-visible:outline-2 focus-visible:outline-brand-gold focus-visible:rounded-lg"
+                      id={`cat-nav-${cat.id}`}
+                    >
+                      <div className="relative w-full aspect-square rounded-full overflow-hidden border-2 border-transparent group-hover:border-brand-gold transition-all duration-300 shadow-sm">
+                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                      </div>
+                      <span className="font-inter text-xs font-medium text-brand-text text-center group-hover:text-brand-gold transition-colors">
+                        {cat.name}
+                      </span>
+                    </Link>
                   </div>
-                  <span className="font-inter text-xs font-medium text-brand-text text-center group-hover:text-brand-gold transition-colors">
-                    {cat.name}
-                  </span>
-                </Link>
-              </ScrollReveal>
-            ))}
-          </div>
+                ))}
+              </div>
+            </div>
+          </ScrollReveal>
         </div>
       </section>
 
       {/* ── SECTION 3: Countdown / Deal of the Month Banner ────────────── */}
-      <section className="bg-brand-text py-12 md:py-16 overflow-hidden" aria-label="Deal of the month countdown">
-        <div className="max-w-site mx-auto px-6 md:px-8 flex flex-col md:flex-row items-center justify-between gap-8">
-          <div className="text-center md:text-left">
-            <span className="bg-brand-gold text-white text-[10px] font-bold px-3 py-1 tracking-wider uppercase">52% OFF</span>
-            <h2 className="font-playfair text-3xl md:text-4xl font-bold text-white mt-3 mb-2">Deal of the Month</h2>
-            <p className="text-white/70 text-base max-w-sm">
-              Emerald Silk Kaftan — handcrafted luxury at an extraordinary price. Offer ends when the clock hits zero.
-            </p>
-            <Link to="/products/emerald-silk-kaftan" className="btn-primary mt-6 inline-block" id="deal-cta">
-              Grab the Deal — ₹4,999
-            </Link>
-          </div>
+      {countdownBanner && (
+        <section className="bg-brand-text py-12 md:py-16 overflow-hidden" aria-label="Deal of the month countdown">
+          <div className="max-w-site mx-auto px-6 md:px-8 flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="text-center md:text-left">
+              {countdownBanner.badgeText && (
+                <span className="bg-brand-gold text-white text-[10px] font-bold px-3 py-1 tracking-wider uppercase">
+                  {countdownBanner.badgeText}
+                </span>
+              )}
+              <h2 className="font-playfair text-3xl md:text-4xl font-bold text-white mt-3 mb-2">{countdownBanner.title}</h2>
+              {countdownBanner.subtitle && (
+                <p className="text-white/70 text-base max-w-sm mb-6">
+                  {countdownBanner.subtitle}
+                </p>
+              )}
+              {isExpired ? (
+                <button
+                  className="mt-6 inline-flex items-center justify-center px-8 py-3 bg-neutral-800 text-neutral-500 font-semibold uppercase tracking-wider cursor-not-allowed border border-neutral-700/80"
+                  disabled
+                  id="deal-cta"
+                >
+                  Deal Expired
+                </button>
+              ) : (
+                <Link to={countdownBanner.ctaLink || '/products'} className="btn-primary mt-6 inline-block" id="deal-cta">
+                  {countdownBanner.ctaText || 'Grab the Deal'}
+                </Link>
+              )}
+            </div>
 
-          {/* Product Preview */}
-          <div className="relative w-56 h-64 flex-shrink-0 hidden md:block">
-            <img
-              src="https://images.unsplash.com/photo-1618932260643-eee4a2f652a6?w=400"
-              alt="Emerald Silk Kaftan — Deal of the Month"
-              className="w-full h-full object-cover"
-            />
-          </div>
+            {/* Product Preview */}
+            <div className="relative w-56 h-64 flex-shrink-0 hidden md:block">
+              <img
+                src={countdownBanner.image}
+                alt={countdownBanner.title}
+                className="w-full h-full object-cover"
+              />
+            </div>
 
-          {/* Countdown */}
-          <div className="flex flex-col items-center gap-4">
-            <p className="text-white/60 text-xs tracking-widest uppercase flex items-center gap-2">
-              <Clock size={14} /> Offer Ends In
-            </p>
-            <div className="flex items-center gap-3">
-              <CountUnit value={countdown.d} label="Days" />
-              <span className="text-white text-3xl font-bold mb-6">:</span>
-              <CountUnit value={countdown.h} label="Hours" />
-              <span className="text-white text-3xl font-bold mb-6">:</span>
-              <CountUnit value={countdown.m} label="Min" />
-              <span className="text-white text-3xl font-bold mb-6">:</span>
-              <CountUnit value={countdown.s} label="Sec" />
+            {/* Countdown */}
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-white/60 text-xs tracking-widest uppercase flex items-center gap-2">
+                <Clock size={14} /> Offer Ends In
+              </p>
+              <div className="flex items-center gap-3">
+                <CountUnit value={countdown.d} label="Days" />
+                <span className="text-white text-3xl font-bold mb-6">:</span>
+                <CountUnit value={countdown.h} label="Hours" />
+                <span className="text-white text-3xl font-bold mb-6">:</span>
+                <CountUnit value={countdown.m} label="Min" />
+                <span className="text-white text-3xl font-bold mb-6">:</span>
+                <CountUnit value={countdown.s} label="Sec" />
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ── SECTION 4: New Arrivals Carousel + Filter Tabs ──────────────── */}
       <section className="py-16 md:py-24 bg-white" aria-label="New arrivals">

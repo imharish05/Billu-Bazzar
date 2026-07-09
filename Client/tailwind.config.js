@@ -20,7 +20,7 @@ export default {
       },
       fontFamily: {
         playfair: ['Cormorant', 'Georgia', 'serif'],
-        inter:    ['Montserrat', 'system-ui', 'sans-serif'],
+        inter:    ['Cormorant', 'Georgia', 'serif'],
       },
       fontSize: {
         'display': ['64px', { lineHeight: '1.1', fontWeight: '700' }],

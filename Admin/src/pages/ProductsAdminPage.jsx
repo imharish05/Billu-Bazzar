@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Edit2, Trash2, X, Upload } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { fetchAdminProducts, createProduct, updateProduct, deleteProduct } from '../redux/slices/productsSlice';
 import currencyJs from 'currency.js';
+import toast from 'react-hot-toast';
 
 const fmt = (v) => currencyJs(v, { symbol: '₹', precision: 0 }).format();
 
@@ -16,9 +17,79 @@ const EMPTY_FORM = {
 
 const ProductModal = ({ product, onClose, onSave }) => {
   const [form, setForm] = useState(product ? { ...product } : { ...EMPTY_FORM });
+  const [newImageFiles, setNewImageFiles] = useState([]);
+  const [existingImages, setExistingImages] = useState(product ? [...(product.images || [])] : []);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef(null);
+
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-  const handleSubmit = (e) => { e.preventDefault(); onSave(form); };
+  const handleFileSelect = (eOrFiles) => {
+    const files = eOrFiles.target ? eOrFiles.target.files : eOrFiles;
+    if (!files || files.length === 0) return;
+    
+    const filesArr = Array.from(files).filter(f => f.type.startsWith('image/')).map(file => {
+      file.preview = URL.createObjectURL(file);
+      return file;
+    });
+    setNewImageFiles(prev => [...prev, ...filesArr]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files) {
+      handleFileSelect(e.dataTransfer.files);
+    }
+  };
+
+  const removeNewFile = (idx) => {
+    setNewImageFiles(prev => {
+      const target = prev[idx];
+      if (target && target.preview) {
+        URL.revokeObjectURL(target.preview);
+      }
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+
+  const removeExistingImage = (idx) => {
+    setExistingImages(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const fd = new FormData();
+    Object.keys(form).forEach(key => {
+      if (key === 'images') return; // Skip old field
+      const value = form[key];
+      if (value === null || value === undefined) {
+        // skip
+      } else if (Array.isArray(value) || typeof value === 'object') {
+        fd.append(key, JSON.stringify(value));
+      } else {
+        fd.append(key, String(value));
+      }
+    });
+
+    fd.append('existingImages', JSON.stringify(existingImages));
+
+    newImageFiles.forEach(file => {
+      fd.append('images', file);
+    });
+
+    onSave(fd);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -61,8 +132,67 @@ const ProductModal = ({ product, onClose, onSave }) => {
             <textarea id="prod-desc" rows={4} value={form.description || ''} onChange={e => set('description', e.target.value)} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold resize-none" />
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="prod-images">Image URLs (comma-separated)</label>
-            <input id="prod-images" type="text" value={Array.isArray(form.images) ? form.images.join(', ') : form.images || ''} onChange={e => set('images', e.target.value.split(',').map(s => s.trim()))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" placeholder="https://example.com/img1.jpg, ..." />
+            <label className="block text-xs font-medium text-brand-grey mb-1.5">Product Images</label>
+            <div
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+                isDragging
+                  ? 'border-brand-gold bg-brand-gold/5'
+                  : 'border-brand-light hover:border-brand-gold'
+              }`}
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <Upload size={28} className="mx-auto text-brand-grey mb-2" />
+              <p className="text-sm text-brand-grey font-medium">Drag & drop files here, or click to upload</p>
+              <p className="text-xs text-brand-grey mt-1">JPEG, PNG, WebP — max 50MB</p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+            </div>
+
+            {/* Image Preview Grid */}
+            {(existingImages.length > 0 || newImageFiles.length > 0) && (
+              <div className="grid grid-cols-4 gap-3 mt-4">
+                {existingImages.map((img, idx) => (
+                  <div key={`exist-${idx}`} className="relative aspect-square border border-brand-light rounded-lg overflow-hidden bg-brand-light group">
+                    <img src={img} alt="Product" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); removeExistingImage(idx); }}
+                        className="bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600 transition-colors shadow"
+                        title="Remove Image"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {newImageFiles.map((file, idx) => (
+                  <div key={`new-${idx}`} className="relative aspect-square border border-brand-light rounded-lg overflow-hidden bg-brand-light group">
+                    <img src={file.preview} alt="New upload" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); removeNewFile(idx); }}
+                        className="bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600 transition-colors shadow"
+                        title="Remove Image"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <span className="absolute bottom-1 left-1 bg-brand-gold text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">NEW</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="sm:col-span-2 flex gap-6">
             {[{k:'isFeatured',l:'Featured'},{k:'isNewArrival',l:'New Arrival'},{k:'isBestSeller',l:'Best Seller'},{k:'isActive',l:'Active'}].map(({k,l}) => (
@@ -99,8 +229,42 @@ const ProductsAdminPage = () => {
     setModalOpen(false); setEditing(null);
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Deactivate this product?')) dispatch(deleteProduct(id));
+  const executeDelete = async (id) => {
+    try {
+      await dispatch(deleteProduct(id));
+      toast.success('Product deactivated successfully');
+    } catch (err) {
+      toast.error('Failed to deactivate product');
+    }
+  };
+
+  const handleDelete = (id) => {
+    toast((t) => (
+      <div className="flex flex-col gap-2 p-1">
+        <p className="text-sm font-semibold text-neutral-800">Confirm Deactivation</p>
+        <p className="text-xs text-neutral-600">Are you sure you want to deactivate this product?</p>
+        <div className="flex justify-end gap-2 mt-2">
+          <button
+            onClick={() => {
+              toast.dismiss(t.id);
+              executeDelete(id);
+            }}
+            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold uppercase tracking-wider transition-colors rounded shadow-sm"
+          >
+            Yes, Deactivate
+          </button>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-semibold uppercase tracking-wider transition-colors rounded border border-neutral-200"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    ), {
+      duration: 10000,
+      position: 'top-center'
+    });
   };
 
   return (

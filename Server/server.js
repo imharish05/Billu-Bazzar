@@ -19,11 +19,19 @@ const start = async () => {
     console.log('✅ Database connected');
 
     // 2. Sync all models (alter: safe — doesn't drop data)
-    await sequelize.sync({ alter: true });
+    await sequelize.sync();
     console.log('✅ Models synced');
+
+    // 2.5 Run search keywords sync if empty
+    const { syncAllExisting } = require('./services/searchSyncService');
+    await syncAllExisting();
 
     // 3. Run seeders if tables are empty
     await seedAll();
+
+    // 3.5 Load background cron jobs
+    require('./jobs/reminderJob');
+    require('./jobs/searchJob');
 
     // 4. Start server
     app.listen(PORT, () => {

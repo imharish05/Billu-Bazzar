@@ -3,6 +3,7 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ProductsAdminPage from './pages/ProductsAdminPage';
 import CategoriesAdminPage from './pages/CategoriesAdminPage';
+import SubCategoriesAdminPage from './pages/SubCategoriesAdminPage';
 import OrdersAdminPage from './pages/OrdersAdminPage';
 import CustomersAdminPage from './pages/CustomersAdminPage';
 import BannersAdminPage from './pages/BannersAdminPage';
@@ -22,26 +23,32 @@ const Protected = ({ children }) => {
   return token ? children : <Navigate to="/login" replace />;
 };
 
+import { Toaster } from 'react-hot-toast';
+
 const App = () => (
-  <Routes>
-    <Route path="/login" element={<LoginPage />} />
-    <Route path="/" element={<Navigate to="/dashboard" replace />} />
-    <Route path="/dashboard"   element={<Protected><DashboardPage /></Protected>} />
-    <Route path="/products"    element={<Protected><ProductsAdminPage /></Protected>} />
-    <Route path="/categories"  element={<Protected><CategoriesAdminPage /></Protected>} />
-    <Route path="/orders"      element={<Protected><OrdersAdminPage /></Protected>} />
-    <Route path="/customers"   element={<Protected><CustomersAdminPage /></Protected>} />
-    <Route path="/banners"     element={<Protected><BannersAdminPage /></Protected>} />
-    <Route path="/vendors"     element={<Protected><VendorsAdminPage /></Protected>} />
-    <Route path="/warehouses"  element={<Protected><WarehousesAdminPage /></Protected>} />
-    <Route path="/coupons"     element={<Protected><CouponsAdminPage /></Protected>} />
-    <Route path="/affiliates"  element={<Protected><AffiliatesAdminPage /></Protected>} />
-    <Route path="/loyalty"     element={<Protected><LoyaltyAdminPage /></Protected>} />
-    <Route path="/payments"    element={<Protected><PaymentsAdminPage /></Protected>} />
-    <Route path="/reports"     element={<Protected><ReportsAdminPage /></Protected>} />
-    <Route path="/settings"    element={<Protected><SettingsAdminPage /></Protected>} />
-    <Route path="*"            element={<NotFoundAdminPage />} />
-  </Routes>
+  <>
+    <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/dashboard"   element={<Protected><DashboardPage /></Protected>} />
+      <Route path="/products"    element={<Protected><ProductsAdminPage /></Protected>} />
+      <Route path="/categories"  element={<Protected><CategoriesAdminPage /></Protected>} />
+      <Route path="/sub-categories" element={<Protected><SubCategoriesAdminPage /></Protected>} />
+      <Route path="/orders"      element={<Protected><OrdersAdminPage /></Protected>} />
+      <Route path="/customers"   element={<Protected><CustomersAdminPage /></Protected>} />
+      <Route path="/banners"     element={<Protected><BannersAdminPage /></Protected>} />
+      <Route path="/vendors"     element={<Protected><VendorsAdminPage /></Protected>} />
+      <Route path="/warehouses"  element={<Protected><WarehousesAdminPage /></Protected>} />
+      <Route path="/coupons"     element={<Protected><CouponsAdminPage /></Protected>} />
+      <Route path="/affiliates"  element={<Protected><AffiliatesAdminPage /></Protected>} />
+      <Route path="/loyalty"     element={<Protected><LoyaltyAdminPage /></Protected>} />
+      <Route path="/payments"    element={<Protected><PaymentsAdminPage /></Protected>} />
+      <Route path="/reports"     element={<Protected><ReportsAdminPage /></Protected>} />
+      <Route path="/settings"    element={<Protected><SettingsAdminPage /></Protected>} />
+      <Route path="*"            element={<NotFoundAdminPage />} />
+    </Routes>
+  </>
 );
 
 export default App;

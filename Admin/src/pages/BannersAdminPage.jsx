@@ -3,21 +3,32 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Edit2, Trash2, X, ToggleLeft, ToggleRight, Upload, AlertCircle, RefreshCw } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
+import toast from 'react-hot-toast';
+
+const formatDatetimeLocal = (dateStr) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 
 const BannersAdminPage = () => {
   const [banners, setBanners] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('All');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null);
   const [uploadError, setUploadError] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
 
   const [form, setForm] = useState({
     title: '', subtitle: '', type: 'HERO', ctaText: '', ctaLink: '',
-    position: 1, isActive: true, badgeText: '',
+    position: 1, isActive: true, badgeText: '', countdown: '',
   });
 
   const load = async () => {
@@ -39,20 +50,22 @@ const BannersAdminPage = () => {
     setUploadProgress(null);
     setUploadError(null);
     setImagePreview(b?.image || null);
+    setImageFile(null);
+    setIsDragging(false);
     setForm(b
-      ? { title: b.title, subtitle: b.subtitle || '', type: b.type, ctaText: b.ctaText || '', ctaLink: b.ctaLink || '', position: b.position, isActive: b.isActive, badgeText: b.badgeText || '' }
-      : { title: '', subtitle: '', type: 'HERO', ctaText: '', ctaLink: '', position: 1, isActive: true, badgeText: '' }
+      ? { title: b.title, subtitle: b.subtitle || '', type: b.type, ctaText: b.ctaText || '', ctaLink: b.ctaLink || '', position: b.position, isActive: b.isActive, badgeText: b.badgeText || '', countdown: b.countdown ? formatDatetimeLocal(b.countdown) : '' }
+      : { title: '', subtitle: '', type: 'HERO', ctaText: '', ctaLink: '', position: 1, isActive: true, badgeText: '', countdown: '' }
     );
     setModalOpen(true);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleFileSelect = (e) => {
-    const file = e.target.files?.[0];
+  const handleFileSelect = (eOrFile) => {
+    const file = eOrFile instanceof File ? eOrFile : eOrFile.target.files?.[0];
     if (!file) {
-      setImagePreview(editing?.image || null);
       return;
     }
+    setImageFile(file);
     const reader = new FileReader();
     reader.onloadend = () => setImagePreview(reader.result);
     reader.readAsDataURL(file);
@@ -66,7 +79,7 @@ const BannersAdminPage = () => {
 
     try {
       const fd = new FormData();
-      const file = fileInputRef.current?.files?.[0];
+      const file = imageFile || fileInputRef.current?.files?.[0];
       if (!file && !editing) {
         setUploadError('Please select an image file');
         setSaving(false);
@@ -80,6 +93,7 @@ const BannersAdminPage = () => {
       fd.append('position', String(form.position));
       fd.append('isActive', String(form.isActive));
       fd.append('badgeText', form.badgeText);
+      fd.append('countdown', form.countdown || '');
       if (file) fd.append('image', file);
 
       const config = {
@@ -105,20 +119,78 @@ const BannersAdminPage = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Delete this banner?')) {
-      try { await api.delete(`/banners/${id}`); load(); } catch (err) { console.error(err); }
+  const executeDelete = async (id) => {
+    try {
+      await api.delete(`/banners/${id}`);
+      toast.success('Banner deleted successfully');
+      load();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to delete banner');
+      console.error(err);
     }
+  };
+
+  const handleDelete = (id) => {
+    toast((t) => (
+      <div className="flex flex-col gap-2 p-1">
+        <p className="text-sm font-semibold text-neutral-800">Confirm Deletion</p>
+        <p className="text-xs text-neutral-600">Are you sure you want to delete this banner?</p>
+        <div className="flex justify-end gap-2 mt-2">
+          <button
+            onClick={() => {
+              toast.dismiss(t.id);
+              executeDelete(id);
+            }}
+            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold uppercase tracking-wider transition-colors rounded shadow-sm"
+          >
+            Yes, Delete
+          </button>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-semibold uppercase tracking-wider transition-colors rounded border border-neutral-200"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    ), {
+      duration: 10000,
+      position: 'top-center'
+    });
   };
 
   const handleToggle = async (b) => {
     try { await api.put(`/banners/${b.id}`, { ...b, isActive: !b.isActive }); load(); } catch (err) { console.error(err); }
   };
 
+  const filteredBanners = activeTab === 'All'
+    ? banners
+    : banners.filter(b => b.type === activeTab.toUpperCase());
+
   return (
     <AdminLayout title="Banners">
+      {/* Tabs Nav Bar */}
+      <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-hide" role="tablist">
+        {['All', 'Hero', 'CountDown', 'Promo', 'Deal', 'Brand'].map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            role="tab"
+            aria-selected={activeTab === tab}
+            id={`banners-tab-${tab.toLowerCase()}`}
+            className={`flex-shrink-0 px-4 py-2 text-xs font-medium rounded-lg border transition-all ${
+              activeTab === tab
+                ? 'bg-brand-gold border-brand-gold text-white'
+                : 'bg-white border-brand-light text-brand-grey hover:bg-brand-light'
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
       <div className="flex justify-between items-center mb-6">
-        <p className="text-sm text-brand-grey">{banners.length} banners</p>
+        <p className="text-sm text-brand-grey">{filteredBanners.length} banner{filteredBanners.length !== 1 ? 's' : ''}</p>
         <button onClick={() => openModal()} className="btn-primary flex items-center gap-2" id="add-banner-btn">
           <Plus size={16} /> Add Banner
         </button>
@@ -130,7 +202,7 @@ const BannersAdminPage = () => {
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {banners.map(banner => (
+          {filteredBanners.map(banner => (
             <div key={banner.id} className="bg-white rounded-xl shadow-sm overflow-hidden group">
               <div className="relative h-40 bg-brand-light">
                 {banner.image ? (
@@ -177,16 +249,33 @@ const BannersAdminPage = () => {
                 {/* Image upload — file input only, no URL */}
                 <div>
                   <label className="block text-xs font-medium text-brand-grey mb-1.5">Banner Image *</label>
-                  <div className="border-2 border-dashed border-brand-light rounded-lg p-4 text-center hover:border-brand-gold transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                  <div
+                    className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${
+                      isDragging
+                        ? 'border-brand-gold bg-brand-gold/5'
+                        : 'border-brand-light hover:border-brand-gold'
+                    }`}
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDragging(false);
+                      const file = e.dataTransfer.files?.[0];
+                      if (file && file.type.startsWith('image/')) {
+                        handleFileSelect(file);
+                      }
+                    }}
+                  >
                     {imagePreview ? (
                       <div className="relative">
                         <img src={imagePreview} alt="Preview" className="max-h-36 mx-auto object-contain rounded" />
-                        <button type="button" onClick={(e) => { e.stopPropagation(); setImagePreview(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} className="absolute top-1 right-1 bg-white/80 p-0.5 rounded hover:bg-white"><X size={14} /></button>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setImagePreview(null); setImageFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} className="absolute top-1 right-1 bg-white/80 p-0.5 rounded hover:bg-white"><X size={14} /></button>
                       </div>
                     ) : (
                       <div className="py-6">
                         <Upload size={28} className="mx-auto text-brand-grey mb-2" />
-                        <p className="text-sm text-brand-grey">Click to upload image</p>
+                        <p className="text-sm text-brand-grey">Drag & drop image here, or click to upload</p>
                         <p className="text-xs text-brand-grey mt-1">JPEG, PNG, WebP — max 50MB</p>
                       </div>
                     )}
@@ -227,7 +316,7 @@ const BannersAdminPage = () => {
                   <div>
                     <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-type">Type</label>
                     <select id="ban-type" value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold">
-                      <option>HERO</option><option>PROMO</option><option>DEAL</option><option>BRAND</option><option>COUNTDOWN</option>
+                      <option>HERO</option><option>COUNTDOWN</option><option>PROMO</option><option>DEAL</option><option>BRAND</option>
                     </select>
                   </div>
                   <div>
@@ -235,6 +324,14 @@ const BannersAdminPage = () => {
                     <input id="ban-pos" type="number" value={form.position} onChange={e => setForm(p => ({ ...p, position: Number(e.target.value) }))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
                   </div>
                 </div>
+
+                {/* Countdown Time */}
+                {form.type === 'COUNTDOWN' && (
+                  <div>
+                    <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-countdown">Offer Ends At (Date & Time) *</label>
+                    <input id="ban-countdown" type="datetime-local" value={form.countdown} onChange={e => setForm(p => ({ ...p, countdown: e.target.value }))} required className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
+                  </div>
+                )}
 
                 {/* CTA */}
                 <div>

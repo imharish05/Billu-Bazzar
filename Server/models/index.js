@@ -29,8 +29,13 @@ const Banner        = require('./Banner');
 const Review        = require('./Review');
 const StockAlert    = require('./StockAlert');
 const MarketingMessage = require('./MarketingMessage');
+const SearchKeyword    = require('./SearchKeyword');
+const TrendingCache    = require('./TrendingCache');
 
 // ── Associations ─────────────────────────────────────────────────────────────
+
+SearchKeyword.belongsTo(Category, { foreignKey: 'category_id', as: 'category' });
+Category.hasMany(SearchKeyword,   { foreignKey: 'category_id', as: 'searchKeywords' });
 
 // AdminUser ↔ Role  (AdminUser belongs to Role; Role has many AdminUsers)
 AdminUser.belongsTo(Role, { foreignKey: 'roleId', as: 'role' });
@@ -121,5 +126,5 @@ module.exports = {
   Order, OrderItem,
   Wishlist, LoyaltyLedger,
   SupportTicket, Banner,
-  Review, StockAlert, MarketingMessage,
+  Review, StockAlert, MarketingMessage, SearchKeyword, TrendingCache,
 };

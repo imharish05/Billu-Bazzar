@@ -7,10 +7,10 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 const AUTOPLAY_INTERVAL = 5000;
 
 const HeroBanner = () => {
-  const { items: banners, loading } = useSelector(s => s.banners);
+  const { items: allBanners, loading } = useSelector(s => s.banners);
+  const banners = allBanners.filter(b => b.type === 'HERO');
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState(1);
-  const autoplayRef = useRef(null);
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
 
@@ -33,9 +33,9 @@ const HeroBanner = () => {
 
   useEffect(() => {
     if (banners.length < 2) return;
-    autoplayRef.current = setInterval(next, AUTOPLAY_INTERVAL);
-    return () => clearInterval(autoplayRef.current);
-  }, [banners.length, next]);
+    const timer = setInterval(next, AUTOPLAY_INTERVAL);
+    return () => clearInterval(timer);
+  }, [banners.length, next, current]);
 
   const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
   const handleTouchMove = (e) => { touchEndX.current = e.touches[0].clientX; };

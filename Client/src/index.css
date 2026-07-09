@@ -81,7 +81,7 @@
 html { scroll-behavior: smooth; font-size: 16px; }
 
 body {
-  font-family: 'Montserrat', system-ui, sans-serif;
+  font-family: 'Cormorant', Georgia, serif;
   background-color: var(--color-bg);
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
@@ -185,7 +185,7 @@ p  { font-size: 16px; line-height: 1.7; color: var(--color-grey); }
   padding: 12px 32px;
   background: var(--color-gold);
   color: var(--color-white);
-  font-family: 'Montserrat', sans-serif;
+  font-family: 'Cormorant', Georgia, serif;
   font-weight: 600;
   font-size: 14px;
   letter-spacing: 0.05em;
@@ -203,7 +203,7 @@ p  { font-size: 16px; line-height: 1.7; color: var(--color-grey); }
   padding: 12px 32px;
   background: #B45309;
   color: var(--color-white);
-  font-family: 'Montserrat', sans-serif;
+  font-family: 'Cormorant', Georgia, serif;
   font-weight: 600;
   font-size: 14px;
   letter-spacing: 0.05em;
@@ -220,7 +220,7 @@ p  { font-size: 16px; line-height: 1.7; color: var(--color-grey); }
   padding: 11px 31px;
   background: transparent;
   color: var(--color-text);
-  font-family: 'Montserrat', sans-serif;
+  font-family: 'Cormorant', Georgia, serif;
   font-weight: 600;
   font-size: 14px;
   letter-spacing: 0.05em;

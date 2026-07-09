@@ -17,6 +17,7 @@ const NAV_SECTIONS = [
       { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { to: '/products', label: 'Products', icon: Package },
       { to: '/categories', label: 'Categories', icon: Tag },
+      { to: '/sub-categories', label: 'Sub-categories', icon: Tag },
       { to: '/orders', label: 'Orders', icon: ShoppingBag },
       { to: '/customers', label: 'Customers', icon: Users },
     ],
