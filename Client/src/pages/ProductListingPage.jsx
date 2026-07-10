@@ -7,6 +7,7 @@ import { fetchProducts } from '../redux/slices/productsSlice';
 import { fetchCategories } from '../redux/slices/categoriesSlice';
 import ProductCard from '../components/ProductCard';
 import Footer from '../components/Footer';
+import { formatPrice } from '../utils/currency';
 
 /* Scroll-reveal using IntersectionObserver + Framer Motion — Vengeance UI pattern (manual impl) */
 const useReveal = () => {
@@ -28,6 +29,15 @@ const sortOptions = [
   { label: 'Rating', value: 'rating-DESC' },
 ];
 
+const dummyBrands = [
+  { id: 1, name: 'Zara Couture House' },
+  { id: 2, name: 'Rani Jewels Pvt Ltd' },
+  { id: 3, name: 'Aromatic House India' },
+  { id: 4, name: 'Sole Luxe Footwear' },
+  { id: 5, name: 'Glam Accessories Co.' },
+  { id: 6, name: 'Royal Threads Mumbai' },
+];
+
 const ProductListingPage = () => {
   const dispatch = useDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -39,6 +49,7 @@ const ProductListingPage = () => {
     search: searchParams.get('search') || '',
     minPrice: searchParams.get('minPrice') || '',
     maxPrice: searchParams.get('maxPrice') || '',
+    vendorId: searchParams.get('vendorId') || '',
     sort: 'createdAt',
     order: 'DESC',
     page: 1,
@@ -56,12 +67,14 @@ const ProductListingPage = () => {
     const search = searchParams.get('search') || '';
     const minPrice = searchParams.get('minPrice') || '';
     const maxPrice = searchParams.get('maxPrice') || '';
+    const vendorId = searchParams.get('vendorId') || '';
     setFilters(prev => {
       if (
         prev.category !== category ||
         prev.search !== search ||
         prev.minPrice !== minPrice ||
-        prev.maxPrice !== maxPrice
+        prev.maxPrice !== maxPrice ||
+        prev.vendorId !== vendorId
       ) {
         return {
           ...prev,
@@ -69,6 +82,7 @@ const ProductListingPage = () => {
           search,
           minPrice,
           maxPrice,
+          vendorId,
           page: 1,
         };
       }
@@ -89,12 +103,15 @@ const ProductListingPage = () => {
     setFilters(prev => ({ ...prev, sort, order }));
   };
 
+  const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
+  const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
+
   const parentCategories = categories.filter(c => !c.parentId);
   const priceRanges = [
-    { label: 'Under ₹1,000', min: 0, max: 1000 },
-    { label: '₹1,000 – ₹5,000', min: 1000, max: 5000 },
-    { label: '₹5,000 – ₹15,000', min: 5000, max: 15000 },
-    { label: 'Above ₹15,000', min: 15000, max: 999999 },
+    { label: `Under ${fmt(1000)}`, min: 0, max: 1000 },
+    { label: `${fmt(1000)} – ${fmt(5000)}`, min: 1000, max: 5000 },
+    { label: `${fmt(5000)} – ${fmt(15000)}`, min: 5000, max: 15000 },
+    { label: `Above ${fmt(15000)}`, min: 15000, max: 999999 },
   ];
 
   return (
@@ -198,6 +215,35 @@ const ProductListingPage = () => {
                   <label key={opt.key} className="flex items-center gap-2 text-sm text-brand-grey cursor-pointer hover:text-brand-text">
                     <input type="checkbox" className="accent-brand-gold" onChange={e => handleFilter(opt.key, e.target.checked || undefined)} />
                     {opt.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Brand / Vendor */}
+            <div>
+              <p className="font-medium text-sm mb-3">Brands</p>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-2 scrollbar-thin">
+                <label className="flex items-center gap-2 text-sm text-brand-grey cursor-pointer hover:text-brand-text">
+                  <input
+                    type="radio"
+                    name="brand"
+                    checked={!filters.vendorId}
+                    onChange={() => handleFilter('vendorId', '')}
+                    className="accent-brand-gold"
+                  />
+                  All Brands
+                </label>
+                {dummyBrands.map(brand => (
+                  <label key={brand.id} className="flex items-center gap-2 text-sm text-brand-grey cursor-pointer hover:text-brand-text">
+                    <input
+                      type="radio"
+                      name="brand"
+                      checked={filters.vendorId === String(brand.id)}
+                      onChange={() => handleFilter('vendorId', String(brand.id))}
+                      className="accent-brand-gold"
+                    />
+                    {brand.name}
                   </label>
                 ))}
               </div>

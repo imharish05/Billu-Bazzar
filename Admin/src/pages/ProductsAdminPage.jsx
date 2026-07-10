@@ -12,7 +12,7 @@ const fmt = (v) => currencyJs(v, { symbol: '₹', precision: 0 }).format();
 const EMPTY_FORM = {
   name: '', slug: '', shortDescription: '', description: '', price: '', comparePrice: '',
   stock: '', sku: '', categoryId: '', vendorId: '', isFeatured: false, isNewArrival: false,
-  isBestSeller: false, isActive: true, images: [], tags: [],
+  isBestSeller: false, isActive: true, images: [], spin_images: [], tags: [],
 };
 
 const ProductModal = ({ product, onClose, onSave }) => {
@@ -21,6 +21,11 @@ const ProductModal = ({ product, onClose, onSave }) => {
   const [existingImages, setExistingImages] = useState(product ? [...(product.images || [])] : []);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
+
+  const [newSpinImageFiles, setNewSpinImageFiles] = useState([]);
+  const [existingSpinImages, setExistingSpinImages] = useState(product ? [...(product.spin_images || [])] : []);
+  const [isSpinDragging, setIsSpinDragging] = useState(false);
+  const spinFileInputRef = useRef(null);
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -67,11 +72,37 @@ const ProductModal = ({ product, onClose, onSave }) => {
     setExistingImages(prev => prev.filter((_, i) => i !== idx));
   };
 
+  const handleSpinFileSelect = (eOrFiles) => {
+    const files = eOrFiles.target ? eOrFiles.target.files : eOrFiles;
+    if (!files || files.length === 0) return;
+    
+    const filesArr = Array.from(files).filter(f => f.type.startsWith('image/')).map(file => {
+      file.preview = URL.createObjectURL(file);
+      return file;
+    });
+    setNewSpinImageFiles(prev => [...prev, ...filesArr]);
+    if (spinFileInputRef.current) spinFileInputRef.current.value = '';
+  };
+
+  const removeNewSpinFile = (idx) => {
+    setNewSpinImageFiles(prev => {
+      const target = prev[idx];
+      if (target && target.preview) {
+        URL.revokeObjectURL(target.preview);
+      }
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+
+  const removeExistingSpinImage = (idx) => {
+    setExistingSpinImages(prev => prev.filter((_, i) => i !== idx));
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     const fd = new FormData();
     Object.keys(form).forEach(key => {
-      if (key === 'images') return; // Skip old field
+      if (key === 'images' || key === 'spin_images') return; // Skip old fields
       const value = form[key];
       if (value === null || value === undefined) {
         // skip
@@ -83,9 +114,14 @@ const ProductModal = ({ product, onClose, onSave }) => {
     });
 
     fd.append('existingImages', JSON.stringify(existingImages));
+    fd.append('existingSpinImages', JSON.stringify(existingSpinImages));
 
     newImageFiles.forEach(file => {
       fd.append('images', file);
+    });
+
+    newSpinImageFiles.forEach(file => {
+      fd.append('spin_images', file);
     });
 
     onSave(fd);
@@ -194,6 +230,77 @@ const ProductModal = ({ product, onClose, onSave }) => {
               </div>
             )}
           </div>
+
+          <div className="sm:col-span-2 border-t border-brand-light pt-4 mt-2">
+            <label className="block text-xs font-medium text-brand-grey mb-1.5">360° Spin View Frames (Ordered Sequence)</label>
+            <div
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+                isSpinDragging
+                  ? 'border-brand-gold bg-brand-gold/5'
+                  : 'border-brand-light hover:border-brand-gold'
+              }`}
+              onClick={() => spinFileInputRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setIsSpinDragging(true); }}
+              onDragLeave={() => setIsSpinDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsSpinDragging(false);
+                if (e.dataTransfer.files) handleSpinFileSelect(e.dataTransfer.files);
+              }}
+            >
+              <Upload size={28} className="mx-auto text-brand-grey mb-2" />
+              <p className="text-sm text-brand-grey font-medium">Drag & drop 360° frames here, or click to upload</p>
+              <p className="text-xs text-brand-grey mt-1">Upload multiple photos in rotation order (1 to 24 frames recommended)</p>
+              <input
+                ref={spinFileInputRef}
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleSpinFileSelect}
+              />
+            </div>
+
+            {/* Spin Image Preview Grid */}
+            {(existingSpinImages.length > 0 || newSpinImageFiles.length > 0) && (
+              <div className="grid grid-cols-6 gap-3 mt-4">
+                {existingSpinImages.map((img, idx) => (
+                  <div key={`exist-spin-${idx}`} className="relative aspect-square border border-brand-light rounded-lg overflow-hidden bg-brand-light group">
+                    <img src={img} alt="Spin Frame" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); removeExistingSpinImage(idx); }}
+                        className="bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors shadow"
+                        title="Remove Frame"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                    <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[8px] px-1 rounded">{idx + 1}</span>
+                  </div>
+                ))}
+                {newSpinImageFiles.map((file, idx) => (
+                  <div key={`new-spin-${idx}`} className="relative aspect-square border border-brand-light rounded-lg overflow-hidden bg-brand-light group">
+                    <img src={file.preview} alt="New Spin Frame" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); removeNewSpinFile(idx); }}
+                        className="bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors shadow"
+                        title="Remove Frame"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                    <span className="absolute bottom-1 left-1 bg-brand-gold text-white text-[8px] font-bold px-1 rounded shadow">NEW</span>
+                    <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[8px] px-1 rounded">{existingSpinImages.length + idx + 1}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="sm:col-span-2 flex gap-6">
             {[{k:'isFeatured',l:'Featured'},{k:'isNewArrival',l:'New Arrival'},{k:'isBestSeller',l:'Best Seller'},{k:'isActive',l:'Active'}].map(({k,l}) => (
               <label key={k} className="flex items-center gap-2 text-sm cursor-pointer">

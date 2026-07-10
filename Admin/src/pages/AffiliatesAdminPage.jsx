@@ -1,8 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
-import { ToggleLeft, ToggleRight, X, Save, Plus, Edit2, Trash2, Upload } from 'lucide-react';
+import { ToggleLeft, ToggleRight, X, Save, Plus, Edit2, Trash2, Upload, Copy, RefreshCw } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+
+const generateUniqueCode = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // avoid ambiguous characters
+  let code = 'BB-AFF-';
+  for (let i = 0; i < 5; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+};
 
 const AffiliatesAdminPage = () => {
   const [affiliates, setAffiliates] = useState([]);
@@ -15,7 +24,9 @@ const AffiliatesAdminPage = () => {
     referralCode: '',
     commissionRate: 5.0,
     payoutMethod: 'Bank Transfer',
-    followers: '0'
+    followers: '0',
+    handle: '',
+    productsCurated: 0
   });
   
   const [imagePreview, setImagePreview] = useState(null);
@@ -43,6 +54,14 @@ const AffiliatesAdminPage = () => {
     load();
   }, []);
 
+  const handleCopyLink = (code) => {
+    const origin = window.location.origin.replace(':5174', ':5173');
+    const url = `${origin}/products?ref=${code}`;
+    navigator.clipboard.writeText(url)
+      .then(() => toast.success('Referral link copied to clipboard!'))
+      .catch(() => toast.error('Failed to copy link.'));
+  };
+
   const openModal = (aff = null) => {
     setEditing(aff);
     setForm(aff ? {
@@ -51,14 +70,18 @@ const AffiliatesAdminPage = () => {
       referralCode: aff.referralCode,
       commissionRate: aff.commissionRate,
       payoutMethod: aff.payoutMethod || 'Bank Transfer',
-      followers: aff.followers || '0'
+      followers: aff.followers || '0',
+      handle: aff.handle || '',
+      productsCurated: aff.productsCurated || 0
     } : {
       name: '',
       email: '',
-      referralCode: '',
+      referralCode: generateUniqueCode(),
       commissionRate: 5.0,
       payoutMethod: 'Bank Transfer',
-      followers: '0'
+      followers: '0',
+      handle: '',
+      productsCurated: 0
     });
     setImagePreview(aff?.avatar || null);
     setImageFile(null);
@@ -104,6 +127,8 @@ const AffiliatesAdminPage = () => {
       fd.append('commissionRate', String(form.commissionRate));
       fd.append('payoutMethod', form.payoutMethod);
       fd.append('followers', form.followers.trim());
+      fd.append('handle', form.handle.trim());
+      fd.append('productsCurated', String(form.productsCurated));
 
       const file = imageFile || fileInputRef.current?.files?.[0];
       if (file) {
@@ -179,9 +204,19 @@ const AffiliatesAdminPage = () => {
                     </td>
                     <td className="px-5 py-4 text-brand-grey">{a.email}</td>
                     <td className="px-5 py-4">
-                      <span className="font-mono text-xs bg-brand-light text-brand-text px-2 py-0.5 rounded border border-brand-light/60">
-                        {a.referralCode}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs bg-brand-light text-brand-text px-2 py-0.5 rounded border border-brand-light/60">
+                          {a.referralCode}
+                        </span>
+                        <button
+                          onClick={() => handleCopyLink(a.referralCode)}
+                          className="p-1 text-brand-grey hover:text-brand-gold hover:bg-brand-light rounded transition-all"
+                          title="Copy Referral Link"
+                          id={`copy-aff-${a.id}`}
+                        >
+                          <Copy size={13} />
+                        </button>
+                      </div>
                     </td>
                     <td className="px-5 py-4 font-medium text-brand-text">{a.followers || '0'}</td>
                     <td className="px-5 py-4 font-semibold text-brand-text">{a.commissionRate}%</td>
@@ -244,7 +279,24 @@ const AffiliatesAdminPage = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="aff-code">Referral Code *</label>
-                  <input id="aff-code" type="text" required value={form.referralCode} onChange={e => setForm({...form, referralCode: e.target.value})} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors" />
+                  <div className="relative">
+                    <input
+                      id="aff-code"
+                      type="text"
+                      required
+                      value={form.referralCode}
+                      onChange={e => setForm({...form, referralCode: e.target.value.toUpperCase().replace(/\s+/g, '')})}
+                      className="w-full border border-brand-light pl-3 pr-8 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, referralCode: generateUniqueCode() }))}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-brand-grey hover:text-brand-gold transition-colors"
+                      title="Generate Unique Code"
+                    >
+                      <RefreshCw size={14} />
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="aff-rate">Commission Rate (%)</label>
@@ -253,8 +305,19 @@ const AffiliatesAdminPage = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="aff-followers">Follower Count (e.g. 1.2M, 850K)</label>
-                <input id="aff-followers" type="text" value={form.followers} onChange={e => setForm({...form, followers: e.target.value})} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors" placeholder="e.g. 1.2M" />
+                <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="aff-handle">Social Handle (e.g. @arya_official)</label>
+                <input id="aff-handle" type="text" value={form.handle} onChange={e => setForm({...form, handle: e.target.value})} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors" placeholder="@handle" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="aff-followers">Followers (e.g. 150K, 1.2M)</label>
+                  <input id="aff-followers" type="text" value={form.followers} onChange={e => setForm({...form, followers: e.target.value})} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors" placeholder="e.g. 150K" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="aff-products-curated">Products Curated</label>
+                  <input id="aff-products-curated" type="number" value={form.productsCurated} onChange={e => setForm({...form, productsCurated: parseInt(e.target.value) || 0})} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors" />
+                </div>
               </div>
 
               {/* Avatar upload zone */}

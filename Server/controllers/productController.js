@@ -38,7 +38,6 @@ const processProductData = (req) => {
   if (data.tags) data.tags = parseJsonField(data.tags);
   if (data.attributes) data.attributes = parseJsonField(data.attributes);
   if (data.dimensions) data.dimensions = parseJsonField(data.dimensions);
-  if (data.spin_images) data.spin_images = parseJsonField(data.spin_images);
 
   // Cast values from FormData strings
   if (data.price !== undefined) data.price = data.price === '' ? null : parseFloat(data.price);
@@ -62,23 +61,61 @@ const processProductData = (req) => {
   }
 
   const newImages = [];
-  if (req.files && req.files.length > 0) {
-    req.files.forEach(file => {
-      const normalizedPath = file.path.replace(/\\/g, '/');
-      const uploadsIndex = normalizedPath.indexOf('uploads');
-      newImages.push('/' + normalizedPath.substring(uploadsIndex));
-    });
+  const newSpinImages = [];
+
+  if (req.files) {
+    if (Array.isArray(req.files)) {
+      // Compatibility with array format
+      req.files.forEach(file => {
+        const normalizedPath = file.path.replace(/\\/g, '/');
+        const uploadsIndex = normalizedPath.indexOf('uploads');
+        newImages.push('/' + normalizedPath.substring(uploadsIndex));
+      });
+    } else {
+      // Fields object format
+      if (req.files.images) {
+        req.files.images.forEach(file => {
+          const normalizedPath = file.path.replace(/\\/g, '/');
+          const uploadsIndex = normalizedPath.indexOf('uploads');
+          newImages.push('/' + normalizedPath.substring(uploadsIndex));
+        });
+      }
+      if (req.files.spin_images) {
+        req.files.spin_images.forEach(file => {
+          const normalizedPath = file.path.replace(/\\/g, '/');
+          const uploadsIndex = normalizedPath.indexOf('uploads');
+          newSpinImages.push('/' + normalizedPath.substring(uploadsIndex));
+        });
+      }
+    }
   }
 
   data.images = [...existingImages, ...newImages];
-  delete data.existingImages; // clean up key from db model
+  delete data.existingImages;
 
-  return { data, existingImages };
+  // Handle uploaded 360 spin images
+  let existingSpinImages = [];
+  if (data.existingSpinImages) {
+    existingSpinImages = parseJsonField(data.existingSpinImages);
+    if (!Array.isArray(existingSpinImages)) {
+      existingSpinImages = typeof existingSpinImages === 'string' ? [existingSpinImages] : [];
+    }
+  } else if (data.spin_images) {
+    existingSpinImages = parseJsonField(data.spin_images);
+    if (!Array.isArray(existingSpinImages)) {
+      existingSpinImages = [];
+    }
+  }
+
+  data.spin_images = [...existingSpinImages, ...newSpinImages];
+  delete data.existingSpinImages;
+
+  return { data, existingImages, existingSpinImages };
 };
 
 const getAll = async (req, res) => {
   try {
-    const { page = 1, limit = 20, category, search, minPrice, maxPrice, sort = 'createdAt', order = 'DESC', featured, newArrival, bestSeller } = req.query;
+    const { page = 1, limit = 20, category, search, minPrice, maxPrice, sort = 'createdAt', order = 'DESC', featured, newArrival, bestSeller, vendorId } = req.query;
     const where = { isActive: true };
     if (category) {
       if (isNaN(category)) {
@@ -95,11 +132,15 @@ const getAll = async (req, res) => {
     if (featured === 'true') where.isFeatured = true;
     if (newArrival === 'true') where.isNewArrival = true;
     if (bestSeller === 'true') where.isBestSeller = true;
+    if (vendorId) where.vendorId = parseInt(vendorId, 10);
 
     const { count, rows } = await Product.findAndCountAll({
       where, limit: parseInt(limit), offset: (parseInt(page) - 1) * parseInt(limit),
       order: [[sort, order]],
-      include: [{ model: Category, as: 'category', attributes: ['id', 'name', 'slug'] }],
+      include: [
+        { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
+        { model: Vendor, as: 'vendor', attributes: ['id', 'name', 'logo'] }
+      ],
     });
 
     res.json({ success: true, products: rows, total: count, page: parseInt(page), totalPages: Math.ceil(count / parseInt(limit)) });
@@ -136,12 +177,17 @@ const update = async (req, res) => {
     const product = await Product.findByPk(req.params.id);
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
 
-    const { data, existingImages } = processProductData(req);
+    const { data, existingImages, existingSpinImages } = processProductData(req);
 
     // Identify and delete removed files
     const oldImages = product.images || [];
     const removedImages = oldImages.filter(img => !existingImages.includes(img));
     removedImages.forEach(img => deleteLocalFile(img));
+
+    // Identify and delete removed spin files
+    const oldSpin = product.spin_images || [];
+    const removedSpin = oldSpin.filter(img => !existingSpinImages.includes(img));
+    removedSpin.forEach(img => deleteLocalFile(img));
 
     await product.update(data);
     res.json({ success: true, product });

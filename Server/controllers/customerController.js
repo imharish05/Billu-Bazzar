@@ -7,7 +7,14 @@ const getAll = async (req, res) => {
     const { Op } = require('sequelize');
     const where = {};
     if (search) where[Op.or] = [{ name: { [Op.like]: `%${search}%` } }, { email: { [Op.like]: `%${search}%` } }];
-    const { count, rows } = await Customer.findAndCountAll({ where, limit: parseInt(limit), offset: (parseInt(page)-1)*parseInt(limit), order: [['createdAt', 'DESC']], attributes: { exclude: ['password'] } });
+    const { count, rows } = await Customer.findAndCountAll({
+      where,
+      limit: parseInt(limit),
+      offset: (parseInt(page) - 1) * parseInt(limit),
+      order: [['createdAt', 'DESC']],
+      attributes: { exclude: ['password'] },
+      include: [{ model: Order, as: 'orders', attributes: ['id'] }]
+    });
     res.json({ success: true, customers: rows, total: count });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 };

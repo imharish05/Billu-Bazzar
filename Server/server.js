@@ -18,9 +18,26 @@ const start = async () => {
     await sequelize.authenticate();
     console.log('✅ Database connected');
 
-    // 2. Sync all models (alter: safe — doesn't drop data)
+    // 2. Sync all models (safe — doesn't drop data)
     await sequelize.sync();
     console.log('✅ Models synced');
+
+    // Run manual database alters for Banners table to support EXCLUSIVE_DEAL and optional title
+    try {
+      await sequelize.query("ALTER TABLE Banners MODIFY COLUMN type ENUM('HERO', 'PROMO', 'DEAL', 'EXCLUSIVE_DEAL', 'BRAND', 'COUNTDOWN') DEFAULT 'PROMO'");
+      await sequelize.query("ALTER TABLE Banners MODIFY COLUMN title VARCHAR(200) NULL");
+      console.log('✅ Banners table column definitions updated');
+    } catch (alterErr) {
+      console.log('⚠️ Manual alter note (already altered or table not synced yet):', alterErr.message);
+    }
+
+    // Migrate any legacy 'DEAL' banners to 'EXCLUSIVE_DEAL'
+    try {
+      await sequelize.query("UPDATE Banners SET type = 'EXCLUSIVE_DEAL' WHERE type = 'DEAL'");
+      console.log('✅ Migrated legacy DEAL banners to EXCLUSIVE_DEAL');
+    } catch (migErr) {
+      console.log('⚠️ Migration note (or already migrated):', migErr.message);
+    }
 
     // 2.5 Run search keywords sync if empty
     const { syncAllExisting } = require('./services/searchSyncService');

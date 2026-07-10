@@ -1,5 +1,5 @@
 'use strict';
-const { Order, OrderItem, Product, Customer, Coupon } = require('../models');
+const { Order, OrderItem, Product, Customer, Coupon, Affiliate } = require('../models');
 const { v4: uuidv4 } = require('uuid');
 
 const getAll = async (req, res) => {
@@ -55,7 +55,7 @@ const getOne = async (req, res) => {
 
 const placeOrder = async (req, res) => {
   try {
-    const { items, shippingAddress, paymentMethod, couponCode } = req.body;
+    const { items, shippingAddress, paymentMethod, couponCode, referralCode } = req.body;
     if (!items?.length) return res.status(400).json({ success: false, message: 'No items in order' });
 
     let subtotal = 0;
@@ -80,6 +80,16 @@ const placeOrder = async (req, res) => {
       }
     }
 
+    // ── Affiliate referral lookup ──────────────────────────────────
+    let affiliateId = null;
+    let resolvedAffiliate = null;
+    if (referralCode) {
+      resolvedAffiliate = await Affiliate.findOne({
+        where: { referralCode: referralCode.toUpperCase(), isActive: true },
+      });
+      if (resolvedAffiliate) affiliateId = resolvedAffiliate.id;
+    }
+
     const shippingAmount = subtotal > 1499 ? 0 : 99;
     const taxAmount = subtotal * 0.05;
     const totalAmount = subtotal - discountAmount + shippingAmount + taxAmount;
@@ -87,11 +97,23 @@ const placeOrder = async (req, res) => {
     const order = await Order.create({
       orderNumber: `BB${uuidv4().slice(0, 8).toUpperCase()}`,
       customerId: req.customer.id,
+      affiliateId,
       couponId, status: 'PENDING', paymentStatus: 'UNPAID', paymentMethod,
       subtotal, discountAmount, shippingAmount, taxAmount, totalAmount, shippingAddress,
     });
 
     for (const item of orderItems) await OrderItem.create({ ...item, orderId: order.id });
+
+    // ── Update affiliate stats after order is saved ────────────────
+    if (resolvedAffiliate) {
+      const commission = parseFloat(resolvedAffiliate.commissionRate) || 0;
+      const earned = parseFloat((totalAmount * commission / 100).toFixed(2));
+      await resolvedAffiliate.increment({
+        totalOrders: 1,
+        totalEarnings: earned,
+      });
+      console.log(`[Affiliate] ${resolvedAffiliate.name} earned ₹${earned} commission on order ${order.orderNumber}`);
+    }
 
     res.status(201).json({ success: true, order: { ...order.toJSON(), items: orderItems } });
   } catch (err) {

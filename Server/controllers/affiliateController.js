@@ -42,6 +42,39 @@ const getOne = async (req, res) => {
 const create = async (req, res) => {
   try {
     const data = { ...req.body };
+    if (!data.referralCode) {
+      return res.status(400).json({ success: false, message: 'Referral code is required' });
+    }
+
+    const code = data.referralCode.trim().toUpperCase();
+    if (code.length < 3 || code.length > 20) {
+      return res.status(400).json({ success: false, message: 'Referral code must be between 3 and 20 characters' });
+    }
+
+    const codeRegex = /^[A-Z0-9_-]+$/;
+    if (!codeRegex.test(code)) {
+      return res.status(400).json({ success: false, message: 'Referral code can only contain letters, numbers, hyphens, and underscores' });
+    }
+
+    // Check for duplicate referral code
+    const existing = await Affiliate.findOne({ where: { referralCode: code } });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'This referral code is already in use by another affiliate' });
+    }
+
+    data.referralCode = code;
+
+    if (data.handle) {
+      let h = data.handle.trim();
+      if (h) {
+        if (!h.startsWith('@')) h = '@' + h;
+        data.handle = h;
+      }
+    }
+    if (data.productsCurated !== undefined) {
+      data.productsCurated = parseInt(data.productsCurated) || 0;
+    }
+
     if (req.file) {
       const normalizedPath = req.file.path.replace(/\\/g, '/');
       const uploadsIndex = normalizedPath.indexOf('uploads');
@@ -67,6 +100,37 @@ const update = async (req, res) => {
     if (!affiliate) return res.status(404).json({ success: false, message: 'Affiliate not found' });
     
     const data = { ...req.body };
+    if (data.referralCode) {
+      const code = data.referralCode.trim().toUpperCase();
+      if (code.length < 3 || code.length > 20) {
+        return res.status(400).json({ success: false, message: 'Referral code must be between 3 and 20 characters' });
+      }
+
+      const codeRegex = /^[A-Z0-9_-]+$/;
+      if (!codeRegex.test(code)) {
+        return res.status(400).json({ success: false, message: 'Referral code can only contain letters, numbers, hyphens, and underscores' });
+      }
+
+      // Check duplicate code (excluding current affiliate)
+      const { Op } = require('sequelize');
+      const existing = await Affiliate.findOne({ where: { referralCode: code, id: { [Op.ne]: affiliate.id } } });
+      if (existing) {
+        return res.status(400).json({ success: false, message: 'This referral code is already in use by another affiliate' });
+      }
+      data.referralCode = code;
+    }
+
+    if (data.handle) {
+      let h = data.handle.trim();
+      if (h) {
+        if (!h.startsWith('@')) h = '@' + h;
+        data.handle = h;
+      }
+    }
+    if (data.productsCurated !== undefined) {
+      data.productsCurated = parseInt(data.productsCurated) || 0;
+    }
+
     if (req.file) {
       deleteLocalFile(affiliate.avatar);
       const normalizedPath = req.file.path.replace(/\\/g, '/');
@@ -114,4 +178,21 @@ const getOrders = async (req, res) => {
   }
 };
 
-module.exports = { getAll, getOne, create, update, remove, getOrders };
+const trackClick = async (req, res) => {
+  try {
+    const { ref } = req.query;
+    if (!ref) {
+      return res.status(400).json({ success: false, message: 'Referral code is required' });
+    }
+    const affiliate = await Affiliate.findOne({ where: { referralCode: ref.toUpperCase(), isActive: true } });
+    if (!affiliate) {
+      return res.status(404).json({ success: false, message: 'Active affiliate not found' });
+    }
+    await affiliate.increment('totalClicks');
+    res.json({ success: true, message: 'Click tracked successfully', currentClicks: affiliate.totalClicks + 1 });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+module.exports = { getAll, getOne, create, update, remove, getOrders, trackClick };

@@ -72,9 +72,11 @@ export default function InfluencerCarouselMobile({ items, onChangeActiveIndex })
           {current.handle && (
             <p className="text-brand-gold text-sm font-semibold mb-2 font-inter">{current.handle}</p>
           )}
-          {(current.followers || current.products) && (
+          {(current.followers || current.products > 0) && (
             <p className="text-brand-grey text-xs mb-4 font-medium font-inter">
-              {current.followers} followers · {current.products} products curated
+              {current.followers && <span>{current.followers} followers</span>}
+              {current.followers && current.products > 0 && <span> · </span>}
+              {current.products > 0 && <span>{current.products} products curated</span>}
             </p>
           )}
           <Link

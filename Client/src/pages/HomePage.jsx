@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import InfluencerCarouselMobile from '../components/InfluencerCarouselMobile';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
-import { motion, useInView } from 'framer-motion';
+import { motion, useInView, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Play, Star, ArrowRight, Clock } from 'lucide-react';
 import { fetchProducts, fetchFeatured, fetchNewArrivals, fetchBestSellers } from '../redux/slices/productsSlice';
 import { fetchCategories } from '../redux/slices/categoriesSlice';
@@ -10,7 +10,6 @@ import { fetchBanners } from '../redux/slices/bannersSlice';
 import api from '../services/api';
 import ProductCard from '../components/ProductCard';
 import HeroBanner from '../components/HeroBanner';
-import ExclusiveCollection from '../components/ExclusiveCollection';
 import Footer from '../components/Footer';
 import CircularGallery from '../components/CircularGallery';
 
@@ -115,6 +114,44 @@ const HomePage = () => {
   const { items: categories } = useSelector(s => s.categories);
   const { items: banners } = useSelector(s => s.banners);
   const [activeTab, setActiveTab] = useState('all');
+
+  const [isMobileViewport, setIsMobileViewport] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 768
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const handleChange = (e) => setIsMobileViewport(e.matches);
+    mq.addEventListener('change', handleChange);
+    return () => mq.removeEventListener('change', handleChange);
+  }, []);
+
+  const [currentExclusiveSlide, setCurrentExclusiveSlide] = useState(0);
+
+  const exclusiveBanners = useMemo(() => {
+    return banners.filter(b => b.type === 'EXCLUSIVE_DEAL' && b.isActive);
+  }, [banners]);
+
+  useEffect(() => {
+    if (exclusiveBanners.length < 3) {
+      setCurrentExclusiveSlide(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setCurrentExclusiveSlide(prev => {
+        const maxIdx = isMobileViewport ? exclusiveBanners.length - 1 : exclusiveBanners.length - 2;
+        return prev >= maxIdx ? 0 : prev + 1;
+      });
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [exclusiveBanners.length, isMobileViewport]);
+
+  useEffect(() => {
+    if (exclusiveBanners.length < 3) return;
+    const maxIdx = isMobileViewport ? exclusiveBanners.length - 1 : exclusiveBanners.length - 2;
+    if (currentExclusiveSlide > maxIdx) {
+      setCurrentExclusiveSlide(maxIdx);
+    }
+  }, [isMobileViewport, exclusiveBanners.length, currentExclusiveSlide]);
   const [videoPlaying, setVideoPlaying] = useState(false);
   const [dbInfluencers, setDbInfluencers] = useState([]);
   const [activeInfluencerIndex, setActiveInfluencerIndex] = useState(0);
@@ -126,17 +163,7 @@ const HomePage = () => {
     setActiveInfluencerIndex(idx);
   }, []);
   const galleryRef = useRef(null);
-  // Below 768px we render InfluencerCarouselMobile instead of the WebGL
-  // CircularGallery — cheaper, and gives one-card-at-a-time + arrow nav.
-  const [isMobileViewport, setIsMobileViewport] = useState(
-    () => typeof window !== 'undefined' && window.innerWidth < 768
-  );
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 767px)');
-    const handleChange = (e) => setIsMobileViewport(e.matches);
-    mq.addEventListener('change', handleChange);
-    return () => mq.removeEventListener('change', handleChange);
-  }, []);
+
 
   // Category Carousel State & Refs
   const catScrollRef = useRef(null);
@@ -228,15 +255,15 @@ const HomePage = () => {
         if (active.length) {
           const mapped = active.map((aff, i) => ({
             name: aff.name,
-            handle: `@${aff.referralCode.toLowerCase()}_style`,
+            handle: aff.handle || `@${aff.referralCode.toLowerCase()}_style`,
             img: aff.avatar || (
               i === 0 ? 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400'
                 : i === 1 ? 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=400'
                 : i === 2 ? 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400'
                 : 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400'
             ),
-            products: aff.totalOrders || 12,
-            followers: aff.followers && aff.followers !== '0' ? aff.followers : (aff.totalClicks > 1000 ? `${(aff.totalClicks/1000).toFixed(1)}M` : `${aff.totalClicks || 150} followers`),
+            products: parseInt(aff.productsCurated) || 0,
+            followers: aff.followers && aff.followers !== '0' ? aff.followers.trim() : '',
           }));
           setDbInfluencers(mapped);
         }
@@ -453,90 +480,234 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* ── SECTION 5: Exclusive Collection Carousel (HP-08) ────────────── */}
-      <ExclusiveCollection />
-
       {/* ── SECTION 6: Curated Collection Editorial Banner ──────────────── */}
-      <section className="py-16 md:py-24 bg-brand-light" aria-label="Curated collection">
-        <div className="max-w-site mx-auto px-6 md:px-8">
-          <div className="grid md:grid-cols-2 gap-0 shadow-lg overflow-hidden">
-            <div className="relative aspect-[4/5] md:aspect-auto">
+      {promoBanner && (
+        <section className="py-16 md:py-24 bg-brand-light" aria-label="Curated collection">
+          <div className="max-w-site mx-auto px-6 md:px-8">
+            <div className="grid md:grid-cols-2 gap-0 shadow-lg overflow-hidden">
+              <div className="relative aspect-[4/5] md:aspect-auto">
+                <img
+                  src={promoBanner.image}
+                  alt={promoBanner.title}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+              <ScrollReveal className="bg-brand-text flex items-center p-10 md:p-16">
+                <div>
+                  {promoBanner.badgeText && (
+                    <p className="text-brand-gold text-xs tracking-[0.2em] uppercase mb-4">
+                      {promoBanner.badgeText}
+                    </p>
+                  )}
+                  <h2 className="font-playfair text-3xl md:text-5xl font-bold text-white leading-tight mb-6">
+                    {promoBanner.title}
+                  </h2>
+                  {promoBanner.subtitle && (
+                    <p className="text-white/70 text-base leading-relaxed mb-8">
+                      {promoBanner.subtitle}
+                    </p>
+                  )}
+                  <div className="flex flex-col gap-3">
+                    <Link to={promoBanner.ctaLink || "/products"} className="btn-primary" id="bridal-cta">
+                      {promoBanner.ctaText || "Explore Collection"}
+                    </Link>
+                    <p className="text-white/40 text-xs">Personal styling consultation available — <Link to="/account?tab=shopper" className="underline hover:text-brand-gold transition-colors">Book Now</Link></p>
+                  </div>
+                </div>
+              </ScrollReveal>
+            </div>
+          </div>
+        </section>
+      )}
+
+
+
+      {/* ── SECTION 8: Dual Promo Tiles / Exclusive Collection Banner ───── */}
+      {exclusiveBanners.length === 1 && (
+        <section className="py-16 md:py-24 bg-white" aria-label="Promotional offers">
+          <div className="max-w-site mx-auto px-6 md:px-8 flex justify-center">
+            <ScrollReveal className="relative overflow-hidden w-full max-w-5xl aspect-[16/9] sm:aspect-[2.4/1] md:aspect-[3/1] group">
               <img
-                src={promoBanner ? promoBanner.image : "https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=800"}
-                alt={promoBanner ? promoBanner.title : "The Bridal Edit — Billu Bazaar"}
-                className="w-full h-full object-cover"
+                src={exclusiveBanners[0].image}
+                alt={exclusiveBanners[0].title || 'Exclusive Collection'}
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 loading="lazy"
               />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+              <div className="absolute inset-0 flex flex-col justify-end p-8 md:p-12">
+                {exclusiveBanners[0].badgeText && (
+                  <span className="bg-brand-gold text-white text-sm font-bold px-3 py-1 self-start mb-3">
+                    {exclusiveBanners[0].badgeText}
+                  </span>
+                )}
+                {exclusiveBanners[0].title && (
+                  <h3 className="font-playfair text-2xl md:text-4xl font-bold text-white mb-2 max-w-2xl">
+                    {exclusiveBanners[0].title}
+                  </h3>
+                )}
+                {exclusiveBanners[0].subtitle && (
+                  <p className="text-white/70 text-sm md:text-base mb-6 max-w-xl">
+                    {exclusiveBanners[0].subtitle}
+                  </p>
+                )}
+                <Link
+                  to={exclusiveBanners[0].ctaLink}
+                  className="text-brand-gold font-medium text-sm md:text-base flex items-center gap-2 hover:gap-3 transition-all focus-visible:outline-white self-start"
+                  id={`promo-deal-${exclusiveBanners[0].id}`}
+                >
+                  {exclusiveBanners[0].ctaText || 'Shop Now'} <ArrowRight size={16} />
+                </Link>
+              </div>
+            </ScrollReveal>
+          </div>
+        </section>
+      )}
+
+      {exclusiveBanners.length === 2 && (
+        <section className="py-16 md:py-24 bg-white" aria-label="Promotional offers">
+          <div className="max-w-site mx-auto px-6 md:px-8">
+            <div className="grid md:grid-cols-2 gap-6">
+              {exclusiveBanners.map((banner, idx) => (
+                <ScrollReveal key={banner.id} delay={idx * 0.15} className="relative overflow-hidden aspect-[16/9] group">
+                  <img
+                    src={banner.image}
+                    alt={banner.title || 'Exclusive Collection'}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+                  <div className="absolute inset-0 flex flex-col justify-end p-8">
+                    {banner.badgeText && (
+                      <span className="bg-brand-gold text-white text-sm font-bold px-3 py-1 self-start mb-3">
+                        {banner.badgeText}
+                      </span>
+                    )}
+                    {banner.title && (
+                      <h3 className="font-playfair text-2xl md:text-3xl font-bold text-white mb-2">
+                        {banner.title}
+                      </h3>
+                    )}
+                    {banner.subtitle && (
+                      <p className="text-white/70 text-sm mb-4">
+                        {banner.subtitle}
+                      </p>
+                    )}
+                    <Link
+                      to={banner.ctaLink}
+                      className="text-brand-gold font-medium text-sm flex items-center gap-2 hover:gap-3 transition-all focus-visible:outline-white self-start"
+                      id={`promo-deal-${banner.id}`}
+                    >
+                      {banner.ctaText || 'Shop Now'} <ArrowRight size={16} />
+                    </Link>
+                  </div>
+                </ScrollReveal>
+              ))}
             </div>
-            <ScrollReveal className="bg-brand-text flex items-center p-10 md:p-16">
-              <div>
-                <p className="text-brand-gold text-xs tracking-[0.2em] uppercase mb-4">
-                  {promoBanner ? (promoBanner.badgeText || "Exclusive Curation") : "Exclusive Curation"}
-                </p>
-                <h2 className="font-playfair text-3xl md:text-5xl font-bold text-white leading-tight mb-6">
-                  {promoBanner ? promoBanner.title : "The Bridal Edit 2025"}
-                </h2>
-                <p className="text-white/70 text-base leading-relaxed mb-8">
-                  {promoBanner ? promoBanner.subtitle : "From Kundan Polki to Banarasi silk, our bridal specialists have curated timeless pieces that will become your family's heirlooms. Every piece, a story."}
-                </p>
-                <div className="flex flex-col gap-3">
-                  <Link to={promoBanner ? (promoBanner.ctaLink || "/products") : "/products?tag=bridal"} className="btn-primary" id="bridal-cta">
-                    {promoBanner ? (promoBanner.ctaText || "Explore Collection") : "Explore Bridal Collection"}
-                  </Link>
-                  <p className="text-white/40 text-xs">Personal styling consultation available — <Link to="/account?tab=shopper" className="underline hover:text-brand-gold transition-colors">Book Now</Link></p>
+          </div>
+        </section>
+      )}
+
+      {exclusiveBanners.length >= 3 && (
+        <section className="py-16 md:py-24 bg-white overflow-hidden" aria-label="Promotional offers">
+          <div className="max-w-site mx-auto px-6 md:px-8">
+            <ScrollReveal className="relative group/carousel">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <p className="text-brand-gold text-xs font-medium tracking-[0.2em] uppercase mb-2">Limited Offers</p>
+                  <h2 className="font-playfair text-2xl md:text-3xl font-bold text-brand-text">Exclusive Deals</h2>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentExclusiveSlide(prev => {
+                      const maxIdx = isMobileViewport ? exclusiveBanners.length - 1 : exclusiveBanners.length - 2;
+                      return prev === 0 ? maxIdx : prev - 1;
+                    })}
+                    className="p-2 border border-brand-text text-brand-text hover:bg-brand-text hover:text-white transition-colors active:scale-95"
+                    aria-label="Previous deal"
+                  >
+                    <ChevronLeft size={18} strokeWidth={1.5} />
+                  </button>
+                  <button
+                    onClick={() => setCurrentExclusiveSlide(prev => {
+                      const maxIdx = isMobileViewport ? exclusiveBanners.length - 1 : exclusiveBanners.length - 2;
+                      return prev >= maxIdx ? 0 : prev + 1;
+                    })}
+                    className="p-2 border border-brand-text text-brand-text hover:bg-brand-text hover:text-white transition-colors active:scale-95"
+                    aria-label="Next deal"
+                  >
+                    <ChevronRight size={18} strokeWidth={1.5} />
+                  </button>
                 </div>
               </div>
-            </ScrollReveal>
-          </div>
-        </div>
-      </section>
 
+              <div className="overflow-hidden -mx-2 px-2">
+                <div
+                  className="flex transition-transform duration-500 ease-out gap-6"
+                  style={{
+                    transform: isMobileViewport
+                      ? `translateX(calc(-${currentExclusiveSlide} * (100% + 24px)))`
+                      : `translateX(calc(-${currentExclusiveSlide} * (50% + 12px)))`
+                  }}
+                >
+                  {exclusiveBanners.map((banner) => (
+                    <div
+                      key={banner.id}
+                      className="w-full md:w-[calc(50%-12px)] flex-shrink-0 relative overflow-hidden aspect-[16/9] group"
+                    >
+                      <img
+                        src={banner.image}
+                        alt={banner.title || 'Exclusive Collection'}
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+                      <div className="absolute inset-0 flex flex-col justify-end p-8">
+                        {banner.badgeText && (
+                          <span className="bg-brand-gold text-white text-sm font-bold px-3 py-1 self-start mb-3">
+                            {banner.badgeText}
+                          </span>
+                        )}
+                        {banner.title && (
+                          <h3 className="font-playfair text-2xl md:text-3xl font-bold text-white mb-2">
+                            {banner.title}
+                          </h3>
+                        )}
+                        {banner.subtitle && (
+                          <p className="text-white/70 text-sm mb-4">
+                            {banner.subtitle}
+                          </p>
+                        )}
+                        <Link
+                          to={banner.ctaLink}
+                          className="text-brand-gold font-medium text-sm flex items-center gap-2 hover:gap-3 transition-all focus-visible:outline-white self-start"
+                          id={`promo-deal-${banner.id}`}
+                        >
+                          {banner.ctaText || 'Shop Now'} <ArrowRight size={16} />
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-
-      {/* ── SECTION 8: Dual Promo Tiles ─────────────────────────────────── */}
-      <section className="py-16 md:py-24 bg-white" aria-label="Promotional offers">
-        <div className="max-w-site mx-auto px-6 md:px-8">
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Promo tile 1 */}
-            <ScrollReveal delay={0} className="group relative overflow-hidden aspect-[4/3]">
-              <img
-                src="https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?w=800"
-                alt="Jewelry Collection — Up to 30% off"
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                loading="lazy"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-              <div className="absolute inset-0 flex flex-col justify-end p-8">
-                <span className="bg-brand-gold text-white text-sm font-bold px-3 py-1 self-start mb-3">Up to 30% OFF</span>
-                <h3 className="font-playfair text-2xl md:text-3xl font-bold text-white mb-2">Fine Jewelry</h3>
-                <p className="text-white/70 text-sm mb-4">Kundan, Polki, Diamonds & more</p>
-                <Link to="/products?category=jewelry" className="text-brand-gold font-medium text-sm flex items-center gap-2 hover:gap-3 transition-all focus-visible:outline-white" id="promo-jewelry">
-                  Shop Now <ArrowRight size={16} />
-                </Link>
+              <div className="flex justify-center gap-1.5 mt-8">
+                {exclusiveBanners.slice(0, isMobileViewport ? exclusiveBanners.length : exclusiveBanners.length - 1).map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentExclusiveSlide(idx)}
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      currentExclusiveSlide === idx ? 'bg-brand-gold w-4' : 'bg-brand-light w-2 hover:bg-brand-text'
+                    }`}
+                    aria-label={`Go to slide ${idx + 1}`}
+                  />
+                ))}
               </div>
             </ScrollReveal>
-
-            {/* Promo tile 2 */}
-            <ScrollReveal delay={0.15} className="group relative overflow-hidden aspect-[4/3]">
-              <img
-                src="https://images.unsplash.com/photo-1541643600914-78b084683702?w=800"
-                alt="Perfume Collection — Buy 2 Get 1 Free"
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                loading="lazy"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-              <div className="absolute inset-0 flex flex-col justify-end p-8">
-                <span className="bg-brand-text text-white text-sm font-bold px-3 py-1 self-start mb-3">Buy 2, Get 1 Free</span>
-                <h3 className="font-playfair text-2xl md:text-3xl font-bold text-white mb-2">Signature Fragrances</h3>
-                <p className="text-white/70 text-sm mb-4">Oud, Rose, Vetiver & more</p>
-                <Link to="/products?category=perfumes" className="text-brand-gold font-medium text-sm flex items-center gap-2 hover:gap-3 transition-all focus-visible:outline-white" id="promo-perfumes">
-                  Shop Now <ArrowRight size={16} />
-                </Link>
-              </div>
-            </ScrollReveal>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ── SECTION 9: Influencer Showcase ──────────────────────────────── */}
       {dbInfluencers.length > 0 && (
@@ -601,11 +772,21 @@ const HomePage = () => {
                     <p className="text-brand-gold text-sm font-semibold mb-3 font-inter">
                       {dbInfluencers[activeInfluencerIndex].handle}
                     </p>
-                    <p className="text-brand-grey text-xs mb-6 font-medium font-inter">
-                      {dbInfluencers[activeInfluencerIndex].followers} followers · {dbInfluencers[activeInfluencerIndex].products} products curated
-                    </p>
+                    {(dbInfluencers[activeInfluencerIndex].followers || dbInfluencers[activeInfluencerIndex].products > 0) && (
+                      <p className="text-brand-grey text-xs mb-6 font-medium font-inter">
+                        {dbInfluencers[activeInfluencerIndex].followers && (
+                          <span>{dbInfluencers[activeInfluencerIndex].followers} followers</span>
+                        )}
+                        {dbInfluencers[activeInfluencerIndex].followers && dbInfluencers[activeInfluencerIndex].products > 0 && (
+                          <span> · </span>
+                        )}
+                        {dbInfluencers[activeInfluencerIndex].products > 0 && (
+                          <span>{dbInfluencers[activeInfluencerIndex].products} products curated</span>
+                        )}
+                      </p>
+                    )}
                     <Link
-                      to={`/products?referral=${dbInfluencers[activeInfluencerIndex].handle.replace('@', '').replace('_style', '')}`}
+                      to={`/products?referral=${dbInfluencers[activeInfluencerIndex].handle.replace('@', '')}`}
                       className="btn-primary max-w-md mx-auto w-full flex items-center justify-center gap-2 group hover:scale-[1.02] transition-transform font-inter"
                       id="shop-her-look-btn"
                     >
@@ -619,26 +800,7 @@ const HomePage = () => {
         </section>
       )}
 
-      {/* ── SECTION 10: Sponsor/Brand Logo Strip (Marquee) ──────────────── */}
-      <section className="py-10 border-y border-brand-light overflow-hidden bg-white" aria-label="Brand partners">
-        <div className="relative">
-          <motion.div
-            className="flex gap-16 items-center"
-            animate={{ x: ['0%', '-50%'] }}
-            transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-            aria-hidden="true"
-          >
-            {[...brandLogos, ...brandLogos].map((brand, i) => (
-              <div key={`${brand.name}-${i}`} className="flex-shrink-0 flex items-center gap-3 opacity-40 hover:opacity-80 transition-opacity">
-                <div className="w-10 h-10 bg-brand-text rounded-sm flex items-center justify-center">
-                  <span className="text-white text-xs font-bold">{brand.abbr}</span>
-                </div>
-                <span className="font-playfair text-lg font-semibold text-brand-text whitespace-nowrap">{brand.name}</span>
-              </div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
+
 
       {/* ── SECTION 11: Best Sellers + Testimonials ─────────────────────── */}
       <section className="py-16 md:py-24 bg-brand-light" aria-label="Best sellers and testimonials">

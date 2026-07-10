@@ -377,25 +377,67 @@ const Navbar = () => {
         role="banner"
       >
         {/* Announcement bar */}
-        <div className="bg-white text-neutral-950 text-center py-1.5 text-caption font-inter tracking-widest uppercase text-[10px] sm:text-xs overflow-hidden relative h-9 flex items-center justify-center border-b border-neutral-200">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentMessageIndex + (sliderMessages[currentMessageIndex]?.id || 'default')}
-              initial={{ y: 12, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -12, opacity: 0 }}
-              transition={{ duration: 0.3, ease: 'easeInOut' }}
-              className="px-4 text-center w-full truncate"
-            >
-              {sliderMessages.length > 0 ? (
-                renderMessageContent(sliderMessages[currentMessageIndex].message)
-              ) : (
-                <>
-                  Free shipping on orders above ₹1499 · Use code <span className="text-brand-gold font-bold">WELCOME20</span> for 20% off
-                </>
-              )}
-            </motion.div>
-          </AnimatePresence>
+        <div className="bg-white text-neutral-950 py-1.5 text-caption font-inter tracking-widest uppercase text-[10px] sm:text-xs overflow-hidden relative h-9 flex items-center justify-center border-b border-neutral-200">
+          {/* Mobile/Tablet marquee */}
+          <div className="lg:hidden w-full overflow-hidden flex items-center relative h-full">
+            <style>{`
+              @keyframes announcementMarquee {
+                0% { transform: translateX(0); }
+                100% { transform: translateX(-50%); }
+              }
+              .announcement-marquee-track {
+                display: flex;
+                width: max-content;
+                animation: announcementMarquee 25s linear infinite;
+              }
+              .announcement-marquee-item {
+                display: flex;
+                align-items: center;
+                white-space: nowrap;
+                flex-shrink: 0;
+              }
+            `}</style>
+            <div className="announcement-marquee-track">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="announcement-marquee-item">
+                  {sliderMessages.length > 0 ? (
+                    sliderMessages.map((m, idx) => (
+                      <span key={m.id || idx} className="inline-flex items-center">
+                        {renderMessageContent(m.message)}
+                        <span className="mx-6 text-brand-gold font-bold">·</span>
+                      </span>
+                    ))
+                  ) : (
+                    <span className="inline-flex items-center">
+                      Free shipping on orders above ₹1499 <span className="mx-6 text-brand-gold font-bold">·</span> Use code <span className="text-brand-gold font-bold">WELCOME20</span> for 20% off <span className="mx-6 text-brand-gold font-bold">·</span>
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Desktop sliding messages */}
+          <div className="hidden lg:block w-full">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentMessageIndex + (sliderMessages[currentMessageIndex]?.id || 'default')}
+                initial={{ y: 12, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -12, opacity: 0 }}
+                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                className="px-4 text-center w-full truncate"
+              >
+                {sliderMessages.length > 0 ? (
+                  renderMessageContent(sliderMessages[currentMessageIndex].message)
+                ) : (
+                  <>
+                    Free shipping on orders above ₹1499 · Use code <span className="text-brand-gold font-bold">WELCOME20</span> for 20% off
+                  </>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
 
         <nav className="max-w-site mx-auto px-4 md:px-8" aria-label="Main navigation">

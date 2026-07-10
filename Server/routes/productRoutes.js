@@ -8,8 +8,8 @@ router.get('/', getAll);
 router.get('/featured', getFeatured);
 router.get('/search', search);
 router.get('/:slug', getOne);
-router.post('/', verifyAdmin, upload.array('images'), create);
-router.put('/:id', verifyAdmin, upload.array('images'), update);
+router.post('/', verifyAdmin, upload.fields([{ name: 'images' }, { name: 'spin_images' }]), create);
+router.put('/:id', verifyAdmin, upload.fields([{ name: 'images' }, { name: 'spin_images' }]), update);
 router.delete('/:id', verifyAdmin, remove);
 
 module.exports = router;

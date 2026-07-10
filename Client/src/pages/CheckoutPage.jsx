@@ -46,10 +46,12 @@ const CheckoutPage = () => {
   const handlePlaceOrder = async () => {
     setPlacing(true);
     try {
+      const referralCode = localStorage.getItem('bb_referral') || undefined;
       await dispatch(placeOrder({
         items: items.map(i => ({ productId: i.productId, quantity: i.quantity, selectedVariant: i.selectedVariant })),
-        shippingAddress: address, paymentMethod,
+        shippingAddress: address, paymentMethod, referralCode,
       })).unwrap();
+      localStorage.removeItem('bb_referral');
       dispatch(clearLocal());
       navigate('/order-confirmation');
     } catch (err) {

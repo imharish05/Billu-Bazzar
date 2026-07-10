@@ -7,6 +7,7 @@ import { openQuickView } from '../redux/slices/uiSlice';
 import { addLocal, openCart } from '../redux/slices/cartSlice';
 import { toggleItem } from '../redux/slices/wishlistSlice';
 import { formatPrice } from '../utils/currency';
+import { getPlaceholderSvg } from '../utils/placeholder';
 
 /**
  * ProductCard — used in grids, carousels, search results.
@@ -42,15 +43,19 @@ const ProductCard = ({ product, index = 0 }) => {
       aria-label={product.name}
     >
       {/* Image */}
-      <Link to={`/products/${product.slug}`} className="block relative overflow-hidden aspect-[3/4] bg-brand-light">
+      <Link to={`/products/${product.slug}`} className="block relative overflow-hidden aspect-[3/4] bg-brand-light" target="_blank" rel="noopener noreferrer">
         {/* Skeleton while image loads */}
         {!imgLoaded && <div className="skeleton absolute inset-0" aria-hidden="true" />}
         <img
-          src={product.images?.[0] || 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=400'}
+          src={product.images?.[0] || getPlaceholderSvg(product.name)}
           alt={product.name}
           className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
           loading="lazy"
           onLoad={() => setImgLoaded(true)}
+          onError={(e) => {
+            e.target.onerror = null;
+            e.target.src = getPlaceholderSvg(product.name);
+          }}
         />
 
         {/* Badges */}
@@ -108,7 +113,7 @@ const ProductCard = ({ product, index = 0 }) => {
             {product.category?.name || ''}
           </p>
         )}
-        <Link to={`/products/${product.slug}`} className="hover:text-brand-gold transition-colors">
+        <Link to={`/products/${product.slug}`} className="hover:text-brand-gold transition-colors" target="_blank" rel="noopener noreferrer">
           <h3 className="font-inter font-medium text-sm leading-snug text-brand-text line-clamp-2 mb-2">
             {product.name}
           </h3>

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
@@ -13,9 +14,27 @@ import CheckoutPage from './pages/CheckoutPage';
 import OrderConfirmationPage from './pages/OrderConfirmationPage';
 import AccountPage from './pages/AccountPage';
 import NotFoundPage from './pages/NotFoundPage';
+import api from './services/api';
 
 const App = () => {
   const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const refCode = params.get('referral') || params.get('ref');
+    if (refCode) {
+      const sanitized = refCode.trim();
+      localStorage.setItem('bb_referral', sanitized);
+      // Track click on the backend
+      api.get(`/affiliates/track?ref=${encodeURIComponent(sanitized)}`)
+        .then(res => {
+          console.log('[Referral] Tracked click successfully:', res.data);
+        })
+        .catch(err => {
+          console.warn('[Referral] Failed to track click:', err.response?.data?.message || err.message);
+        });
+    }
+  }, [location.search]);
 
   return (
     <>

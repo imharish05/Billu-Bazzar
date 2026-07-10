@@ -53,7 +53,7 @@ const BannersAdminPage = () => {
     setImageFile(null);
     setIsDragging(false);
     setForm(b
-      ? { title: b.title, subtitle: b.subtitle || '', type: b.type, ctaText: b.ctaText || '', ctaLink: b.ctaLink || '', position: b.position, isActive: b.isActive, badgeText: b.badgeText || '', countdown: b.countdown ? formatDatetimeLocal(b.countdown) : '' }
+      ? { title: b.title || '', subtitle: b.subtitle || '', type: b.type, ctaText: b.ctaText || '', ctaLink: b.ctaLink || '', position: b.position, isActive: b.isActive, badgeText: b.badgeText || '', countdown: b.countdown ? formatDatetimeLocal(b.countdown) : '' }
       : { title: '', subtitle: '', type: 'HERO', ctaText: '', ctaLink: '', position: 1, isActive: true, badgeText: '', countdown: '' }
     );
     setModalOpen(true);
@@ -76,6 +76,22 @@ const BannersAdminPage = () => {
     setSaving(true);
     setUploadProgress(0);
     setUploadError(null);
+
+    // Validate EXCLUSIVE_DEAL mandatory fields
+    if (form.type === 'EXCLUSIVE_DEAL') {
+      if (!form.ctaText?.trim()) {
+        setUploadError('CTA Button Text is required for Exclusive Deal.');
+        setSaving(false);
+        setUploadProgress(null);
+        return;
+      }
+      if (!form.ctaLink?.trim()) {
+        setUploadError('CTA Link is required for Exclusive Deal.');
+        setSaving(false);
+        setUploadProgress(null);
+        return;
+      }
+    }
 
     try {
       const fd = new FormData();
@@ -165,13 +181,13 @@ const BannersAdminPage = () => {
 
   const filteredBanners = activeTab === 'All'
     ? banners
-    : banners.filter(b => b.type === activeTab.toUpperCase());
+    : banners.filter(b => b.type === (activeTab === 'Exclusive Deal' ? 'EXCLUSIVE_DEAL' : activeTab.toUpperCase()));
 
   return (
     <AdminLayout title="Banners">
       {/* Tabs Nav Bar */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-hide" role="tablist">
-        {['All', 'Hero', 'CountDown', 'Promo', 'Deal', 'Brand'].map(tab => (
+        {['All', 'Hero', 'CountDown', 'Promo', 'Exclusive Deal', 'Brand'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -211,7 +227,9 @@ const BannersAdminPage = () => {
                   <div className="w-full h-full flex items-center justify-center text-brand-grey text-xs">No image</div>
                 )}
                 <div className="absolute top-2 left-2 flex gap-1.5">
-                  <span className="bg-brand-gold text-white text-[10px] font-bold px-2 py-0.5 rounded">{banner.type}</span>
+                  <span className="bg-brand-gold text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                    {banner.type === 'EXCLUSIVE_DEAL' ? 'EXCLUSIVE DEAL' : banner.type}
+                  </span>
                   <span className="bg-white/90 text-brand-text text-[10px] font-bold px-2 py-0.5 rounded">Pos: {banner.position}</span>
                   {!banner.isActive && (
                     <span className="bg-red-400 text-white text-[10px] font-bold px-2 py-0.5 rounded">Inactive</span>
@@ -301,8 +319,8 @@ const BannersAdminPage = () => {
 
                 {/* Title */}
                 <div>
-                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-title">Title *</label>
-                  <input id="ban-title" type="text" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} required className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
+                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-title">Title {form.type !== 'EXCLUSIVE_DEAL' && '*'}</label>
+                  <input id="ban-title" type="text" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} required={form.type !== 'EXCLUSIVE_DEAL'} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
                 </div>
 
                 {/* Subtitle */}
@@ -316,7 +334,11 @@ const BannersAdminPage = () => {
                   <div>
                     <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-type">Type</label>
                     <select id="ban-type" value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold">
-                      <option>HERO</option><option>COUNTDOWN</option><option>PROMO</option><option>DEAL</option><option>BRAND</option>
+                      <option value="HERO">HERO</option>
+                      <option value="COUNTDOWN">COUNTDOWN</option>
+                      <option value="PROMO">PROMO</option>
+                      <option value="EXCLUSIVE_DEAL">EXCLUSIVE DEAL</option>
+                      {/* <option value="BRAND">BRAND</option> */}
                     </select>
                   </div>
                   <div>
@@ -335,12 +357,12 @@ const BannersAdminPage = () => {
 
                 {/* CTA */}
                 <div>
-                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-ctaText">CTA Button Text</label>
-                  <input id="ban-ctaText" type="text" value={form.ctaText} onChange={e => setForm(p => ({ ...p, ctaText: e.target.value }))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
+                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-ctaText">CTA Button Text {form.type === 'EXCLUSIVE_DEAL' && '*'}</label>
+                  <input id="ban-ctaText" type="text" value={form.ctaText} onChange={e => setForm(p => ({ ...p, ctaText: e.target.value }))} required={form.type === 'EXCLUSIVE_DEAL'} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-ctaLink">CTA Link</label>
-                  <input id="ban-ctaLink" type="text" value={form.ctaLink} onChange={e => setForm(p => ({ ...p, ctaLink: e.target.value }))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
+                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-ctaLink">CTA Link {form.type === 'EXCLUSIVE_DEAL' && '*'}</label>
+                  <input id="ban-ctaLink" type="text" value={form.ctaLink} onChange={e => setForm(p => ({ ...p, ctaLink: e.target.value }))} required={form.type === 'EXCLUSIVE_DEAL'} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
                 </div>
 
                 {/* Badge + Active */}

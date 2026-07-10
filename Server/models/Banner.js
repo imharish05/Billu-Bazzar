@@ -4,12 +4,12 @@ const sequelize = require('../config/db');
 
 const Banner = sequelize.define('Banner', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  title: { type: DataTypes.STRING(200), allowNull: false },
+  title: { type: DataTypes.STRING(200), allowNull: true },
   subtitle: { type: DataTypes.STRING(300) },
   ctaText: { type: DataTypes.STRING(80) },
   ctaLink: { type: DataTypes.STRING(300) },
   image: { type: DataTypes.STRING(500), allowNull: false },
-  type: { type: DataTypes.ENUM('HERO', 'PROMO', 'DEAL', 'BRAND', 'COUNTDOWN'), defaultValue: 'PROMO' },
+  type: { type: DataTypes.ENUM('HERO', 'PROMO', 'DEAL', 'EXCLUSIVE_DEAL', 'BRAND', 'COUNTDOWN'), defaultValue: 'PROMO' },
   position: { type: DataTypes.INTEGER, defaultValue: 0 },
   badgeText: { type: DataTypes.STRING(50) },  // e.g. "40% OFF"
   countdown: { type: DataTypes.DATE },         // for countdown banners

@@ -1,15 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingBag, Heart, Star, ChevronRight, Share2, Shield, Truck, RotateCcw, ZoomIn } from 'lucide-react';
-import { fetchProduct } from '../redux/slices/productsSlice';
+import { ShoppingBag, Heart, Star, ChevronRight, Share2, Shield, Truck, RotateCcw, ZoomIn, Play, Mail, CheckCircle2, X } from 'lucide-react';
+import { fetchProduct, fetchProducts } from '../redux/slices/productsSlice';
 import { addLocal, openCart } from '../redux/slices/cartSlice';
 import { toggleItem } from '../redux/slices/wishlistSlice';
 import { openQuickView } from '../redux/slices/uiSlice';
 import Footer from '../components/Footer';
 import ProductCard from '../components/ProductCard';
 import { formatPrice } from '../utils/currency';
+import { getPlaceholderSvg } from '../utils/placeholder';
+import toast from 'react-hot-toast';
 
 /* Seeded review data — displayed per product */
 const mockReviews = [
@@ -22,7 +24,7 @@ const mockReviews = [
 const ProductDetailsPage = () => {
   const { slug } = useParams();
   const dispatch = useDispatch();
-  const { current: product, loading } = useSelector(s => s.products);
+  const { current: product, items: allProducts, loading } = useSelector(s => s.products);
   const { items: wishlist } = useSelector(s => s.wishlist);
   const { items: cartItems } = useSelector(s => s.cart);
   const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
@@ -36,13 +38,46 @@ const ProductDetailsPage = () => {
   const [activeTab, setActiveTab] = useState('description');
   const [imageZoomed, setImageZoomed] = useState(false);
 
+  const [viewMode, setViewMode] = useState('standard'); // 'standard', 'spin', 'ar'
+  const [spinIndex, setSpinIndex] = useState(0);
+  const [isDraggingSpin, setIsDraggingSpin] = useState(false);
+  const [dragStartPos, setDragStartPos] = useState(0);
+  const [videoOpen, setVideoOpen] = useState(false);
+  const [notifyEmail, setNotifyEmail] = useState('');
+  const [notifySuccess, setNotifySuccess] = useState(false);
+
   const isWishlisted = product ? wishlist.includes(product.id) : false;
   const inCart = product ? cartItems.some(i => i.productId === product.id) : false;
+
+  const attributes = useMemo(() => {
+    if (!product || !product.attributes) return {};
+    if (typeof product.attributes === 'string') {
+      try {
+        return JSON.parse(product.attributes);
+      } catch (e) {
+        return {};
+      }
+    }
+    return product.attributes;
+  }, [product]);
+
+  const relatedProducts = useMemo(() => {
+    if (!product) return [];
+    return allProducts
+      .filter(p => p.categoryId === product.categoryId && p.id !== product.id)
+      .slice(0, 4);
+  }, [allProducts, product]);
 
   useEffect(() => {
     if (slug) dispatch(fetchProduct(slug));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [slug, dispatch]);
+
+  useEffect(() => {
+    if (allProducts.length === 0) {
+      dispatch(fetchProducts({ limit: 40 }));
+    }
+  }, [allProducts.length, dispatch]);
 
   useEffect(() => {
     if (product) {
@@ -81,10 +116,65 @@ const ProductDetailsPage = () => {
     ? Math.round(((product.comparePrice - product.price) / product.comparePrice) * 100)
     : null;
 
-  const sizes = product.attributes?.sizes || ['S', 'M', 'L', 'XL'];
-  const images = Array.isArray(product.images) && product.images.length
+  const sizes = attributes?.sizes || ['S', 'M', 'L', 'XL'];
+  const rawImages = Array.isArray(product.images) && product.images.length
     ? product.images
-    : [product.images || 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=800'];
+    : [product.images || getPlaceholderSvg(product.name)];
+  
+  // Safe filtering in case DB returns string placeholders
+  const images = rawImages.map(img => typeof img === 'string' && img.length > 2 ? img : getPlaceholderSvg(product.name));
+
+  const spinImages = Array.isArray(product.spin_images) && product.spin_images.length > 0
+    ? product.spin_images
+    : [];
+
+  const handleMouseDown = (e) => {
+    if (spinImages.length === 0) {
+      setIsDraggingSpin(true);
+      setDragStartPos(e.clientX);
+      return;
+    }
+    setIsDraggingSpin(true);
+    setDragStartPos(e.clientX);
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDraggingSpin) return;
+    const deltaX = e.clientX - dragStartPos;
+    if (Math.abs(deltaX) > 15) {
+      const step = deltaX > 0 ? -1 : 1;
+      const length = spinImages.length > 0 ? spinImages.length : 24;
+      setSpinIndex(prev => (prev + step + length) % length);
+      setDragStartPos(e.clientX);
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDraggingSpin(false);
+  };
+
+  const handleTouchStart = (e) => {
+    setIsDraggingSpin(true);
+    setDragStartPos(e.touches[0].clientX);
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDraggingSpin) return;
+    const deltaX = e.touches[0].clientX - dragStartPos;
+    if (Math.abs(deltaX) > 12) {
+      const step = deltaX > 0 ? -1 : 1;
+      const length = spinImages.length > 0 ? spinImages.length : 24;
+      setSpinIndex(prev => (prev + step + length) % length);
+      setDragStartPos(e.touches[0].clientX);
+    }
+  };
+
+  const handleNotifySubmit = (e) => {
+    e.preventDefault();
+    if (!notifyEmail.trim()) return;
+    setNotifySuccess(true);
+    toast.success('Restock notification alert activated!');
+  };
 
   return (
     <main id="main-content">
@@ -109,44 +199,140 @@ const ProductDetailsPage = () => {
       <div className="max-w-site mx-auto px-6 md:px-8 pb-16">
         <div className="grid md:grid-cols-2 gap-8 lg:gap-16">
           {/* Images */}
-          <div className="flex gap-4">
-            {/* Thumbnails */}
-            <div className="flex flex-col gap-3 w-20 flex-shrink-0">
-              {images.map((img, i) => (
-                <button
-                  key={i}
-                  onClick={() => setSelectedImage(i)}
-                  className={`w-20 h-24 overflow-hidden border-2 transition-all ${selectedImage === i ? 'border-brand-gold' : 'border-transparent hover:border-brand-grey'}`}
-                  aria-label={`Product image ${i + 1}`}
-                  id={`thumb-${i}`}
-                >
-                  <img src={img} alt="" className="w-full h-full object-cover" />
-                </button>
-              ))}
+          <div className="flex flex-col flex-1">
+            <div className="flex gap-4">
+              {/* Thumbnails */}
+              <div className="flex flex-col gap-3 w-20 flex-shrink-0">
+                {images.map((img, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { setSelectedImage(i); setViewMode('standard'); }}
+                    className={`w-20 h-24 overflow-hidden border-2 transition-all ${selectedImage === i && viewMode === 'standard' ? 'border-brand-gold' : 'border-transparent hover:border-brand-grey'}`}
+                    aria-label={`Product image ${i + 1}`}
+                    id={`thumb-${i}`}
+                  >
+                    <img
+                      src={img}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = getPlaceholderSvg(product.name);
+                      }}
+                    />
+                  </button>
+                ))}
+              </div>
+
+              {/* Main image */}
+              <div
+                className="relative flex-1 aspect-square bg-brand-light overflow-hidden"
+              >
+                {viewMode === 'spin' ? (
+                  <div
+                    className="w-full h-full flex flex-col items-center justify-center select-none relative cursor-ew-resize bg-neutral-50"
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleMouseUp}
+                  >
+                    <div className="absolute top-4 left-4 bg-brand-gold/10 text-brand-gold text-[10px] font-bold px-2.5 py-1 tracking-wider uppercase flex items-center gap-1.5 rounded-full border border-brand-gold/20 z-10">
+                      <RotateCcw size={10} className="animate-spin" /> Drag to Rotate 360°
+                    </div>
+                    
+                    {spinImages.length > 0 ? (
+                      <img
+                        src={spinImages[spinIndex]}
+                        alt="Product 360 view frame"
+                        className="w-full h-full object-cover pointer-events-none"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = getPlaceholderSvg(product.name);
+                        }}
+                      />
+                    ) : (
+                      /* Elegant mock 3D gold rotating vector silhouette */
+                      <div className="w-full h-full flex flex-col items-center justify-center p-8 transition-transform duration-100 ease-out" style={{ perspective: 800 }}>
+                        <div
+                          className="w-48 h-64 border-2 border-brand-gold/40 flex items-center justify-center shadow-lg bg-white relative transition-transform duration-150"
+                          style={{
+                            transform: `rotateY(${spinIndex * (360 / 24)}deg)`,
+                            transformStyle: 'preserve-3d',
+                            boxShadow: '0 20px 40px rgba(201,162,75,0.1)'
+                          }}
+                        >
+                          <div className="absolute inset-2 border border-brand-gold/20 flex flex-col items-center justify-center bg-amber-50/10">
+                            <svg className="w-16 h-16 text-brand-gold" fill="none" stroke="currentColor" strokeWidth="1" viewBox="0 0 24 24">
+                              <polygon points="12,2 22,8.5 12,22 2,8.5" />
+                            </svg>
+                            <span className="text-[9px] text-brand-gold uppercase tracking-widest font-semibold mt-4">360° Specimen</span>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-brand-grey uppercase tracking-widest mt-6 font-medium">Swipe horizontally to spin</p>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => setViewMode('standard')}
+                      className="absolute bottom-4 right-4 bg-white hover:bg-neutral-50 text-brand-text text-xs px-3 py-1.5 rounded-full shadow border border-neutral-200 font-medium flex items-center gap-1 z-10"
+                    >
+                      Close 360°
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    className="w-full h-full relative cursor-zoom-in"
+                    onClick={() => setImageZoomed(!imageZoomed)}
+                  >
+                    <AnimatePresence mode="wait">
+                      <motion.img
+                        key={selectedImage}
+                        src={images[selectedImage]}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = getPlaceholderSvg(product.name);
+                        }}
+                      />
+                    </AnimatePresence>
+                    {discount && (
+                      <span className="absolute top-4 left-4 bg-brand-gold text-white text-xs font-bold px-3 py-1">
+                        −{discount}%
+                      </span>
+                    )}
+                    <button className="absolute top-4 right-4 w-9 h-9 bg-white/80 rounded-full flex items-center justify-center hover:bg-white transition-colors" aria-label="Zoom image">
+                      <ZoomIn size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Main image */}
-            <div
-              className="relative flex-1 aspect-square bg-brand-light overflow-hidden cursor-zoom-in"
-              onClick={() => setImageZoomed(!imageZoomed)}
-            >
-              <AnimatePresence mode="wait">
-                <motion.img
-                  key={selectedImage}
-                  src={images[selectedImage]}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                />
-              </AnimatePresence>
-              {discount && (
-                <span className="absolute top-4 left-4 bg-brand-gold text-white text-xs font-bold px-3 py-1">
-                  −{discount}%
-                </span>
-              )}
-              <button className="absolute top-4 right-4 w-9 h-9 bg-white/80 rounded-full flex items-center justify-center hover:bg-white transition-colors" aria-label="Zoom image">
-                <ZoomIn size={16} />
+            {/* Interactive media bar */}
+            <div className="flex gap-2 mt-3 w-full">
+              <button
+                onClick={() => setViewMode(viewMode === 'spin' ? 'standard' : 'spin')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 border text-xs font-medium transition-all ${viewMode === 'spin' ? 'bg-brand-text text-white border-brand-text' : 'border-brand-light text-brand-text hover:border-brand-text'}`}
+              >
+                <RotateCcw size={14} /> 360° Spin
+              </button>
+              <button
+                onClick={() => setViewMode('ar')}
+                className="flex-1 flex items-center justify-center gap-2 py-2 px-3 border border-brand-light text-brand-text hover:border-brand-text text-xs font-medium transition-all"
+              >
+                <Shield size={14} /> View in AR
+              </button>
+              <button
+                onClick={() => setVideoOpen(true)}
+                className="flex-1 flex items-center justify-center gap-2 py-2 px-3 border border-brand-light text-brand-text hover:border-brand-text text-xs font-medium transition-all"
+              >
+                <Play size={14} /> Watch Showcase
               </button>
             </div>
           </div>
@@ -226,24 +412,75 @@ const ProductDetailsPage = () => {
             </div>
 
             {/* CTA buttons */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={handleAddToCart}
-                className="btn-primary flex-1 flex items-center justify-center gap-2"
-                disabled={product.stock === 0}
-                id="pdp-add-cart"
-              >
-                <ShoppingBag size={18} />
-                {inCart ? 'Added to Cart' : 'Add to Cart'}
-              </button>
-              <button
-                onClick={() => dispatch(toggleItem(product.id))}
-                className={`btn-outline flex items-center justify-center gap-2 ${isWishlisted ? 'border-red-300 text-red-400' : ''}`}
-                id="pdp-wishlist"
-              >
-                <Heart size={18} className={isWishlisted ? 'fill-current' : ''} />
-                {isWishlisted ? 'Wishlisted' : 'Wishlist'}
-              </button>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                {product.stock > 0 ? (
+                  <button
+                    onClick={handleAddToCart}
+                    className="btn-primary flex-1 flex items-center justify-center gap-2"
+                    id="pdp-add-cart"
+                  >
+                    <ShoppingBag size={18} />
+                    {inCart ? 'Added to Cart' : 'Add to Cart'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setNotifySuccess(false)}
+                    className="bg-brand-text hover:bg-neutral-900 text-white font-medium py-3.5 px-6 text-xs tracking-widest uppercase flex-1 flex items-center justify-center gap-2 transition-all"
+                    id="pdp-notify"
+                  >
+                    <Mail size={16} /> Out of Stock — Notify Me
+                  </button>
+                )}
+                <button
+                  onClick={() => dispatch(toggleItem(product.id))}
+                  className={`btn-outline flex items-center justify-center gap-2 ${isWishlisted ? 'border-red-300 text-red-400' : ''}`}
+                  id="pdp-wishlist"
+                >
+                  <Heart size={18} className={isWishlisted ? 'fill-current' : ''} />
+                  {isWishlisted ? 'Wishlisted' : 'Wishlist'}
+                </button>
+              </div>
+
+              {/* Restock Notification Form */}
+              {product.stock === 0 && !notifySuccess && (
+                <motion.form
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  onSubmit={handleNotifySubmit}
+                  className="bg-brand-light p-4 rounded-xl border border-brand-light space-y-3"
+                >
+                  <p className="text-xs font-semibold text-brand-text">Get notified when this item is back in stock:</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      required
+                      placeholder="Enter your email address"
+                      value={notifyEmail}
+                      onChange={e => setNotifyEmail(e.target.value)}
+                      className="flex-1 bg-white border border-brand-light px-3 py-2 text-xs focus:outline-none focus:border-brand-gold"
+                    />
+                    <button type="submit" className="bg-brand-gold hover:bg-amber-600 text-white px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-colors">
+                      Alert Me
+                    </button>
+                  </div>
+                </motion.form>
+              )}
+
+              {product.stock === 0 && notifySuccess && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="bg-green-50 text-green-700 p-4 rounded-xl border border-green-200 flex items-start gap-2.5"
+                >
+                  <CheckCircle2 size={16} className="flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-semibold">Subscription Active</p>
+                    <p className="text-[11px] text-green-600/90 mt-0.5">We will send an email alert to {notifyEmail} as soon as this item is back in stock.</p>
+                  </div>
+                </motion.div>
+              )}
             </div>
 
             {/* Trust signals */}
@@ -261,11 +498,22 @@ const ProductDetailsPage = () => {
               ))}
             </div>
 
+            {/* Authenticity Certificate Card */}
+            <div className="bg-amber-50/50 border border-amber-200/50 p-4 rounded-xl flex items-start gap-3">
+              <Shield size={24} className="text-brand-gold flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-brand-text tracking-wider uppercase">Authenticity Guaranteed</p>
+                <p className="text-[11px] text-brand-grey mt-0.5 leading-relaxed">
+                  Certified 100% genuine luxury item. Accompanied by official designer brand tags, validation certificates, and master artisan credentials.
+                </p>
+              </div>
+            </div>
+
             {/* Product attributes */}
-            {product.attributes && Object.keys(product.attributes).filter(k => !['sizes', 'size'].includes(k)).length > 0 && (
+            {attributes && Object.keys(attributes).filter(k => !['sizes', 'size'].includes(k)).length > 0 && (
               <div className="border-t border-brand-light pt-4">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                  {Object.entries(product.attributes).filter(([k]) => !['sizes', 'size'].includes(k)).map(([key, val]) => (
+                  {Object.entries(attributes).filter(([k]) => !['sizes', 'size'].includes(k)).map(([key, val]) => (
                     <div key={key} className="flex gap-2 text-sm">
                       <span className="text-brand-grey capitalize">{key}:</span>
                       <span className="font-medium text-brand-text">{Array.isArray(val) ? val.join(', ') : val}</span>
@@ -340,6 +588,86 @@ const ProductDetailsPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Related Creations */}
+      {relatedProducts.length > 0 && (
+        <div className="border-t border-brand-light pt-16 mt-16 max-w-site mx-auto px-6 md:px-8">
+          <h2 className="font-playfair text-2xl font-bold text-brand-text mb-8">Related Creations</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            {relatedProducts.map((p, idx) => (
+              <ProductCard key={p.id} product={p} index={idx} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Video Lightbox Modal */}
+      <AnimatePresence>
+        {videoOpen && (
+          <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-4xl aspect-video bg-black shadow-2xl overflow-hidden rounded-xl"
+            >
+              <button
+                onClick={() => setVideoOpen(false)}
+                className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white w-9 h-9 rounded-full flex items-center justify-center transition-colors z-10"
+              >
+                <X size={20} />
+              </button>
+              <video
+                src="https://assets.mixkit.co/videos/preview/mixkit-luxury-gold-rings-on-a-display-42866-large.mp4"
+                className="w-full h-full object-cover"
+                controls
+                autoPlay
+                loop
+                playsInline
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* AR Modal */}
+      <AnimatePresence>
+        {viewMode === 'ar' && (
+          <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setViewMode('standard')}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-white p-8 rounded-2xl w-full max-w-md text-center relative border border-brand-light shadow-2xl"
+            >
+              <button
+                onClick={() => setViewMode('standard')}
+                className="absolute top-4 right-4 text-brand-grey hover:text-brand-text p-1"
+              >
+                <X size={20} />
+              </button>
+              <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4 border border-amber-200">
+                <Shield size={24} className="text-brand-gold" />
+              </div>
+              <h3 className="font-playfair text-xl font-bold mb-2">View in Augmented Reality</h3>
+              <p className="text-brand-grey text-xs mb-6">Scan the QR code below using your mobile device's camera to place this exquisite piece directly in your room.</p>
+              
+              {/* QR Code Placeholder */}
+              <div className="w-48 h-48 bg-neutral-100 border border-neutral-200 p-3 mx-auto mb-6 flex flex-col items-center justify-center relative">
+                <div className="absolute inset-2 border-2 border-brand-gold/25 pointer-events-none" />
+                <svg className="w-40 h-40 text-brand-text" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M3 3h6v6H3V3zm2 2v2h2V5H5zm8-2h6v6h-6V3zm2 2v2h2V5h-2zM3 13h6v6H3v-6zm2 2v2h2v-2H5zm13-2h3v3h-3v-3zm0 5h3v3h-3v-3zM13 13h3v3h-3v-3zm2 3h3v3h-3v-3zM11 11h2v2h-2v-2zm2-8h2v2h-2V3zm-2 2h2v2h-2V5zm0 14h2v2h-2v-2zm-6-6h2v2H5v-2zm14 2h2v2h-2v-2zm-6-2h2v2h-2v-2zm2-2h2v2h-2v-2zm-2-2h2v2h-2V9zm-2 4h2v2h-2v-2zm-2-2h2v2h-2v-2zm2 4h2v2h-2v-2zm6 2h2v2h-2v-2z"/>
+                </svg>
+              </div>
+
+              <div className="text-xs text-brand-grey bg-brand-light p-3 rounded-lg border border-brand-light">
+                Supports iOS (Safari AR QuickLook) and Android (Chrome SceneViewer).
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <Footer />
     </main>

@@ -222,8 +222,10 @@ class Media {
     const viewportOffset = this.viewport.width / 2;
     this.isBefore = this.plane.position.x + planeOffset < -viewportOffset;
     this.isAfter = this.plane.position.x - planeOffset > viewportOffset;
-    if (direction === 'right' && this.isBefore) { this.extra -= this.widthTotal; this.isBefore = this.isAfter = false; }
-    if (direction === 'left' && this.isAfter) { this.extra += this.widthTotal; this.isBefore = this.isAfter = false; }
+    if (this.length > 1) {
+      if (direction === 'right' && this.isBefore) { this.extra -= this.widthTotal; this.isBefore = this.isAfter = false; }
+      if (direction === 'left' && this.isAfter) { this.extra += this.widthTotal; this.isBefore = this.isAfter = false; }
+    }
   }
   onResize({ screen, viewport } = {}) {
     if (screen) this.screen = screen;
@@ -251,6 +253,7 @@ class App {
     this.onCheckDebounce = debounce(this.onCheck, 200);
     this.onChangeActiveIndex = onChangeActiveIndex;
     this.itemsLength = items?.length || 4;
+    this.noLoop = this.itemsLength <= 1; // single item: show once, static, no wrap/repeat
     this.lastActiveIndex = -1;
     this.isHovered = false;
     this.createRenderer();
@@ -285,9 +288,13 @@ class App {
     const galleryItems = items && items.length ? items : defaultItems;
 
     // Repeat items until we have at least 8 unique slots so no card is
-    // visible twice simultaneously on any viewport width
+    // visible twice simultaneously on any viewport width.
+    // Exception: a single item is never padded/duplicated — it's shown
+    // once, centered, with no looping.
     let repeated = [...galleryItems];
-    while (repeated.length < 8) repeated = repeated.concat(galleryItems);
+    if (galleryItems.length > 1) {
+      while (repeated.length < 8) repeated = repeated.concat(galleryItems);
+    }
 
     this.itemsLength = galleryItems.length; // normalize index back to original count
     this.mediasImages = repeated;
@@ -310,13 +317,14 @@ class App {
   }
   // ── Drag (mouse) ──────────────────────────────────────────────────
   onMouseDown(e) {
+    if (this.noLoop) return;
     this.isDown = true;
     this.dragStartX = e.clientX;
     this.scroll.position = this.scroll.current;
     this.container.style.cursor = 'grabbing';
   }
   onMouseMove(e) {
-    if (!this.isDown) return;
+    if (!this.isDown || this.noLoop) return;
     const delta = (this.dragStartX - e.clientX) * 0.04;
     this.scroll.target = this.scroll.position + delta * this.scrollSpeed;
   }
@@ -327,13 +335,14 @@ class App {
   }
   // ── Touch (mobile) ───────────────────────────────────────────────
   onTouchStart(e) {
+    if (this.noLoop) return;
     this.isDown = true;
     this.dragStartX = e.touches[0].clientX;
     this.dragStartY = e.touches[0].clientY;
     this.scroll.position = this.scroll.current;
   }
   onTouchMove(e) {
-    if (!this.isDown) return;
+    if (!this.isDown || this.noLoop) return;
     const dx = this.dragStartX - e.touches[0].clientX;
     const dy = this.dragStartY - e.touches[0].clientY;
     // Only hijack scroll if horizontal swipe is dominant
@@ -348,6 +357,7 @@ class App {
   }
   // ── Wheel (scoped to container) ───────────────────────────────────
   onWheel(e) {
+    if (this.noLoop) return;
     // Regular vertical mouse-wheel scroll (deltaX ~0) must NOT be hijacked —
     // otherwise the page becomes unscrollable while the cursor sits over
     // the gallery. Only intercept clearly horizontal gestures (trackpad
@@ -363,10 +373,12 @@ class App {
     this.onCheckDebounce();
   }
   onKeyDown(e) {
+    if (this.noLoop) return;
     if (e.key === 'ArrowRight') { e.preventDefault(); this.scroll.target += this.scrollSpeed * 3; this.onCheckDebounce(); }
     if (e.key === 'ArrowLeft')  { e.preventDefault(); this.scroll.target -= this.scrollSpeed * 3; this.onCheckDebounce(); }
   }
   onCheck() {
+    if (this.noLoop) { this.scroll.target = 0; return; }
     if (!this.medias || !this.medias[0]) return;
     const width = this.medias[0].width;
     const itemIndex = Math.round(this.scroll.target / width);
@@ -375,7 +387,7 @@ class App {
   // Move exactly one item left/right from the nearest snapped position —
   // used by the external prev/next arrow buttons.
   step(direction) {
-    if (!this.medias || !this.medias[0]) return;
+    if (this.noLoop || !this.medias || !this.medias[0]) return;
     const width = this.medias[0].width;
     const currentIndex = Math.round(this.scroll.target / width);
     this.scroll.target = width * (currentIndex + direction);
