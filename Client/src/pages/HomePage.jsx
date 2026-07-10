@@ -11,6 +11,7 @@ import ProductCard from '../components/ProductCard';
 import HeroBanner from '../components/HeroBanner';
 import ExclusiveCollection from '../components/ExclusiveCollection';
 import Footer from '../components/Footer';
+import CircularGallery from '../components/CircularGallery';
 
 /* ── Countdown Timer hook ─────────────────────────────────────────────────── */
 const useCountdown = (targetDate) => {
@@ -115,6 +116,7 @@ const HomePage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [videoPlaying, setVideoPlaying] = useState(false);
   const [dbInfluencers, setDbInfluencers] = useState([]);
+  const [activeInfluencerIndex, setActiveInfluencerIndex] = useState(0);
 
   // Category Carousel State & Refs
   const catScrollRef = useRef(null);
@@ -518,36 +520,54 @@ const HomePage = () => {
 
       {/* ── SECTION 9: Influencer Showcase ──────────────────────────────── */}
       {dbInfluencers.length > 0 && (
-        <section className="py-16 md:py-24 bg-brand-bg" aria-label="Style influencers">
+        <section className="py-16 md:py-24 bg-brand-bg border-t border-brand-light" aria-label="Style influencers">
           <div className="max-w-site mx-auto px-6 md:px-8">
             <ScrollReveal>
-              <SectionHeader eyebrow="As Seen On" title="Style Diaries" subtitle="Our favourite curators wearing Billu Bazaar" />
+              <SectionHeader eyebrow="As Seen On" title="Style Diaries" subtitle="Drag or scroll to explore our favorite curators wearing Billu Bazaar" />
             </ScrollReveal>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-              {dbInfluencers.map((person, i) => (
-                <ScrollReveal key={person.handle} delay={i * 0.1}>
-                  <div className="group cursor-pointer">
-                    <div className="relative aspect-[3/4] overflow-hidden mb-4">
-                      <img
-                        src={person.img}
-                        alt={person.name}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        loading="lazy"
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-300 flex items-center justify-center">
-                        <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-white font-medium text-sm px-4 py-2 border border-white">
-                          Shop Her Look
-                        </span>
-                      </div>
-                    </div>
-                    <p className="font-medium text-sm text-brand-text">{person.name}</p>
-                    <p className="text-brand-gold text-xs">{person.handle}</p>
-                    <p className="text-brand-grey text-xs mt-1">{person.followers} followers · {person.products} products</p>
-                  </div>
-                </ScrollReveal>
-              ))}
+            {/* Circular Gallery Container */}
+            <div className="relative h-[420px] sm:h-[500px] md:h-[580px] w-full mt-6 mb-8 rounded-2xl border border-brand-light/60 shadow-sm overflow-hidden" style={{ background: 'transparent' }}>
+              <CircularGallery
+                items={dbInfluencers.map(inf => ({ image: inf.img, text: inf.name }))}
+                bend={2}
+                textColor="#C58837"
+                borderRadius={0.04}
+                scrollEase={0.07}
+                scrollSpeed={3}
+                fontUrl="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap"
+                font="bold 26px Cinzel"
+                onChangeActiveIndex={(idx) => setActiveInfluencerIndex(idx)}
+              />
             </div>
+
+            {/* Centered Active Influencer Details Card */}
+            {dbInfluencers[activeInfluencerIndex] && (
+              <ScrollReveal>
+                <div className="max-w-md mx-auto text-center bg-white border border-brand-light p-6 md:p-8 rounded-xl shadow-md transition-all duration-300">
+                  <span className="text-brand-gold text-xs font-bold uppercase tracking-widest bg-amber-50 px-3 py-1 rounded-full border border-amber-200/50 mb-3 inline-block font-inter">
+                    Featured Curator
+                  </span>
+                  <h3 className="font-playfair text-2xl font-bold text-brand-text mb-1">
+                    {dbInfluencers[activeInfluencerIndex].name}
+                  </h3>
+                  <p className="text-brand-gold text-sm font-semibold mb-3 font-inter">
+                    {dbInfluencers[activeInfluencerIndex].handle}
+                  </p>
+                  <p className="text-brand-grey text-xs mb-6 font-medium font-inter">
+                    {dbInfluencers[activeInfluencerIndex].followers} followers · {dbInfluencers[activeInfluencerIndex].products} products curated
+                  </p>
+                  
+                  <Link
+                    to={`/products?referral=${dbInfluencers[activeInfluencerIndex].handle.replace('@', '').replace('_style', '')}`}
+                    className="btn-primary w-full flex items-center justify-center gap-2 group hover:scale-[1.02] transition-transform font-inter"
+                    id="shop-her-look-btn"
+                  >
+                    Shop {dbInfluencers[activeInfluencerIndex].name}'s Look <ArrowRight size={16} />
+                  </Link>
+                </div>
+              </ScrollReveal>
+            )}
           </div>
         </section>
       )}

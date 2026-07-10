@@ -1,0 +1,29 @@
+/* ── CircularGallery ─────────────────────────────────────────────── */
+.circular-gallery {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  outline: none;           /* hide keyboard focus ring on the canvas area */
+  touch-action: pan-y;     /* let the browser handle vertical scroll;
+                              horizontal is intercepted selectively by JS */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.circular-gallery:focus-visible {
+  outline: 2px solid rgba(197, 136, 55, 0.6);
+  outline-offset: -2px;
+}
+
+.circular-gallery.is-dragging,
+.circular-gallery:active {
+  cursor: grabbing;
+}
+
+.circular-gallery canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
