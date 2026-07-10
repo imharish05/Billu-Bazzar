@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import InfluencerCarouselMobile from '../components/InfluencerCarouselMobile';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { motion, useInView } from 'framer-motion';
@@ -117,6 +118,25 @@ const HomePage = () => {
   const [videoPlaying, setVideoPlaying] = useState(false);
   const [dbInfluencers, setDbInfluencers] = useState([]);
   const [activeInfluencerIndex, setActiveInfluencerIndex] = useState(0);
+  const influencerGalleryItems = useMemo(
+    () => dbInfluencers.map(inf => ({ image: inf.img, text: inf.name })),
+    [dbInfluencers]
+  );
+  const handleActiveInfluencerChange = useCallback((idx) => {
+    setActiveInfluencerIndex(idx);
+  }, []);
+  const galleryRef = useRef(null);
+  // Below 768px we render InfluencerCarouselMobile instead of the WebGL
+  // CircularGallery — cheaper, and gives one-card-at-a-time + arrow nav.
+  const [isMobileViewport, setIsMobileViewport] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 768
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const handleChange = (e) => setIsMobileViewport(e.matches);
+    mq.addEventListener('change', handleChange);
+    return () => mq.removeEventListener('change', handleChange);
+  }, []);
 
   // Category Carousel State & Refs
   const catScrollRef = useRef(null);
@@ -526,47 +546,74 @@ const HomePage = () => {
               <SectionHeader eyebrow="As Seen On" title="Style Diaries" subtitle="Drag or scroll to explore our favorite curators wearing Billu Bazaar" />
             </ScrollReveal>
 
-            {/* Circular Gallery Container */}
-            <div className="relative h-[420px] sm:h-[500px] md:h-[580px] w-full mt-6 mb-8 rounded-2xl border border-brand-light/60 shadow-sm overflow-hidden" style={{ background: 'transparent' }}>
-              <CircularGallery
-                items={dbInfluencers.map(inf => ({ image: inf.img, text: inf.name }))}
-                bend={2}
-                textColor="#C58837"
-                borderRadius={0.04}
-                scrollEase={0.07}
-                scrollSpeed={3}
-                fontUrl="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap"
-                font="bold 26px Cinzel"
-                onChangeActiveIndex={(idx) => setActiveInfluencerIndex(idx)}
-              />
-            </div>
+            {/* Curator showcase: arrow carousel on mobile, WebGL circular gallery on desktop.
+                Image + details now live in ONE card/frame instead of two separate boxes. */}
+            {isMobileViewport ? (
+              <div className="mt-6 mb-8">
+                <InfluencerCarouselMobile
+                  items={dbInfluencers}
+                  onChangeActiveIndex={handleActiveInfluencerChange}
+                />
+              </div>
+            ) : (
+              dbInfluencers[activeInfluencerIndex] && (
+                <div className="max-w-6xl mx-auto mt-6 mb-8 bg-white border border-brand-light/60 rounded-2xl shadow-sm overflow-hidden">
+                  {/* Image gallery — top of the single card */}
+                  <div className="relative h-[300px] lg:h-[340px] w-full" style={{ background: 'transparent' }}>
+                    <CircularGallery
+                      ref={galleryRef}
+                      items={influencerGalleryItems}
+                      bend={2}
+                      textColor="#C58837"
+                      borderRadius={0.04}
+                      scrollEase={0.07}
+                      scrollSpeed={3}
+                      fontUrl="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap"
+                      font="bold 26px Cinzel"
+                      onChangeActiveIndex={handleActiveInfluencerChange}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => galleryRef.current?.prev()}
+                      aria-label="Previous curator"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 hover:bg-white shadow-md flex items-center justify-center text-brand-text active:scale-90 transition-transform"
+                    >
+                      <ChevronLeft size={22} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => galleryRef.current?.next()}
+                      aria-label="Next curator"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 hover:bg-white shadow-md flex items-center justify-center text-brand-text active:scale-90 transition-transform"
+                    >
+                      <ChevronRight size={22} />
+                    </button>
+                  </div>
 
-            {/* Centered Active Influencer Details Card */}
-            {dbInfluencers[activeInfluencerIndex] && (
-              <ScrollReveal>
-                <div className="max-w-md mx-auto text-center bg-white border border-brand-light p-6 md:p-8 rounded-xl shadow-md transition-all duration-300">
-                  <span className="text-brand-gold text-xs font-bold uppercase tracking-widest bg-amber-50 px-3 py-1 rounded-full border border-amber-200/50 mb-3 inline-block font-inter">
-                    Featured Curator
-                  </span>
-                  <h3 className="font-playfair text-2xl font-bold text-brand-text mb-1">
-                    {dbInfluencers[activeInfluencerIndex].name}
-                  </h3>
-                  <p className="text-brand-gold text-sm font-semibold mb-3 font-inter">
-                    {dbInfluencers[activeInfluencerIndex].handle}
-                  </p>
-                  <p className="text-brand-grey text-xs mb-6 font-medium font-inter">
-                    {dbInfluencers[activeInfluencerIndex].followers} followers · {dbInfluencers[activeInfluencerIndex].products} products curated
-                  </p>
-                  
-                  <Link
-                    to={`/products?referral=${dbInfluencers[activeInfluencerIndex].handle.replace('@', '').replace('_style', '')}`}
-                    className="btn-primary w-full flex items-center justify-center gap-2 group hover:scale-[1.02] transition-transform font-inter"
-                    id="shop-her-look-btn"
-                  >
-                    Shop {dbInfluencers[activeInfluencerIndex].name}'s Look <ArrowRight size={16} />
-                  </Link>
+                  {/* Details — same card, directly under the gallery, no separate frame */}
+                  <div className="text-center p-6 md:p-8 border-t border-brand-light/60 transition-all duration-300">
+                    <span className="text-brand-gold text-xs font-bold uppercase tracking-widest bg-amber-50 px-3 py-1 rounded-full border border-amber-200/50 mb-3 inline-block font-inter">
+                      Featured Curator
+                    </span>
+                    <h3 className="font-playfair text-2xl font-bold text-brand-text mb-1">
+                      {dbInfluencers[activeInfluencerIndex].name}
+                    </h3>
+                    <p className="text-brand-gold text-sm font-semibold mb-3 font-inter">
+                      {dbInfluencers[activeInfluencerIndex].handle}
+                    </p>
+                    <p className="text-brand-grey text-xs mb-6 font-medium font-inter">
+                      {dbInfluencers[activeInfluencerIndex].followers} followers · {dbInfluencers[activeInfluencerIndex].products} products curated
+                    </p>
+                    <Link
+                      to={`/products?referral=${dbInfluencers[activeInfluencerIndex].handle.replace('@', '').replace('_style', '')}`}
+                      className="btn-primary max-w-md mx-auto w-full flex items-center justify-center gap-2 group hover:scale-[1.02] transition-transform font-inter"
+                      id="shop-her-look-btn"
+                    >
+                      Shop {dbInfluencers[activeInfluencerIndex].name}'s Look <ArrowRight size={16} />
+                    </Link>
+                  </div>
                 </div>
-              </ScrollReveal>
+              )
             )}
           </div>
         </section>

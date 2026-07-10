@@ -1,5 +1,5 @@
 import { Camera, Mesh, Plane, Program, Renderer, Texture, Transform } from 'ogl';
-import { useEffect, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
 import './CircularGallery.css';
 
@@ -348,10 +348,15 @@ class App {
   }
   // ── Wheel (scoped to container) ───────────────────────────────────
   onWheel(e) {
+    // Regular vertical mouse-wheel scroll (deltaX ~0) must NOT be hijacked —
+    // otherwise the page becomes unscrollable while the cursor sits over
+    // the gallery. Only intercept clearly horizontal gestures (trackpad
+    // swipe, shift+wheel), same rule the touch handler already uses.
+    if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
     e.preventDefault();
     e.stopPropagation();
     // normalise across deltaMode: 0=px, 1=line, 2=page
-    let delta = e.deltaY;
+    let delta = e.deltaX;
     if (e.deltaMode === 1) delta *= 24;
     if (e.deltaMode === 2) delta *= 300;
     this.scroll.target += Math.sign(delta) * this.scrollSpeed * 0.4;
@@ -367,6 +372,16 @@ class App {
     const itemIndex = Math.round(this.scroll.target / width);
     this.scroll.target = width * itemIndex;
   }
+  // Move exactly one item left/right from the nearest snapped position —
+  // used by the external prev/next arrow buttons.
+  step(direction) {
+    if (!this.medias || !this.medias[0]) return;
+    const width = this.medias[0].width;
+    const currentIndex = Math.round(this.scroll.target / width);
+    this.scroll.target = width * (currentIndex + direction);
+  }
+  next() { this.step(1); }
+  prev() { this.step(-1); }
   onResize() {
     this.screen = { width: this.container.clientWidth, height: this.container.clientHeight };
     this.renderer.setSize(this.screen.width, this.screen.height);
@@ -439,7 +454,7 @@ class App {
   }
 }
 
-export default function CircularGallery({
+const CircularGallery = forwardRef(function CircularGallery({
   items,
   bend = 3,
   textColor = '#C58837',
@@ -449,18 +464,27 @@ export default function CircularGallery({
   scrollSpeed = 2,
   scrollEase = 0.06,
   onChangeActiveIndex
-}) {
+}, ref) {
   const containerRef = useRef(null);
+  const appRef = useRef(null);
   useEffect(() => {
     if (!containerRef.current) return;
-    let app;
     let isMounted = true;
     resolveFont(font, fontUrl).then(resolvedFont => {
       if (!isMounted || !containerRef.current) return;
-      app = new App(containerRef.current, { items, bend, textColor, borderRadius, font: resolvedFont, scrollSpeed, scrollEase, onChangeActiveIndex });
+      appRef.current = new App(containerRef.current, { items, bend, textColor, borderRadius, font: resolvedFont, scrollSpeed, scrollEase, onChangeActiveIndex });
     });
-    return () => { isMounted = false; if (app) app.destroy(); };
+    return () => {
+      isMounted = false;
+      if (appRef.current) { appRef.current.destroy(); appRef.current = null; }
+    };
   }, [items, bend, textColor, borderRadius, font, fontUrl, scrollSpeed, scrollEase, onChangeActiveIndex]);
+
+  // Let parent components step the gallery one card at a time via arrow buttons
+  useImperativeHandle(ref, () => ({
+    next: () => appRef.current?.next(),
+    prev: () => appRef.current?.prev()
+  }), []);
 
   return (
     <div
@@ -471,4 +495,6 @@ export default function CircularGallery({
       aria-label="Circular image gallery. Use left and right arrow keys to navigate."
     />
   );
-}
+});
+
+export default CircularGallery;

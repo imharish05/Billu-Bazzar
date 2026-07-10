@@ -121,6 +121,36 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handler);
   }, []);
 
+  // Hide header on scroll down, reveal on scroll up. Stays visible near the
+  // top and ignores sub-pixel/bounce jitter below a small threshold.
+  const [navHidden, setNavHidden] = useState(false);
+  const lastScrollYRef = useRef(0);
+  useEffect(() => {
+    lastScrollYRef.current = window.scrollY;
+    const HIDE_THRESHOLD = 140; // roughly header height — don't hide until scrolled past it
+    const DELTA = 6; // ignore tiny scroll jitter
+    const handleDirection = () => {
+      const currentY = window.scrollY;
+      const diff = currentY - lastScrollYRef.current;
+      if (Math.abs(diff) < DELTA) return;
+      if (currentY <= HIDE_THRESHOLD) {
+        setNavHidden(false);
+      } else if (diff > 0) {
+        setNavHidden(true); // scrolling down
+      } else {
+        setNavHidden(false); // scrolling up
+      }
+      lastScrollYRef.current = currentY;
+    };
+    window.addEventListener('scroll', handleDirection, { passive: true });
+    return () => window.removeEventListener('scroll', handleDirection);
+  }, []);
+
+  // Never hide the header while the mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) setNavHidden(false);
+  }, [mobileMenuOpen]);
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
@@ -343,7 +373,7 @@ const Navbar = () => {
   return (
     <>
       <header
-        className={`glass-nav fixed top-0 left-0 right-0 z-50 transition-shadow duration-300 ${scrolled ? 'shadow-md' : ''}`}
+        className={`glass-nav fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ease-in-out ${scrolled ? 'shadow-md' : ''} ${navHidden ? '-translate-y-full' : 'translate-y-0'}`}
         role="banner"
       >
         {/* Announcement bar */}
