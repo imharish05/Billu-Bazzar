@@ -1,23 +1,37 @@
 /**
  * Logo component — both apps
- * Brand text rendered in Playfair Display gold. Uses CSS var --brand-logo-text.
- * No hardcoded image file — pure CSS/text logo.
+ * Renders the circular gold brand logo image alongside styled brand text.
  */
-const Logo = ({ size = 'md', className = '' }) => {
-  const sizes = {
-    sm: 'text-xl',
-    md: 'text-2xl',
-    lg: 'text-4xl',
+const Logo = ({ size = 'md', className = '', showText = false }) => {
+  const imageSizes = {
+    sm: 'h-16 w-16',
+    md: 'h-20 w-20',
+    lg: 'h-32 w-32',
+  };
+
+  const textSizes = {
+    sm: 'text-lg',
+    md: 'text-xl',
+    lg: 'text-3xl',
   };
 
   return (
-    <span
-      className={`font-playfair font-bold tracking-tight ${sizes[size]} ${className}`}
-      style={{ color: 'var(--color-gold)', fontFamily: '"Playfair Display", Georgia, serif' }}
-    >
-      Billu{' '}
-      <span style={{ color: 'var(--color-text)' }}>Bazaar</span>
-    </span>
+    <div className={`flex items-center gap-2.5 ${className}`}>
+      <img
+        src="/logo.png"
+        alt="Billu Bazaar Logo"
+        className={`${imageSizes[size]} object-contain bg-black rounded-none shadow-[0_4px_12px_rgba(0,0,0,0.4)]`}
+      />
+      {showText && (
+        <span
+          className={`font-playfair font-bold tracking-tight ${textSizes[size]}`}
+          style={{ fontFamily: '"Cinzel", Georgia, serif' }}
+        >
+          <span style={{ color: 'var(--color-gold)' }}>Billu</span>{' '}
+          <span className="text-white">Bazaar</span>
+        </span>
+      )}
+    </div>
   );
 };
 

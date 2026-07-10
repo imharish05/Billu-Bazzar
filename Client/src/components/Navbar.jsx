@@ -20,13 +20,13 @@ import { formatPrice } from '../utils/currency';
 import api from '../services/api';
 
 /* Glass surface 1: Navbar — rgba(250,250,248,0.72) + blur(12px) + 1px border */
-const navLinks = [
-  { label: 'New Arrivals', to: '/products?newArrival=true' },
-  { label: 'Party Wear', to: '/products?category=party-wear' },
-  { label: 'Jewelry', to: '/products?category=jewelry' },
-  { label: 'Perfumes', to: '/products?category=perfumes' },
-  { label: 'Accessories', to: '/products?category=accessories' },
-  { label: 'Sale', to: '/products?sale=true', highlight: true },
+const DEFAULT_NAV_LINKS = [
+  { to: '/shop?category=new-arrivals', label: 'New Arrivals' },
+  { to: '/shop?category=party-wear', label: 'Party Wear' },
+  { to: '/shop?category=jewelry', label: 'Jewelry' },
+  { to: '/shop?category=perfumes', label: 'Perfumes' },
+  { to: '/shop?category=accessories', label: 'Accessories' },
+  { to: '/shop?category=sale', label: 'Sale', highlight: true },
 ];
 
 const TRENDING_KEYWORDS = ['bridal lehenga', 'party wear', 'gold jewelry', 'designer saree', 'perfume gift set'];
@@ -52,6 +52,68 @@ const Navbar = () => {
   const [activeIndex, setActiveIndex] = useState(-1);
   const searchRef = useRef(null);
   const debounceTimer = useRef(null);
+
+  const [sliderMessages, setSliderMessages] = useState([]);
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+
+  useEffect(() => {
+    const fetchSliderMessages = async () => {
+      try {
+        const res = await api.get('/marketing-messages');
+        if (res.data?.success && res.data.messages?.length > 0) {
+          setSliderMessages(res.data.messages);
+        }
+      } catch (err) {
+        console.error('Error fetching slider messages:', err);
+      }
+    };
+    fetchSliderMessages();
+  }, []);
+
+  useEffect(() => {
+    if (sliderMessages.length <= 1) return;
+    const timer = setInterval(() => {
+      setCurrentMessageIndex(prev => (prev + 1) % sliderMessages.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [sliderMessages]);
+
+  const renderMessageContent = (text) => {
+    const parts = text.split(/(\b[A-Z]{3,8}\d{2,4}\b)/g);
+    return parts.map((part, i) => {
+      if (/^[A-Z]{3,8}\d{2,4}$/.test(part)) {
+        return <span key={i} className="text-brand-gold font-bold tracking-wider">{part}</span>;
+      }
+      return part;
+    });
+  };
+
+  const [dynamicNavLinks, setDynamicNavLinks] = useState([]);
+
+  useEffect(() => {
+    const fetchHeaderCategories = async () => {
+      try {
+        const res = await api.get('/categories');
+        if (res.data?.success && res.data.categories?.length > 0) {
+          const headerLinks = res.data.categories
+            .filter(c => c.showHeader)
+            .map(c => ({
+              to: `/shop?category=${c.slug}`,
+              label: c.name,
+              highlight: c.slug === 'sale',
+            }));
+          if (headerLinks.length > 0) {
+            setDynamicNavLinks(headerLinks);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching header categories:', err);
+      }
+    };
+    fetchHeaderCategories();
+  }, []);
+
+  const activeNavLinks = dynamicNavLinks.length > 0 ? dynamicNavLinks : DEFAULT_NAV_LINKS;
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 20);
@@ -148,9 +210,9 @@ const Navbar = () => {
       <span>
         {parts.map((part, i) =>
           part.toLowerCase() === highlight.toLowerCase() ? (
-            <strong key={i} className="font-extrabold text-brand-text">{part}</strong>
+            <strong key={i} className="font-extrabold text-white">{part}</strong>
           ) : (
-            <span key={i} className="text-brand-grey">{part}</span>
+            <span key={i} className="text-neutral-300">{part}</span>
           )
         )}
       </span>
@@ -166,14 +228,14 @@ const Navbar = () => {
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            className="absolute top-full left-0 right-0 bg-white border border-brand-light shadow-lg mt-1 z-50 max-h-96 overflow-y-auto rounded-lg"
+            className="absolute top-full left-0 right-0 bg-neutral-950 border border-neutral-800 shadow-2xl mt-1 z-50 max-h-96 overflow-y-auto rounded-lg"
             role="listbox"
             aria-label="Search suggestions"
           >
             {/* Trending searches */}
             {localQuery.trim().length === 0 && (
               <div className="p-4">
-                <p className="text-[10px] font-bold text-brand-grey uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <p className="text-[10px] font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <TrendingUp size={12} className="text-brand-gold" /> Trending Searches
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -185,7 +247,7 @@ const Navbar = () => {
                       className={`text-xs px-3 py-1.5 transition-all border rounded-full ${
                         activeIndex === i
                           ? 'bg-brand-gold border-brand-gold text-white font-semibold shadow-sm'
-                          : 'bg-brand-light/50 text-brand-grey hover:text-brand-gold border-brand-light hover:border-brand-gold'
+                          : 'bg-neutral-900 text-neutral-300 hover:text-brand-gold border-neutral-800 hover:border-brand-gold'
                       }`}
                       id={`trending-kw-${i}`}
                     >
@@ -198,8 +260,8 @@ const Navbar = () => {
 
             {/* Keyword Suggestions */}
             {localQuery.trim().length > 0 && autocompleteSuggestions.length > 0 && (
-              <div className="border-b border-brand-light/50 py-2">
-                <p className="px-4 py-1.5 text-[10px] font-bold text-brand-grey uppercase tracking-wider">Suggested Keywords</p>
+              <div className="border-b border-neutral-850 py-2">
+                <p className="px-4 py-1.5 text-[10px] font-bold text-white uppercase tracking-wider">Suggested Keywords</p>
                 {autocompleteSuggestions.map((kw, i) => (
                   <button
                     key={kw}
@@ -207,13 +269,13 @@ const Navbar = () => {
                     onClick={() => handleKeywordClick(kw)}
                     className={`w-full flex items-center justify-between px-4 py-2.5 text-left text-sm transition-colors ${
                       activeIndex === i
-                        ? 'bg-brand-light text-brand-gold font-medium'
-                        : 'hover:bg-brand-light/50 text-brand-text'
+                        ? 'bg-neutral-800 text-brand-gold font-medium'
+                        : 'hover:bg-neutral-900 text-white'
                     }`}
                     id={`suggest-kw-${i}`}
                   >
                     <span>{highlightMatch(kw, localQuery)}</span>
-                    <ArrowRight size={12} className="text-brand-grey/50" />
+                    <ArrowRight size={12} className="text-white/40" />
                   </button>
                 ))}
               </div>
@@ -222,31 +284,31 @@ const Navbar = () => {
             {/* Product Previews */}
             {localQuery.trim().length > 0 && autocompleteProducts.length > 0 && (
               <div className="py-2">
-                <p className="px-4 py-1.5 text-[10px] font-bold text-brand-grey uppercase tracking-wider">Product Matches</p>
+                <p className="px-4 py-1.5 text-[10px] font-bold text-white uppercase tracking-wider">Product Matches</p>
                 {autocompleteProducts.map(product => (
                   <button
                     key={product.id}
                     type="button"
                     onClick={() => handleSuggestionClick(product)}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-brand-light/50 transition-colors text-left"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-900 transition-colors text-left"
                   >
-                    <div className="w-10 h-12 bg-brand-light flex-shrink-0 overflow-hidden border border-brand-light rounded">
+                    <div className="w-10 h-12 bg-neutral-900 flex-shrink-0 overflow-hidden border border-neutral-800 rounded">
                       {product.image && (
                         <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-brand-text truncate">{product.name}</p>
+                      <p className="text-sm font-medium text-white truncate">{product.name}</p>
                       <p className="text-xs text-brand-gold font-semibold mt-0.5">
                         {formatPrice(product.price, currencyCode, currencyRate)}
                         {product.comparePrice > product.price && (
-                          <span className="text-brand-grey text-[10px] line-through ml-2 font-normal">
+                          <span className="text-neutral-400 text-[10px] line-through ml-2 font-normal">
                             {formatPrice(product.comparePrice, currencyCode, currencyRate)}
                           </span>
                         )}
                       </p>
                     </div>
-                    <ArrowRight size={14} className="text-brand-grey flex-shrink-0" />
+                    <ArrowRight size={14} className="text-white/60 flex-shrink-0" />
                   </button>
                 ))}
               </div>
@@ -254,7 +316,7 @@ const Navbar = () => {
 
             {/* No matches */}
             {localQuery.trim().length > 0 && autocompleteSuggestions.length === 0 && autocompleteProducts.length === 0 && !searchLoadingState && (
-              <div className="p-6 text-center text-brand-grey text-sm">
+              <div className="p-6 text-center text-neutral-300 text-sm">
                 No matches found for "{localQuery}"
               </div>
             )}
@@ -264,7 +326,7 @@ const Navbar = () => {
               <button
                 type="button"
                 onClick={() => handleSearchSubmit()}
-                className="w-full text-center py-3 text-xs font-semibold text-brand-gold border-t border-brand-light hover:bg-brand-light/50 transition-colors uppercase tracking-wider"
+                className="w-full text-center py-3 text-xs font-semibold text-brand-gold border-t border-neutral-800 hover:bg-neutral-900 transition-colors uppercase tracking-wider"
               >
                 View all results for "{localQuery.trim()}"
               </button>
@@ -285,13 +347,30 @@ const Navbar = () => {
         role="banner"
       >
         {/* Announcement bar */}
-        <div className="bg-brand-text text-brand-white text-center py-2 text-caption font-inter tracking-widest uppercase text-xs">
-          Free shipping on orders above ₹1499 · Use code <span className="text-gold font-semibold">WELCOME20</span> for 20% off
+        <div className="bg-white text-neutral-950 text-center py-1.5 text-caption font-inter tracking-widest uppercase text-[10px] sm:text-xs overflow-hidden relative h-9 flex items-center justify-center border-b border-neutral-200">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentMessageIndex + (sliderMessages[currentMessageIndex]?.id || 'default')}
+              initial={{ y: 12, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -12, opacity: 0 }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              className="px-4 text-center w-full truncate"
+            >
+              {sliderMessages.length > 0 ? (
+                renderMessageContent(sliderMessages[currentMessageIndex].message)
+              ) : (
+                <>
+                  Free shipping on orders above ₹1499 · Use code <span className="text-brand-gold font-bold">WELCOME20</span> for 20% off
+                </>
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         <nav className="max-w-site mx-auto px-4 md:px-8" aria-label="Main navigation">
           {/* Desktop layout */}
-          <div className="hidden lg:flex items-center justify-between h-16">
+          <div className="hidden lg:flex items-center justify-between h-20">
             {/* Logo */}
             <Link to="/" aria-label="Billu Bazaar — Home" className="flex-shrink-0">
               <Logo size="md" />
@@ -307,7 +386,7 @@ const Navbar = () => {
                   onFocus={handleSearchFocus}
                   onKeyDown={handleKeyDown}
                   placeholder="Search luxury..."
-                  className="w-full border border-brand-light bg-brand-bg px-4 py-2 pr-20 text-sm focus:outline-none focus:border-brand-gold transition-colors font-inter"
+                  className="w-full border border-neutral-800 bg-neutral-900 text-white placeholder-neutral-500 px-4 py-2 pr-20 text-sm focus:outline-none focus:border-brand-gold transition-colors font-inter"
                   aria-label="Search products"
                   id="nav-search-input-desktop"
                   autoComplete="off"
@@ -321,8 +400,8 @@ const Navbar = () => {
                     disabled={isEmpty}
                     className={`px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors ${
                       isEmpty
-                        ? 'bg-brand-light text-brand-grey cursor-not-allowed'
-                        : 'bg-brand-text text-white hover:bg-brand-gold'
+                        ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
+                        : 'bg-brand-gold text-white hover:bg-amber-600'
                     }`}
                     id="nav-search-btn-desktop"
                   >
@@ -340,7 +419,7 @@ const Navbar = () => {
                 <button
                   type="button"
                   onClick={() => dispatch(setCurrency(currencyCode === 'INR' ? 'AED' : 'INR'))}
-                  className="flex items-center bg-neutral-100/90 hover:bg-neutral-200/60 border border-neutral-200/80 rounded-full p-[3px] relative cursor-pointer focus-visible:outline-brand-gold transition-all duration-300 shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] h-[32px] w-[86px]"
+                  className="flex items-center bg-neutral-900/90 hover:bg-neutral-800/80 border border-neutral-800 rounded-full p-[3px] relative cursor-pointer focus-visible:outline-brand-gold transition-all duration-300 shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)] h-[32px] w-[86px]"
                   aria-label={`Switch currency from ${currencyCode}`}
                   id="nav-currency-toggle-desktop"
                 >
@@ -356,37 +435,37 @@ const Navbar = () => {
                     }}
                     transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                   />
-                  <span className={`relative z-10 text-[10px] font-bold tracking-widest w-[40px] text-center uppercase transition-all duration-300 ${currencyCode === 'INR' ? 'text-white scale-105' : 'text-brand-grey hover:text-brand-text scale-95 opacity-80'}`}>
+                  <span className={`relative z-10 text-[10px] font-bold tracking-widest w-[40px] text-center uppercase transition-all duration-300 ${currencyCode === 'INR' ? 'text-white scale-105' : 'text-white/50 hover:text-white scale-95 opacity-85'}`}>
                     INR
                   </span>
-                  <span className={`relative z-10 text-[10px] font-bold tracking-widest w-[40px] text-center uppercase transition-all duration-300 ${currencyCode === 'AED' ? 'text-white scale-105' : 'text-brand-grey hover:text-brand-text scale-95 opacity-80'}`}>
+                  <span className={`relative z-10 text-[10px] font-bold tracking-widest w-[40px] text-center uppercase transition-all duration-300 ${currencyCode === 'AED' ? 'text-white scale-105' : 'text-white/50 hover:text-white scale-95 opacity-85'}`}>
                     AED
                   </span>
                 </button>
               </div>
-              <Link to="/account?tab=wishlist" className="p-2 hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label="Wishlist" id="nav-wishlist-btn">
+              <Link to="/account?tab=wishlist" className="p-2 text-white hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label="Wishlist" id="nav-wishlist-btn">
                 <Heart size={20} strokeWidth={1.5} />
               </Link>
               {isAuthenticated ? (
                 <div className="relative group">
-                  <button className="p-2 hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label="Account menu" id="nav-account-btn">
+                  <button className="p-2 text-white hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label="Account menu" id="nav-account-btn">
                     <User size={20} strokeWidth={1.5} />
                   </button>
-                  <div className="absolute right-0 top-10 w-48 bg-white shadow-lg border border-brand-light opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 z-50">
-                    <div className="px-4 py-3 border-b border-brand-light">
+                  <div className="absolute right-0 top-10 w-48 bg-neutral-950 text-white shadow-xl border border-neutral-800 opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 z-50">
+                    <div className="px-4 py-3 border-b border-neutral-800">
                       <p className="font-medium text-sm truncate">{customer?.name}</p>
                     </div>
-                    <Link to="/account" className="block px-4 py-2 text-sm hover:bg-brand-light transition-colors">My Account</Link>
-                    <Link to="/account?tab=orders" className="block px-4 py-2 text-sm hover:bg-brand-light transition-colors">My Orders</Link>
-                    <button onClick={() => { dispatch(logout()); navigate('/'); }} className="w-full text-left px-4 py-2 text-sm hover:bg-brand-light transition-colors text-red-500">Sign Out</button>
+                    <Link to="/account" className="block px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors">My Account</Link>
+                    <Link to="/account?tab=orders" className="block px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors">My Orders</Link>
+                    <button onClick={() => { dispatch(logout()); navigate('/'); }} className="w-full text-left px-4 py-2 text-sm hover:bg-neutral-800 transition-colors text-red-400">Sign Out</button>
                   </div>
                 </div>
               ) : (
-                <Link to="/account" className="p-2 hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label="Sign in">
+                <Link to="/account" className="p-2 text-white hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label="Sign in">
                   <User size={20} strokeWidth={1.5} />
                 </Link>
               )}
-              <button onClick={() => dispatch(toggleCart())} className="relative p-2 hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label={`Shopping cart — ${cartCount} items`} id="nav-cart-btn">
+              <button onClick={() => dispatch(toggleCart())} className="relative p-2 text-white hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label={`Shopping cart — ${cartCount} items`} id="nav-cart-btn">
                 <ShoppingBag size={20} strokeWidth={1.5} />
                 {cartCount > 0 && (
                   <motion.span key={cartCount} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 500 }}
@@ -400,7 +479,7 @@ const Navbar = () => {
           {/* Mobile / Tablet layout */}
           <div className="lg:hidden">
             {/* Top row: logo + actions */}
-            <div className="flex items-center justify-between h-14">
+            <div className="flex items-center justify-between h-18">
               <Link to="/" aria-label="Billu Bazaar — Home">
                 <Logo size="sm" />
               </Link>
@@ -409,7 +488,7 @@ const Navbar = () => {
                   <button
                     type="button"
                     onClick={() => dispatch(setCurrency(currencyCode === 'INR' ? 'AED' : 'INR'))}
-                    className="flex items-center bg-neutral-100/90 border border-neutral-200/80 rounded-full p-[2px] relative cursor-pointer focus-visible:outline-brand-gold shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] h-[26px] w-[68px]"
+                    className="flex items-center bg-neutral-900/90 border border-neutral-800 rounded-full p-[2px] relative cursor-pointer focus-visible:outline-brand-gold shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)] h-[26px] w-[68px]"
                     aria-label={`Switch currency from ${currencyCode}`}
                     id="nav-currency-toggle-mobile"
                   >
@@ -425,24 +504,24 @@ const Navbar = () => {
                       }}
                       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                     />
-                    <span className={`relative z-10 text-[9px] font-bold tracking-widest w-[32px] text-center uppercase transition-all duration-300 ${currencyCode === 'INR' ? 'text-white scale-105' : 'text-brand-grey hover:text-brand-text scale-95 opacity-80'}`}>
+                    <span className={`relative z-10 text-[9px] font-bold tracking-widest w-[32px] text-center uppercase transition-all duration-300 ${currencyCode === 'INR' ? 'text-white scale-105' : 'text-white/50 hover:text-white scale-95 opacity-85'}`}>
                       INR
                     </span>
-                    <span className={`relative z-10 text-[9px] font-bold tracking-widest w-[32px] text-center uppercase transition-all duration-300 ${currencyCode === 'AED' ? 'text-white scale-105' : 'text-brand-grey hover:text-brand-text scale-95 opacity-80'}`}>
+                    <span className={`relative z-10 text-[9px] font-bold tracking-widest w-[32px] text-center uppercase transition-all duration-300 ${currencyCode === 'AED' ? 'text-white scale-105' : 'text-white/50 hover:text-white scale-95 opacity-85'}`}>
                       AED
                     </span>
                   </button>
                 </div>
-                <Link to="/account?tab=wishlist" className="p-2 hover:text-brand-gold transition-colors" aria-label="Wishlist">
+                <Link to="/account?tab=wishlist" className="p-2 text-white hover:text-brand-gold transition-colors" aria-label="Wishlist">
                   <Heart size={18} strokeWidth={1.5} />
                 </Link>
-                <button onClick={() => dispatch(toggleCart())} className="relative p-2 hover:text-brand-gold transition-colors" aria-label={`Shopping cart — ${cartCount} items`}>
+                <button onClick={() => dispatch(toggleCart())} className="relative p-2 text-white hover:text-brand-gold transition-colors" aria-label={`Shopping cart — ${cartCount} items`}>
                   <ShoppingBag size={18} strokeWidth={1.5} />
                   {cartCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-brand-gold text-white text-[10px] font-bold rounded-full flex items-center justify-center">{cartCount}</span>
                   )}
                 </button>
-                <button onClick={() => dispatch(toggleMobileMenu())} className="p-2 hover:text-brand-gold transition-colors" aria-label="Toggle mobile menu" aria-expanded={mobileMenuOpen} id="nav-mobile-menu-btn">
+                <button onClick={() => dispatch(toggleMobileMenu())} className="p-2 text-white hover:text-brand-gold transition-colors" aria-label="Toggle mobile menu" aria-expanded={mobileMenuOpen} id="nav-mobile-menu-btn">
                   {mobileMenuOpen ? <X size={20} strokeWidth={1.5} /> : <Menu size={20} strokeWidth={1.5} />}
                 </button>
               </div>
@@ -457,7 +536,7 @@ const Navbar = () => {
                   onFocus={handleSearchFocus}
                   onKeyDown={handleKeyDown}
                   placeholder="Search luxury..."
-                  className="w-full border border-brand-light bg-brand-bg px-3 py-2 pr-16 text-xs focus:outline-none focus:border-brand-gold transition-colors font-inter"
+                  className="w-full border border-neutral-800 bg-neutral-900 text-white placeholder-neutral-500 px-3 py-2 pr-16 text-xs focus:outline-none focus:border-brand-gold transition-colors font-inter"
                   aria-label="Search products"
                   id="nav-search-input-mobile"
                   autoComplete="off"
@@ -467,8 +546,8 @@ const Navbar = () => {
                   disabled={isEmpty}
                   className={`absolute right-1 top-1/2 -translate-y-1/2 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
                     isEmpty
-                      ? 'bg-brand-light text-brand-grey cursor-not-allowed'
-                      : 'bg-brand-text text-white hover:bg-brand-gold'
+                      ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
+                      : 'bg-brand-gold text-white hover:bg-amber-600'
                   }`}
                   id="nav-search-btn-mobile"
                 >
@@ -483,13 +562,13 @@ const Navbar = () => {
         </nav>
 
         {/* Desktop nav links — below header row */}
-        <div className="hidden lg:block border-t border-brand-light/50">
+        <div className="hidden lg:block border-t border-neutral-800/80">
           <div className="max-w-site mx-auto px-8">
             <ul className="flex items-center justify-center gap-10 h-10" role="list">
-              {navLinks.map(link => (
+              {activeNavLinks.map(link => (
                 <li key={link.to}>
                   <Link to={link.to}
-                    className={`font-inter text-[11px] font-medium tracking-widest uppercase transition-colors duration-200 hover:text-brand-gold focus-visible:outline-2 focus-visible:outline-brand-gold ${link.highlight ? 'text-brand-gold' : 'text-brand-text'}`}
+                    className={`font-inter text-[11px] font-medium tracking-widest uppercase transition-colors duration-200 hover:text-brand-gold focus-visible:outline-2 focus-visible:outline-brand-gold ${link.highlight ? 'text-brand-gold' : 'text-white'}`}
                   >{link.label}</Link>
                 </li>
               ))}
@@ -504,20 +583,20 @@ const Navbar = () => {
           <motion.div
             initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
             transition={{ type: 'tween', duration: 0.3 }}
-            className="fixed inset-0 z-40 bg-brand-bg pt-20 px-6"
+            className="fixed inset-0 z-40 bg-neutral-950 text-white pt-20 px-6"
             role="dialog" aria-label="Mobile menu" aria-modal="true"
           >
-            <button onClick={() => dispatch(closeMobileMenu())} className="absolute top-4 right-4 p-2 focus-visible:outline-brand-gold" aria-label="Close menu"><X size={24} /></button>
+            <button onClick={() => dispatch(closeMobileMenu())} className="absolute top-4 right-4 p-2 text-white hover:text-brand-gold focus-visible:outline-brand-gold" aria-label="Close menu"><X size={24} /></button>
             <ul className="flex flex-col gap-6 mt-8">
-              {navLinks.map(link => (
+              {activeNavLinks.map(link => (
                 <li key={link.to}>
                   <Link to={link.to} onClick={() => dispatch(closeMobileMenu())}
-                    className={`font-playfair text-2xl font-semibold ${link.highlight ? 'text-brand-gold' : 'text-brand-text'}`}
+                    className={`font-playfair text-2xl font-semibold ${link.highlight ? 'text-brand-gold' : 'text-white'}`}
                   >{link.label}</Link>
                 </li>
               ))}
             </ul>
-            <div className="mt-12 pt-8 border-t border-brand-light">
+            <div className="mt-12 pt-8 border-t border-neutral-800">
               <Link to="/account" onClick={() => dispatch(closeMobileMenu())} className="btn-primary w-full text-center block">
                 {isAuthenticated ? 'My Account' : 'Sign In'}
               </Link>

@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
   LayoutDashboard, Package, Tag, ShoppingBag, Users, Image, Ticket,
   Warehouse, UserCheck, BarChart3, Settings, LogOut, Menu, X,
-  Store, CreditCard, Gift
+  Store, CreditCard, Gift, MessageSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from './Logo';
@@ -15,20 +15,31 @@ const NAV_SECTIONS = [
     heading: null,
     items: [
       { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/products', label: 'Products', icon: Package },
-      { to: '/categories', label: 'Categories', icon: Tag },
-      { to: '/sub-categories', label: 'Sub-categories', icon: Tag },
-      { to: '/orders', label: 'Orders', icon: ShoppingBag },
-      { to: '/customers', label: 'Customers', icon: Users },
     ],
   },
   {
     heading: 'Marketing',
     items: [
+      { to: '/slider-messages', label: 'Slider Messages', icon: MessageSquare },
       { to: '/banners', label: 'Banners', icon: Image },
       { to: '/coupons', label: 'Coupons', icon: Ticket },
       { to: '/affiliates', label: 'Affiliates', icon: UserCheck },
       { to: '/loyalty', label: 'Loyalty', icon: Gift },
+    ],
+  },
+  {
+    heading: 'Products',
+    items: [
+      { to: '/categories', label: 'Categories', icon: Tag },
+      { to: '/sub-categories', label: 'Sub-categories', icon: Tag },
+      { to: '/products', label: 'Products', icon: Package },
+      { to: '/orders', label: 'Orders', icon: ShoppingBag },
+    ],
+  },
+  {
+    heading: 'Customers',
+    items: [
+      { to: '/customers', label: 'Customers', icon: Users },
     ],
   },
   {
@@ -65,7 +76,7 @@ const AdminLayout = ({ children, title = '' }) => {
     <aside className="flex flex-col h-full bg-white border-r border-brand-light w-60">
       {/* Logo */}
       <div className="px-5 py-5 border-b border-brand-light flex-shrink-0">
-        <Logo size="md" />
+        <Logo size="md" showText={true} />
         <p className="text-[10px] text-brand-grey mt-1 tracking-widest uppercase">Admin Panel</p>
       </div>
 

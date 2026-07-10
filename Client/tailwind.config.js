@@ -19,8 +19,8 @@ export default {
         border: 'var(--color-border)',
       },
       fontFamily: {
-        playfair: ['Cormorant', 'Georgia', 'serif'],
-        inter:    ['Cormorant', 'Georgia', 'serif'],
+        playfair: ['Cinzel', 'Georgia', 'serif'],
+        inter:    ['Montserrat', 'sans-serif'],
       },
       fontSize: {
         'display': ['64px', { lineHeight: '1.1', fontWeight: '700' }],

@@ -65,6 +65,9 @@ const create = async (req, res) => {
     if (data.isActive !== undefined) {
       data.isActive = data.isActive === 'true' || data.isActive === true;
     }
+    if (data.showHeader !== undefined) {
+      data.showHeader = data.showHeader === 'true' || data.showHeader === true;
+    }
     const category = await Category.create(data);
     res.status(201).json({ success: true, category });
   } catch (err) {
@@ -90,6 +93,9 @@ const update = async (req, res) => {
     }
     if (data.isActive !== undefined) {
       data.isActive = data.isActive === 'true' || data.isActive === true;
+    }
+    if (data.showHeader !== undefined) {
+      data.showHeader = data.showHeader === 'true' || data.showHeader === true;
     }
     
     await category.update(data);

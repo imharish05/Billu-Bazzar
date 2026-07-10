@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
+import { formatPrice } from '../utils/currency';
 
 const SCROLL_AMOUNT = 320;
 
 const ExclusiveCollection = () => {
   const { items: products, featured, loading } = useSelector(s => s.products);
+  const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
   const scrollRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -131,7 +133,7 @@ const ExclusiveCollection = () => {
                   {product.name}
                 </h3>
                 <p className="text-brand-gold font-semibold text-sm mt-1">
-                  ₹{Number(product.price).toLocaleString('en-IN')}
+                  {formatPrice(product.price, currencyCode, currencyRate)}
                 </p>
               </Link>
             </motion.div>

@@ -15,6 +15,7 @@ import LoyaltyAdminPage from './pages/LoyaltyAdminPage';
 import PaymentsAdminPage from './pages/PaymentsAdminPage';
 import ReportsAdminPage from './pages/ReportsAdminPage';
 import SettingsAdminPage from './pages/SettingsAdminPage';
+import SliderMessagesAdminPage from './pages/SliderMessagesAdminPage';
 import NotFoundAdminPage from './pages/NotFoundAdminPage';
 
 /* Protected route — redirect to /login if no admin token */
@@ -37,6 +38,7 @@ const App = () => (
       <Route path="/sub-categories" element={<Protected><SubCategoriesAdminPage /></Protected>} />
       <Route path="/orders"      element={<Protected><OrdersAdminPage /></Protected>} />
       <Route path="/customers"   element={<Protected><CustomersAdminPage /></Protected>} />
+      <Route path="/slider-messages" element={<Protected><SliderMessagesAdminPage /></Protected>} />
       <Route path="/banners"     element={<Protected><BannersAdminPage /></Protected>} />
       <Route path="/vendors"     element={<Protected><VendorsAdminPage /></Protected>} />
       <Route path="/warehouses"  element={<Protected><WarehousesAdminPage /></Protected>} />

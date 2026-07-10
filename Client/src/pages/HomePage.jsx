@@ -189,6 +189,7 @@ const HomePage = () => {
   const countdownBanner = banners.find(b => b.type === 'COUNTDOWN');
   const countdown = useCountdown(countdownBanner?.countdown);
   const isExpired = countdownBanner?.countdown ? (new Date(countdownBanner.countdown) - new Date() <= 0) : false;
+  const promoBanner = banners.find(b => b.type === 'PROMO' && b.isActive);
 
   useEffect(() => {
     dispatch(fetchProducts({ limit: 16 }));
@@ -206,12 +207,14 @@ const HomePage = () => {
           const mapped = active.map((aff, i) => ({
             name: aff.name,
             handle: `@${aff.referralCode.toLowerCase()}_style`,
-            img: i === 0 ? 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400'
-               : i === 1 ? 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=400'
-               : i === 2 ? 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400'
-               : 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400',
+            img: aff.avatar || (
+              i === 0 ? 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400'
+                : i === 1 ? 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=400'
+                : i === 2 ? 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400'
+                : 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400'
+            ),
             products: aff.totalOrders || 12,
-            followers: aff.totalClicks > 1000 ? `${(aff.totalClicks/1000).toFixed(1)}M` : `${aff.totalClicks || 150} followers`,
+            followers: aff.followers && aff.followers !== '0' ? aff.followers : (aff.totalClicks > 1000 ? `${(aff.totalClicks/1000).toFixed(1)}M` : `${aff.totalClicks || 150} followers`),
           }));
           setDbInfluencers(mapped);
         }
@@ -437,24 +440,26 @@ const HomePage = () => {
           <div className="grid md:grid-cols-2 gap-0 shadow-lg overflow-hidden">
             <div className="relative aspect-[4/5] md:aspect-auto">
               <img
-                src="https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=800"
-                alt="The Bridal Edit — Billu Bazaar"
+                src={promoBanner ? promoBanner.image : "https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=800"}
+                alt={promoBanner ? promoBanner.title : "The Bridal Edit — Billu Bazaar"}
                 className="w-full h-full object-cover"
                 loading="lazy"
               />
             </div>
             <ScrollReveal className="bg-brand-text flex items-center p-10 md:p-16">
               <div>
-                <p className="text-brand-gold text-xs tracking-[0.2em] uppercase mb-4">Exclusive Curation</p>
+                <p className="text-brand-gold text-xs tracking-[0.2em] uppercase mb-4">
+                  {promoBanner ? (promoBanner.badgeText || "Exclusive Curation") : "Exclusive Curation"}
+                </p>
                 <h2 className="font-playfair text-3xl md:text-5xl font-bold text-white leading-tight mb-6">
-                  The Bridal Edit 2025
+                  {promoBanner ? promoBanner.title : "The Bridal Edit 2025"}
                 </h2>
                 <p className="text-white/70 text-base leading-relaxed mb-8">
-                  From Kundan Polki to Banarasi silk, our bridal specialists have curated timeless pieces that will become your family's heirlooms. Every piece, a story.
+                  {promoBanner ? promoBanner.subtitle : "From Kundan Polki to Banarasi silk, our bridal specialists have curated timeless pieces that will become your family's heirlooms. Every piece, a story."}
                 </p>
                 <div className="flex flex-col gap-3">
-                  <Link to="/products?tag=bridal" className="btn-primary" id="bridal-cta">
-                    Explore Bridal Collection
+                  <Link to={promoBanner ? (promoBanner.ctaLink || "/products") : "/products?tag=bridal"} className="btn-primary" id="bridal-cta">
+                    {promoBanner ? (promoBanner.ctaText || "Explore Collection") : "Explore Bridal Collection"}
                   </Link>
                   <p className="text-white/40 text-xs">Personal styling consultation available — <Link to="/account?tab=shopper" className="underline hover:text-brand-gold transition-colors">Book Now</Link></p>
                 </div>
@@ -464,35 +469,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* ── SECTION 7: Video CTA Banner ─────────────────────────────────── */}
-      <section className="relative h-96 md:h-[500px] overflow-hidden flex items-center justify-center" aria-label="Brand video">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1570976447640-ac859083963f?w=1440)' }}
-        />
-        <div className="absolute inset-0 bg-black/50" />
-        <ScrollReveal className="relative z-10 text-center px-6">
-          <p className="text-brand-gold text-xs tracking-[0.25em] uppercase mb-4">Behind the Collection</p>
-          <h2 className="font-playfair text-3xl md:text-5xl font-bold text-white mb-6">Where Craft Meets Couture</h2>
-          <p className="text-white/70 text-base mb-8 max-w-md mx-auto">
-            Watch how our master artisans breathe life into every piece — from Jaipur's workshops to your wardrobe.
-          </p>
-          <button
-            onClick={() => setVideoPlaying(true)}
-            className="group flex items-center gap-4 mx-auto focus-visible:outline-white"
-            aria-label="Play brand video"
-            id="video-play-btn"
-          >
-            <motion.div
-              whileHover={{ scale: 1.1 }}
-              className="w-16 h-16 rounded-full bg-brand-gold flex items-center justify-center shadow-gold"
-            >
-              <Play size={24} fill="white" className="text-white ml-1" />
-            </motion.div>
-            <span className="text-white font-medium">Watch Our Story</span>
-          </button>
-        </ScrollReveal>
-      </section>
+
 
       {/* ── SECTION 8: Dual Promo Tiles ─────────────────────────────────── */}
       <section className="py-16 md:py-24 bg-white" aria-label="Promotional offers">
@@ -540,38 +517,40 @@ const HomePage = () => {
       </section>
 
       {/* ── SECTION 9: Influencer Showcase ──────────────────────────────── */}
-      <section className="py-16 md:py-24 bg-brand-bg" aria-label="Style influencers">
-        <div className="max-w-site mx-auto px-6 md:px-8">
-          <ScrollReveal>
-            <SectionHeader eyebrow="As Seen On" title="Style Diaries" subtitle="Our favourite curators wearing Billu Bazaar" />
-          </ScrollReveal>
+      {dbInfluencers.length > 0 && (
+        <section className="py-16 md:py-24 bg-brand-bg" aria-label="Style influencers">
+          <div className="max-w-site mx-auto px-6 md:px-8">
+            <ScrollReveal>
+              <SectionHeader eyebrow="As Seen On" title="Style Diaries" subtitle="Our favourite curators wearing Billu Bazaar" />
+            </ScrollReveal>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-            {(dbInfluencers.length ? dbInfluencers : influencers).map((person, i) => (
-              <ScrollReveal key={person.handle} delay={i * 0.1}>
-                <div className="group cursor-pointer">
-                  <div className="relative aspect-[3/4] overflow-hidden mb-4">
-                    <img
-                      src={person.img}
-                      alt={person.name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-300 flex items-center justify-center">
-                      <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-white font-medium text-sm px-4 py-2 border border-white">
-                        Shop Her Look
-                      </span>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+              {dbInfluencers.map((person, i) => (
+                <ScrollReveal key={person.handle} delay={i * 0.1}>
+                  <div className="group cursor-pointer">
+                    <div className="relative aspect-[3/4] overflow-hidden mb-4">
+                      <img
+                        src={person.img}
+                        alt={person.name}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-300 flex items-center justify-center">
+                        <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-white font-medium text-sm px-4 py-2 border border-white">
+                          Shop Her Look
+                        </span>
+                      </div>
                     </div>
+                    <p className="font-medium text-sm text-brand-text">{person.name}</p>
+                    <p className="text-brand-gold text-xs">{person.handle}</p>
+                    <p className="text-brand-grey text-xs mt-1">{person.followers} followers · {person.products} products</p>
                   </div>
-                  <p className="font-medium text-sm text-brand-text">{person.name}</p>
-                  <p className="text-brand-gold text-xs">{person.handle}</p>
-                  <p className="text-brand-grey text-xs mt-1">{person.followers} followers · {person.products} products</p>
-                </div>
-              </ScrollReveal>
-            ))}
+                </ScrollReveal>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ── SECTION 10: Sponsor/Brand Logo Strip (Marquee) ──────────────── */}
       <section className="py-10 border-y border-brand-light overflow-hidden bg-white" aria-label="Brand partners">

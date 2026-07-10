@@ -39,23 +39,25 @@ const seedAll = async () => {
   // ─── Categories ───────────────────────────────────────────────────────────
   if (await isTableEmpty(Category)) {
     const parents = await Category.bulkCreate([
-      { name: 'Party Wear', slug: 'party-wear', description: 'Glamorous ensembles for every celebration', image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400', sortOrder: 1, attributes: [{ key: 'occasion', values: ['Wedding', 'Cocktail', 'Gala'] }] },
-      { name: 'Fashion', slug: 'fashion', description: 'Contemporary fashion for the modern woman', image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400', sortOrder: 2, attributes: [{ key: 'fit', values: ['Regular', 'Slim', 'Relaxed'] }] },
-      { name: 'Accessories', slug: 'accessories', description: 'Curated accessories to complete your look', image: 'https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?w=400', sortOrder: 3, attributes: [] },
-      { name: 'Perfumes', slug: 'perfumes', description: 'Signature fragrances from world-class perfumers', image: 'https://images.unsplash.com/photo-1541643600914-78b084683702?w=400', sortOrder: 4, attributes: [{ key: 'family', values: ['Floral', 'Oriental', 'Woody', 'Fresh'] }] },
-      { name: 'Jewelry', slug: 'jewelry', description: 'Exquisite jewelry crafted with precision', image: 'https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?w=400', sortOrder: 5, attributes: [{ key: 'material', values: ['Gold', 'Silver', 'Diamond', 'Platinum'] }] },
-      { name: 'Footwear', slug: 'footwear', description: 'Luxury footwear for every step', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400', sortOrder: 6, attributes: [{ key: 'size', values: ['35', '36', '37', '38', '39', '40', '41'] }] },
+      { name: 'New Arrivals', slug: 'new-arrivals', description: 'Explore the latest arrivals', image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400', sortOrder: 0, showHeader: true, attributes: [] },
+      { name: 'Party Wear', slug: 'party-wear', description: 'Glamorous ensembles for every celebration', image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400', sortOrder: 1, showHeader: true, attributes: [{ key: 'occasion', values: ['Wedding', 'Cocktail', 'Gala'] }] },
+      { name: 'Fashion', slug: 'fashion', description: 'Contemporary fashion for the modern woman', image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400', sortOrder: 2, showHeader: false, attributes: [{ key: 'fit', values: ['Regular', 'Slim', 'Relaxed'] }] },
+      { name: 'Accessories', slug: 'accessories', description: 'Curated accessories to complete your look', image: 'https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?w=400', sortOrder: 3, showHeader: true, attributes: [] },
+      { name: 'Perfumes', slug: 'perfumes', description: 'Signature fragrances from world-class perfumers', image: 'https://images.unsplash.com/photo-1541643600914-78b084683702?w=400', sortOrder: 4, showHeader: true, attributes: [{ key: 'family', values: ['Floral', 'Oriental', 'Woody', 'Fresh'] }] },
+      { name: 'Jewelry', slug: 'jewelry', description: 'Exquisite jewelry crafted with precision', image: 'https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?w=400', sortOrder: 5, showHeader: true, attributes: [{ key: 'material', values: ['Gold', 'Silver', 'Diamond', 'Platinum'] }] },
+      { name: 'Sale', slug: 'sale', description: 'Exclusive discounts on premium designs', image: 'https://images.unsplash.com/photo-1479064555552-3ef4979f8908?w=400', sortOrder: 6, showHeader: true, attributes: [] },
+      { name: 'Footwear', slug: 'footwear', description: 'Luxury footwear for every step', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400', sortOrder: 7, showHeader: false, attributes: [{ key: 'size', values: ['35', '36', '37', '38', '39', '40', '41'] }] },
     ]);
 
     // Sub-categories
     await Category.bulkCreate([
-      { name: 'Lehengas', slug: 'lehengas', parentId: parents[0].id, image: 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=400', sortOrder: 1 },
-      { name: 'Evening Gowns', slug: 'evening-gowns', parentId: parents[0].id, image: 'https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=400', sortOrder: 2 },
-      { name: 'Kaftans', slug: 'kaftans', parentId: parents[0].id, image: 'https://images.unsplash.com/photo-1618932260643-eee4a2f652a6?w=400', sortOrder: 3 },
-      { name: 'Kurtas & Sets', slug: 'kurtas-sets', parentId: parents[1].id, image: 'https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=400', sortOrder: 1 },
-      { name: 'Dresses', slug: 'dresses', parentId: parents[1].id, image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400', sortOrder: 2 },
+      { name: 'Lehengas', slug: 'lehengas', parentId: parents[1].id, image: 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=400', sortOrder: 1 },
+      { name: 'Evening Gowns', slug: 'evening-gowns', parentId: parents[1].id, image: 'https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=400', sortOrder: 2 },
+      { name: 'Kaftans', slug: 'kaftans', parentId: parents[1].id, image: 'https://images.unsplash.com/photo-1618932260643-eee4a2f652a6?w=400', sortOrder: 3 },
+      { name: 'Kurtas & Sets', slug: 'kurtas-sets', parentId: parents[2].id, image: 'https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=400', sortOrder: 1 },
+      { name: 'Dresses', slug: 'dresses', parentId: parents[2].id, image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400', sortOrder: 2 },
     ]);
-    console.log('✅ Categories seeded (11 total)');
+    console.log('✅ Categories seeded (13 total)');
   }
 
   // ─── Vendors ──────────────────────────────────────────────────────────────

@@ -11,7 +11,7 @@ const CategoriesAdminPage = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   
-  const [form, setForm] = useState({ name: '', slug: '', isActive: true });
+  const [form, setForm] = useState({ name: '', slug: '', isActive: true, showHeader: false });
   const [imagePreview, setImagePreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -43,11 +43,13 @@ const CategoriesAdminPage = () => {
     setForm(cat ? {
       name: cat.name,
       slug: cat.slug || '',
-      isActive: cat.isActive
+      isActive: cat.isActive,
+      showHeader: cat.showHeader || false
     } : {
       name: '',
       slug: '',
-      isActive: true
+      isActive: true,
+      showHeader: false
     });
     setImagePreview(cat?.image || null);
     setImageFile(null);
@@ -85,6 +87,7 @@ const CategoriesAdminPage = () => {
       fd.append('name', form.name.trim());
       fd.append('slug', form.slug.trim());
       fd.append('isActive', String(form.isActive));
+      fd.append('showHeader', String(form.showHeader));
       fd.append('parentId', ''); // Strictly parent category
 
       const file = imageFile || fileInputRef.current?.files?.[0];
@@ -181,6 +184,7 @@ const CategoriesAdminPage = () => {
                   <th className="px-5 py-3 w-24">Image</th>
                   <th className="px-5 py-3">Category Name</th>
                   <th className="px-5 py-3 w-32">Status</th>
+                  <th className="px-5 py-3 w-32">Header</th>
                   <th className="px-5 py-3 w-28 text-right">Actions</th>
                 </tr>
               </thead>
@@ -206,6 +210,13 @@ const CategoriesAdminPage = () => {
                         cat.isActive ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50 text-gray-500 border border-gray-200'
                       }`}>
                         {cat.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${
+                        cat.showHeader ? 'bg-amber-50 text-brand-gold border border-amber-200' : 'bg-gray-50 text-gray-500 border border-gray-200'
+                      }`}>
+                        {cat.showHeader ? 'Show' : 'Hide'}
                       </span>
                     </td>
                     <td className="px-5 py-4 text-right">
@@ -288,9 +299,15 @@ const CategoriesAdminPage = () => {
                   <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileSelect} />
                 </div>
 
-                <div className="flex items-center gap-2 pt-1">
-                  <input type="checkbox" checked={form.isActive} onChange={e => setForm(p => ({ ...p, isActive: e.target.checked }))} className="accent-brand-gold w-4 h-4 cursor-pointer" id="cat-active" />
-                  <label className="text-xs font-semibold text-brand-text cursor-pointer select-none" htmlFor="cat-active">Active (Visible in store)</label>
+                <div className="flex items-center gap-6 pt-1">
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" checked={form.isActive} onChange={e => setForm(p => ({ ...p, isActive: e.target.checked }))} className="accent-brand-gold w-4 h-4 cursor-pointer" id="cat-active" />
+                    <label className="text-xs font-semibold text-brand-text cursor-pointer select-none" htmlFor="cat-active">Active (Visible in store)</label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" checked={form.showHeader} onChange={e => setForm(p => ({ ...p, showHeader: e.target.checked }))} className="accent-brand-gold w-4 h-4 cursor-pointer" id="cat-header" />
+                    <label className="text-xs font-semibold text-brand-text cursor-pointer select-none" htmlFor="cat-header">Show in header</label>
+                  </div>
                 </div>
 
                 <div className="flex gap-3 pt-3 border-t border-brand-light">

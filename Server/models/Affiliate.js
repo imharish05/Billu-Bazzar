@@ -14,6 +14,8 @@ const Affiliate = sequelize.define('Affiliate', {
   payoutMethod: { type: DataTypes.STRING(50) },
   bankDetails: { type: DataTypes.JSON, defaultValue: {} },
   isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
+  avatar: { type: DataTypes.STRING(500), allowNull: true },
+  followers: { type: DataTypes.STRING(50), allowNull: true, defaultValue: '0' },
 });
 
 module.exports = Affiliate;
