@@ -122,8 +122,18 @@ const BannersAdminPage = () => {
       if (file && form.type === 'HERO') {
         const dims = await checkImageDimensions(file);
         if (dims) {
-          if (dims.width !== 1920 || dims.height !== 1080) {
-            setUploadError(`Hero banner images must be exactly 1920x1080 pixels. Your image is ${dims.width}x${dims.height}px.`);
+          const ratio = dims.width / dims.height;
+          const MIN_RATIO = 1.6;   // e.g. 1600x1000
+          const MAX_RATIO = 2.2;   // e.g. 1980x900
+          const MIN_WIDTH = 1200;
+          if (dims.width < MIN_WIDTH) {
+            setUploadError(`Hero banner image too small. Minimum width is ${MIN_WIDTH}px. Your image is ${dims.width}x${dims.height}px.`);
+            setSaving(false);
+            setUploadProgress(null);
+            return;
+          }
+          if (ratio < MIN_RATIO || ratio > MAX_RATIO) {
+            setUploadError(`Hero banner image aspect ratio looks off (${ratio.toFixed(2)}:1). Use something close to 16:9-2:1, e.g. 1920x1080 or 1980x1020. Your image is ${dims.width}x${dims.height}px.`);
             setSaving(false);
             setUploadProgress(null);
             return;
@@ -330,7 +340,7 @@ const BannersAdminPage = () => {
                         <Upload size={28} className="mx-auto text-brand-grey mb-2" />
                         <p className="text-sm text-brand-grey">Drag & drop image here, or click to upload</p>
                         <p className="text-xs text-brand-grey mt-1">JPEG, PNG, WebP — max 50MB</p>
-                        <p className="text-[10px] text-brand-gold mt-1">For HERO: Must be exactly 1920x1080px (16:9 aspect ratio)</p>
+                        <p className="text-[10px] text-brand-gold mt-1">For HERO: recommended 1920x1080px, 1980x1020px also fine (~16:9-2:1 ratio, min width 1200px)</p>
                       </div>
                     )}
                   </div>

@@ -56,6 +56,7 @@ const Navbar = () => {
   const [expandedLevel1, setExpandedLevel1] = useState(null);
   const [expandedLevel2, setExpandedLevel2] = useState(null);
   const [announcementHidden, setAnnouncementHidden] = useState(false);
+  const [headerVisible, setHeaderVisible] = useState(true);
   const [localQuery, setLocalQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(-1);
   const searchRef = useRef(null);
@@ -185,18 +186,25 @@ const Navbar = () => {
   }, [openDropdownSlug]);
 
   useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handler, { passive: true });
-    return () => window.removeEventListener('scroll', handler);
-  }, []);
+    let prevScrollY = window.scrollY;
 
-  // Hide only the announcement bar when scrolled past its height (~36px).
-  // The main nav (logo + search + categories) always stays visible.
-  useEffect(() => {
-    const ANNOUNCEMENT_H = 36;
-    const handler = () => setAnnouncementHidden(window.scrollY > ANNOUNCEMENT_H);
-    window.addEventListener('scroll', handler, { passive: true });
-    return () => window.removeEventListener('scroll', handler);
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      // Smart sticky header behavior: hide on scroll down, show on scroll up
+      if (currentScrollY > prevScrollY && currentScrollY > 100) {
+        setHeaderVisible(false);
+      } else if (currentScrollY < prevScrollY) {
+        setHeaderVisible(true);
+      }
+
+      prevScrollY = currentScrollY;
+      setScrolled(currentScrollY > 20);
+      setAnnouncementHidden(currentScrollY > 36);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   // Category scroll arrow visibility
@@ -451,12 +459,13 @@ const Navbar = () => {
   return (
     <>
       <header
-        className={`glass-nav fixed top-0 left-0 right-0 z-50 transition-shadow duration-300 ${scrolled ? 'shadow-md' : ''}`}
+        className={`glass-nav fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${headerVisible ? 'translate-y-0' : '-translate-y-full'} ${scrolled ? 'shadow-md' : ''}`}
         role="banner"
       >
         {/* Announcement bar — slides up and hides on scroll, only nav stays */}
         <div
-          className={`bg-white text-neutral-950 font-inter tracking-widest uppercase text-[10px] sm:text-xs overflow-hidden relative h-9 flex items-center justify-center border-b border-neutral-200 transition-all duration-300 ease-in-out ${announcementHidden ? 'h-0 opacity-0 pointer-events-none' : 'h-9 opacity-100'}`}
+          className={`bg-white text-neutral-950 font-inter tracking-widest uppercase text-[10px] sm:text-xs overflow-hidden relative h-9 flex items-center justify-center border-b border-neutral-200 transition-all duration-300 ease-in-out ${announcementHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+          style={{ marginTop: announcementHidden ? '-36px' : '0px' }}
         >
           {/* Mobile/Tablet marquee */}
           <div className="lg:hidden w-full overflow-hidden flex items-center relative h-full">
@@ -982,15 +991,17 @@ const Navbar = () => {
 
       {/* Spacer: shrinks when announcement bar hides on scroll (hidden on Homepage to overlay header and hero banner) */}
       {!isHomePage && (
-        <>
-          <div
-            style={{ height: announcementHidden ? '108px' : '144px', transition: 'height 0.3s ease' }}
-            className="lg:block hidden"
-            aria-hidden="true"
-          />
-          <div className="h-[132px] block lg:hidden" aria-hidden="true" />
-        </>
+        <div
+          style={{ height: announcementHidden ? '108px' : '144px', transition: 'height 0.3s ease' }}
+          className="lg:block hidden"
+          aria-hidden="true"
+        />
       )}
+      <div
+        style={{ height: announcementHidden ? '96px' : '132px', transition: 'height 0.3s ease' }}
+        className="block lg:hidden"
+        aria-hidden="true"
+      />
     </>
   );
 };
