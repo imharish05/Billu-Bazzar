@@ -59,7 +59,7 @@ const HeroBanner = () => {
     return (
       <section className="relative w-full aspect-[16/9] flex flex-col justify-center pt-[80px] sm:pt-[100px] lg:pt-[144px] pb-6 lg:pb-10 overflow-hidden bg-brand-text" aria-label="Hero banner">
         <div className="relative z-10 max-w-site mx-auto px-6 md:px-16 w-full">
-          <div className="glass-hero-panel max-w-xl p-8 md:p-12">
+          <div className="max-w-xl p-6 md:p-8">
             <p className="text-brand-gold text-xs tracking-[0.25em] uppercase mb-4">Billu Bazaar</p>
             <h1 className="font-playfair text-4xl md:text-6xl font-bold text-white leading-tight mb-6">Luxury Redefined</h1>
             <p className="text-white/80 text-base md:text-lg mb-8 max-w-sm">Discover handcrafted elegance from India's finest artisans.</p>
@@ -134,7 +134,7 @@ const HeroBanner = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.4 }}
-              className="glass-hero-panel max-w-xl p-8 md:p-12"
+              className="max-w-xl p-6 md:p-8"
             >
               {banner.badgeText && banner.badgeText.trim() && (
                 <motion.span
