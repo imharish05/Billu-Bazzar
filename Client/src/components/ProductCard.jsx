@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
-import { Heart, ShoppingBag, Eye, Star } from 'lucide-react';
+import { Heart, ShoppingBag, Eye, Star, RotateCcw } from 'lucide-react';
 import { openQuickView } from '../redux/slices/uiSlice';
 import { addLocal, openCart } from '../redux/slices/cartSlice';
 import { toggleItem } from '../redux/slices/wishlistSlice';
@@ -60,6 +60,11 @@ const ProductCard = ({ product, index = 0 }) => {
 
         {/* Badges */}
         <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+          {product.spin_images?.length > 1 && (
+            <span className="bg-black/70 backdrop-blur text-white text-[9px] font-bold px-1.5 py-0.5 tracking-wider uppercase flex items-center gap-1 border border-white/10 rounded-sm">
+              <RotateCcw size={9} /> 360°
+            </span>
+          )}
           {product.isNewArrival && (
             <span className="bg-brand-text text-white text-[10px] font-bold px-2 py-0.5 tracking-wider uppercase">New</span>
           )}

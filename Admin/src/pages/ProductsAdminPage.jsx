@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Edit2, Trash2, X, Upload } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { fetchAdminProducts, createProduct, updateProduct, deleteProduct } from '../redux/slices/productsSlice';
 import currencyJs from 'currency.js';
@@ -96,6 +96,28 @@ const ProductModal = ({ product, onClose, onSave }) => {
 
   const removeExistingSpinImage = (idx) => {
     setExistingSpinImages(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // Frame order = rotation order fed straight to react-360-view's fileName
+  // sequence, so reordering has to work across the existing/new split.
+  const moveExistingSpinImage = (idx, dir) => {
+    setExistingSpinImages(prev => {
+      const next = [...prev];
+      const target = idx + dir;
+      if (target < 0 || target >= next.length) return prev;
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return next;
+    });
+  };
+
+  const moveNewSpinFile = (idx, dir) => {
+    setNewSpinImageFiles(prev => {
+      const next = [...prev];
+      const target = idx + dir;
+      if (target < 0 || target >= next.length) return prev;
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return next;
+    });
   };
 
   const handleSubmit = (e) => {
@@ -250,7 +272,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
             >
               <Upload size={28} className="mx-auto text-brand-grey mb-2" />
               <p className="text-sm text-brand-grey font-medium">Drag & drop 360° frames here, or click to upload</p>
-              <p className="text-xs text-brand-grey mt-1">Upload multiple photos in rotation order (1 to 24 frames recommended)</p>
+              <p className="text-xs text-brand-grey mt-1">Upload in rotation order — 24–36 frames recommended for a smooth spin. Use the <strong>same file type for every frame</strong> (all JPG or all PNG) — they're used as-is, not converted. Use the arrows on each thumbnail to fix ordering.</p>
               <input
                 ref={spinFileInputRef}
                 type="file"
@@ -267,7 +289,16 @@ const ProductModal = ({ product, onClose, onSave }) => {
                 {existingSpinImages.map((img, idx) => (
                   <div key={`exist-spin-${idx}`} className="relative aspect-square border border-brand-light rounded-lg overflow-hidden bg-brand-light group">
                     <img src={img} alt="Spin Frame" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); moveExistingSpinImage(idx, -1); }}
+                        disabled={idx === 0}
+                        className="bg-white/90 text-brand-text p-1 rounded-full hover:bg-white transition-colors shadow disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Move earlier in sequence"
+                      >
+                        <ChevronLeft size={12} />
+                      </button>
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); removeExistingSpinImage(idx); }}
@@ -276,6 +307,15 @@ const ProductModal = ({ product, onClose, onSave }) => {
                       >
                         <X size={12} />
                       </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); moveExistingSpinImage(idx, 1); }}
+                        disabled={idx === existingSpinImages.length - 1}
+                        className="bg-white/90 text-brand-text p-1 rounded-full hover:bg-white transition-colors shadow disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Move later in sequence"
+                      >
+                        <ChevronRight size={12} />
+                      </button>
                     </div>
                     <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[8px] px-1 rounded">{idx + 1}</span>
                   </div>
@@ -283,7 +323,16 @@ const ProductModal = ({ product, onClose, onSave }) => {
                 {newSpinImageFiles.map((file, idx) => (
                   <div key={`new-spin-${idx}`} className="relative aspect-square border border-brand-light rounded-lg overflow-hidden bg-brand-light group">
                     <img src={file.preview} alt="New Spin Frame" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); moveNewSpinFile(idx, -1); }}
+                        disabled={idx === 0}
+                        className="bg-white/90 text-brand-text p-1 rounded-full hover:bg-white transition-colors shadow disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Move earlier in sequence"
+                      >
+                        <ChevronLeft size={12} />
+                      </button>
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); removeNewSpinFile(idx); }}
@@ -291,6 +340,15 @@ const ProductModal = ({ product, onClose, onSave }) => {
                         title="Remove Frame"
                       >
                         <X size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); moveNewSpinFile(idx, 1); }}
+                        disabled={idx === newSpinImageFiles.length - 1}
+                        className="bg-white/90 text-brand-text p-1 rounded-full hover:bg-white transition-colors shadow disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Move later in sequence"
+                      >
+                        <ChevronRight size={12} />
                       </button>
                     </div>
                     <span className="absolute bottom-1 left-1 bg-brand-gold text-white text-[8px] font-bold px-1 rounded shadow">NEW</span>

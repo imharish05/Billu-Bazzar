@@ -49,11 +49,16 @@ export default {
           '0%':   { transform: 'translateX(100%)' },
           '100%': { transform: 'translateX(0)' },
         },
+        'spin-slow': {
+          '0%':   { transform: 'rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg)' },
+        },
       },
       animation: {
         shimmer:    'shimmer 2s linear infinite',
         'fade-up':  'fadeUp 0.5s ease-out forwards',
         'slide-in': 'slideIn 0.35s ease-out forwards',
+        'spin-slow': 'spin-slow 3s linear infinite',
       },
     },
   },

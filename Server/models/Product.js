@@ -40,6 +40,12 @@ const Product = sequelize.define('Product', {
   },
   // 3D model URL for AR/model-viewer (nullable — not all products have 3D models)
   model_3d_url: { type: DataTypes.STRING(500), allowNull: true },
+  // Derived from spin_images by spinSequenceService: a folder of sequentially
+  // named, uniformly-formatted frames that react-360-view's <ThreeSixty>
+  // component can address via imagePath + fileName="frame_{index}.jpg".
+  spinImagePath: { type: DataTypes.STRING(300), allowNull: true },
+  spinImageCount: { type: DataTypes.INTEGER, defaultValue: 0 },
+  spinImageExt: { type: DataTypes.STRING(10), defaultValue: 'jpg' },
   tags: {
     type: DataTypes.JSON,
     defaultValue: [],

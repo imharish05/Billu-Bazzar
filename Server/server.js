@@ -31,6 +31,16 @@ const start = async () => {
       console.log('⚠️ Manual alter note (already altered or table not synced yet):', alterErr.message);
     }
 
+    // Manual alter to add react-360-view materialized frame columns to existing Products tables
+    try {
+      await sequelize.query("ALTER TABLE Products ADD COLUMN spinImagePath VARCHAR(300) NULL");
+      await sequelize.query("ALTER TABLE Products ADD COLUMN spinImageCount INT NOT NULL DEFAULT 0");
+      await sequelize.query("ALTER TABLE Products ADD COLUMN spinImageExt VARCHAR(10) NOT NULL DEFAULT 'jpg'");
+      console.log('✅ Products table spin-sequence columns added');
+    } catch (alterErr) {
+      console.log('⚠️ Manual alter note (already altered or table not synced yet):', alterErr.message);
+    }
+
     // Migrate any legacy 'DEAL' banners to 'EXCLUSIVE_DEAL'
     try {
       await sequelize.query("UPDATE Banners SET type = 'EXCLUSIVE_DEAL' WHERE type = 'DEAL'");

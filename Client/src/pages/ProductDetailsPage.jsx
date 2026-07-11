@@ -9,6 +9,7 @@ import { toggleItem } from '../redux/slices/wishlistSlice';
 import { openQuickView } from '../redux/slices/uiSlice';
 import Footer from '../components/Footer';
 import ProductCard from '../components/ProductCard';
+import Product360Viewer from '../components/Product360Viewer';
 import { formatPrice } from '../utils/currency';
 import { getPlaceholderSvg } from '../utils/placeholder';
 import toast from 'react-hot-toast';
@@ -39,9 +40,6 @@ const ProductDetailsPage = () => {
   const [imageZoomed, setImageZoomed] = useState(false);
 
   const [viewMode, setViewMode] = useState('standard'); // 'standard', 'spin', 'ar'
-  const [spinIndex, setSpinIndex] = useState(0);
-  const [isDraggingSpin, setIsDraggingSpin] = useState(false);
-  const [dragStartPos, setDragStartPos] = useState(0);
   const [videoOpen, setVideoOpen] = useState(false);
   const [notifyEmail, setNotifyEmail] = useState('');
   const [notifySuccess, setNotifySuccess] = useState(false);
@@ -124,51 +122,6 @@ const ProductDetailsPage = () => {
   // Safe filtering in case DB returns string placeholders
   const images = rawImages.map(img => typeof img === 'string' && img.length > 2 ? img : getPlaceholderSvg(product.name));
 
-  const spinImages = Array.isArray(product.spin_images) && product.spin_images.length > 0
-    ? product.spin_images
-    : [];
-
-  const handleMouseDown = (e) => {
-    if (spinImages.length === 0) {
-      setIsDraggingSpin(true);
-      setDragStartPos(e.clientX);
-      return;
-    }
-    setIsDraggingSpin(true);
-    setDragStartPos(e.clientX);
-  };
-
-  const handleMouseMove = (e) => {
-    if (!isDraggingSpin) return;
-    const deltaX = e.clientX - dragStartPos;
-    if (Math.abs(deltaX) > 15) {
-      const step = deltaX > 0 ? -1 : 1;
-      const length = spinImages.length > 0 ? spinImages.length : 24;
-      setSpinIndex(prev => (prev + step + length) % length);
-      setDragStartPos(e.clientX);
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDraggingSpin(false);
-  };
-
-  const handleTouchStart = (e) => {
-    setIsDraggingSpin(true);
-    setDragStartPos(e.touches[0].clientX);
-  };
-
-  const handleTouchMove = (e) => {
-    if (!isDraggingSpin) return;
-    const deltaX = e.touches[0].clientX - dragStartPos;
-    if (Math.abs(deltaX) > 12) {
-      const step = deltaX > 0 ? -1 : 1;
-      const length = spinImages.length > 0 ? spinImages.length : 24;
-      setSpinIndex(prev => (prev + step + length) % length);
-      setDragStartPos(e.touches[0].clientX);
-    }
-  };
-
   const handleNotifySubmit = (e) => {
     e.preventDefault();
     if (!notifyEmail.trim()) return;
@@ -229,59 +182,7 @@ const ProductDetailsPage = () => {
                 className="relative flex-1 aspect-square bg-brand-light overflow-hidden"
               >
                 {viewMode === 'spin' ? (
-                  <div
-                    className="w-full h-full flex flex-col items-center justify-center select-none relative cursor-ew-resize bg-neutral-50"
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseUp}
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleMouseUp}
-                  >
-                    <div className="absolute top-4 left-4 bg-brand-gold/10 text-brand-gold text-[10px] font-bold px-2.5 py-1 tracking-wider uppercase flex items-center gap-1.5 rounded-full border border-brand-gold/20 z-10">
-                      <RotateCcw size={10} className="animate-spin" /> Drag to Rotate 360°
-                    </div>
-                    
-                    {spinImages.length > 0 ? (
-                      <img
-                        src={spinImages[spinIndex]}
-                        alt="Product 360 view frame"
-                        className="w-full h-full object-cover pointer-events-none"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = getPlaceholderSvg(product.name);
-                        }}
-                      />
-                    ) : (
-                      /* Elegant mock 3D gold rotating vector silhouette */
-                      <div className="w-full h-full flex flex-col items-center justify-center p-8 transition-transform duration-100 ease-out" style={{ perspective: 800 }}>
-                        <div
-                          className="w-48 h-64 border-2 border-brand-gold/40 flex items-center justify-center shadow-lg bg-white relative transition-transform duration-150"
-                          style={{
-                            transform: `rotateY(${spinIndex * (360 / 24)}deg)`,
-                            transformStyle: 'preserve-3d',
-                            boxShadow: '0 20px 40px rgba(201,162,75,0.1)'
-                          }}
-                        >
-                          <div className="absolute inset-2 border border-brand-gold/20 flex flex-col items-center justify-center bg-amber-50/10">
-                            <svg className="w-16 h-16 text-brand-gold" fill="none" stroke="currentColor" strokeWidth="1" viewBox="0 0 24 24">
-                              <polygon points="12,2 22,8.5 12,22 2,8.5" />
-                            </svg>
-                            <span className="text-[9px] text-brand-gold uppercase tracking-widest font-semibold mt-4">360° Specimen</span>
-                          </div>
-                        </div>
-                        <p className="text-[10px] text-brand-grey uppercase tracking-widest mt-6 font-medium">Swipe horizontally to spin</p>
-                      </div>
-                    )}
-
-                    <button
-                      onClick={() => setViewMode('standard')}
-                      className="absolute bottom-4 right-4 bg-white hover:bg-neutral-50 text-brand-text text-xs px-3 py-1.5 rounded-full shadow border border-neutral-200 font-medium flex items-center gap-1 z-10"
-                    >
-                      Close 360°
-                    </button>
-                  </div>
+                  <Product360Viewer product={product} onClose={() => setViewMode('standard')} />
                 ) : (
                   <div
                     className="w-full h-full relative cursor-zoom-in"

@@ -3,6 +3,7 @@ const { Op } = require('sequelize');
 const { Product, Category, Vendor } = require('../models');
 const fs = require('fs');
 const path = require('path');
+const { materializeSpinSequence, deleteSpinSequence } = require('../services/spinSequenceService');
 
 // Helper to delete local file
 const deleteLocalFile = (imagePath) => {
@@ -166,6 +167,10 @@ const create = async (req, res) => {
   try {
     const { data } = processProductData(req);
     const product = await Product.create(data);
+
+    const spinMeta = materializeSpinSequence(product.id, product.spin_images);
+    await product.update(spinMeta);
+
     res.status(201).json({ success: true, product });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -190,6 +195,10 @@ const update = async (req, res) => {
     removedSpin.forEach(img => deleteLocalFile(img));
 
     await product.update(data);
+
+    const spinMeta = materializeSpinSequence(product.id, product.spin_images);
+    await product.update(spinMeta);
+
     res.json({ success: true, product });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -218,6 +227,7 @@ const remove = async (req, res) => {
     await product.destroy({ transaction });
 
     await transaction.commit();
+    deleteSpinSequence(id);
     res.json({ success: true, message: 'Product deleted successfully' });
   } catch (err) {
     await transaction.rollback();
