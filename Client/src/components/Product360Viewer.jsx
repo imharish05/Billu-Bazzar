@@ -1,19 +1,10 @@
-import ThreeSixty from 'react-360-view';
-import { RotateCcw, X } from 'lucide-react';
-import ThreeSixtyErrorBoundary from './ThreeSixtyErrorBoundary';
+import { RotateCcw } from 'lucide-react';
 import Product360Fallback from './Product360Fallback';
 
 /**
- * Product360View
- * Renders the real `react-360-view` <ThreeSixty> component against the
- * sequential frame set the backend materializes for each product
- * (see Server/services/spinSequenceService.js). That package needs a
- * single folder + fileName pattern ("frame_{index}.ext"), which is
- * exactly what spinImagePath/spinImageCount/spinImageExt describe.
- *
- * If materialized frames aren't ready yet (legacy product, still
- * processing) or the package throws, falls back to Product360Fallback,
- * which drives the same UX directly off the raw spin_images URL array.
+ * Product360Viewer
+ * Directs rendering to Product360Fallback, which provides high-fidelity,
+ * fully customizable 360° spin controls and adjustable speeds.
  */
 const Product360Viewer = ({ product, onClose }) => {
   const spinImages = Array.isArray(product?.spin_images) ? product.spin_images : [];
@@ -23,10 +14,7 @@ const Product360Viewer = ({ product, onClose }) => {
 
   const hasMaterializedSequence = count >= 2 && !!path;
 
-  if (!hasMaterializedSequence) {
-    if (spinImages.length > 1) {
-      return <Product360Fallback images={spinImages} productName={product?.name} onClose={onClose} />;
-    }
+  if (!hasMaterializedSequence && spinImages.length <= 1) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center p-8 relative bg-neutral-50">
         <div className="absolute top-4 left-4 bg-brand-gold/10 text-brand-gold text-[10px] font-bold px-2.5 py-1 tracking-wider uppercase flex items-center gap-1.5 rounded-full border border-brand-gold/20 z-10">
@@ -50,49 +38,20 @@ const Product360Viewer = ({ product, onClose }) => {
     );
   }
 
+  const images = spinImages.length ? spinImages : buildFrameUrls(path, count, ext);
+
   return (
-    <ThreeSixtyErrorBoundary
-      fallback={<Product360Fallback images={spinImages.length ? spinImages : buildFrameUrls(path, count, ext)} productName={product?.name} onClose={onClose} />}
-    >
-      <div className="relative w-full h-full bg-neutral-50 overflow-hidden rounded-sm bb-360-host">
-        <style>{`
-          .bb-360-host, .bb-360-host > div, .bb-360-host .v360-viewer-container, .bb-360-host .v360-viewport {
-            width: 100%;
-            height: 100%;
-          }
-          .bb-360-host .v360-image-container { cursor: grab; }
-          .bb-360-host #v360-menu-btns { position: absolute; bottom: 0; left: 0; border-radius: 0 0 4px 4px; }
-        `}</style>
-        <div className="absolute top-4 left-4 bg-white/90 backdrop-blur text-brand-text text-[10px] font-bold px-2.5 py-1 tracking-wider uppercase flex items-center gap-1.5 rounded-full border border-neutral-200 z-20 shadow-sm">
-          <RotateCcw size={11} /> 360° View
-        </div>
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 bg-white hover:bg-neutral-100 text-brand-text p-1.5 rounded-full shadow border border-neutral-200 z-20"
-            aria-label="Close 360 view"
-          >
-            <X size={14} />
-          </button>
-        )}
-        <ThreeSixty
-          amount={count}
-          imagePath={path}
-          fileName={`frame_{index}.${ext}`}
-          autoplay={24}
-          loop={1}
-          boxShadow
-          buttonClass="dark"
-          paddingIndex={false}
-        />
-      </div>
-    </ThreeSixtyErrorBoundary>
+    <Product360Fallback
+      images={images}
+      productName={product?.name}
+      onClose={onClose}
+    />
   );
 };
 
-// Only used if the package fails after frames were confirmed materialized —
-// rebuilds the plain URL list the fallback viewer expects.
-const buildFrameUrls = (path, count, ext) =>
-  Array.from({ length: count }, (_, i) => `${path}frame_${i + 1}.${ext}`);
+const buildFrameUrls = (path, count, ext) => {
+  const cleanPath = path.endsWith('/') ? path : `${path}/`;
+  return Array.from({ length: count }, (_, i) => `${cleanPath}frame_${i + 1}.${ext}`);
+};
 
 export default Product360Viewer;

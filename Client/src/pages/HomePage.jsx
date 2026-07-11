@@ -141,7 +141,7 @@ const HomePage = () => {
         const maxIdx = isMobileViewport ? exclusiveBanners.length - 1 : exclusiveBanners.length - 2;
         return prev >= maxIdx ? 0 : prev + 1;
       });
-    }, 5000);
+    }, 6500);
     return () => clearInterval(interval);
   }, [exclusiveBanners.length, isMobileViewport]);
 
@@ -229,9 +229,11 @@ const HomePage = () => {
         let gap = 16;
         if (window.innerWidth >= 1024) gap = 32;
         else if (window.innerWidth >= 768) gap = 24;
-        el.scrollBy({ left: el.clientWidth + gap, behavior: 'smooth' });
+        // Scroll by 2 card widths instead of the entire page width to make it much smoother
+        const cardWidth = el.clientWidth / (window.innerWidth >= 1024 ? 6 : window.innerWidth >= 768 ? 4 : 3);
+        el.scrollBy({ left: cardWidth * 2 + gap, behavior: 'smooth' });
       }
-    }, 6000);
+    }, 7500);
     return () => clearInterval(interval);
   }, [categoriesList.length, autoplayResetTrigger]);
 
@@ -738,7 +740,7 @@ const HomePage = () => {
                       textColor="#C58837"
                       borderRadius={0.04}
                       scrollEase={0.07}
-                      scrollSpeed={3}
+                      scrollSpeed={1.2}
                       fontUrl="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap"
                       font="bold 26px Cinzel"
                       onChangeActiveIndex={handleActiveInfluencerChange}

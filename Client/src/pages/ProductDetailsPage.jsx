@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -43,6 +43,14 @@ const ProductDetailsPage = () => {
   const [videoOpen, setVideoOpen] = useState(false);
   const [notifyEmail, setNotifyEmail] = useState('');
   const [notifySuccess, setNotifySuccess] = useState(false);
+  const videoRef = useRef(null);
+  const [videoSpeed, setVideoSpeed] = useState(0.8);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.playbackRate = videoSpeed;
+    }
+  }, [videoSpeed, videoOpen]);
 
   const isWishlisted = product ? wishlist.includes(product.id) : false;
   const inCart = product ? cartItems.some(i => i.productId === product.id) : false;
@@ -519,6 +527,7 @@ const ProductDetailsPage = () => {
                 <X size={20} />
               </button>
               <video
+                ref={videoRef}
                 src="https://assets.mixkit.co/videos/preview/mixkit-luxury-gold-rings-on-a-display-42866-large.mp4"
                 className="w-full h-full object-cover"
                 controls
@@ -526,6 +535,28 @@ const ProductDetailsPage = () => {
                 loop
                 playsInline
               />
+              {/* Playback speed selector overlay */}
+              <div className="absolute bottom-4 left-4 z-10 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2 shadow-lg">
+                <span className="text-[10px] text-white/60 font-semibold uppercase tracking-wider select-none">Speed</span>
+                <div className="flex items-center gap-1.5">
+                  {['0.5', '0.75', '1.0', '1.25', '1.5'].map(speedStr => {
+                    const speedVal = parseFloat(speedStr);
+                    return (
+                      <button
+                        key={speedStr}
+                        onClick={() => setVideoSpeed(speedVal)}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-all border ${
+                          videoSpeed === speedVal
+                            ? 'bg-brand-gold border-brand-gold text-white shadow-sm'
+                            : 'bg-white/10 border-transparent text-white/80 hover:bg-white/20 hover:text-white'
+                        }`}
+                      >
+                        {speedStr}x
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </motion.div>
           </div>
         )}

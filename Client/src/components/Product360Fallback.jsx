@@ -15,6 +15,7 @@ const Product360Fallback = ({ images = [], onClose, productName = 'Product' }) =
   const [zoom, setZoom] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
   const [autoplay, setAutoplay] = useState(true);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [showHint, setShowHint] = useState(true);
   const [panOrigin, setPanOrigin] = useState({ x: 0, y: 0 });
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -47,14 +48,21 @@ const Product360Fallback = ({ images = [], onClose, productName = 'Product' }) =
     return () => { cancelled = true; };
   }, [images, frameCount]);
 
-  // Gentle autoplay until the user first interacts
+  // Gentle autoplay until the user first interacts, loops only once
   useEffect(() => {
     if (!ready || !autoplay || isDragging || frameCount < 2) return;
+    let ticks = 0;
+    const interval = 160 / playbackSpeed;
     autoplayRef.current = setInterval(() => {
+      if (ticks >= frameCount - 1) {
+        setAutoplay(false);
+        return;
+      }
+      ticks += 1;
       setFrame(f => (f + 1) % frameCount);
-    }, 70);
+    }, interval);
     return () => clearInterval(autoplayRef.current);
-  }, [ready, autoplay, isDragging, frameCount]);
+  }, [ready, autoplay, isDragging, frameCount, playbackSpeed]);
 
   const stopAutoplay = useCallback(() => {
     setAutoplay(false);
@@ -64,7 +72,7 @@ const Product360Fallback = ({ images = [], onClose, productName = 'Product' }) =
   // Momentum decay after release
   const applyMomentum = useCallback(() => {
     const decay = () => {
-      dragState.current.velocity *= 0.92;
+      dragState.current.velocity *= 0.88;
       if (Math.abs(dragState.current.velocity) < 0.15) {
         rafRef.current = null;
         return;
@@ -91,7 +99,7 @@ const Product360Fallback = ({ images = [], onClose, productName = 'Product' }) =
     if (zoom > 1) setPanOrigin({ x: (e.touches ? e.touches[0].clientX : e.clientX) - panOffset.x, y: (e.touches ? e.touches[0].clientY : e.clientY) - panOffset.y });
   };
 
-  const SENSITIVITY = Math.max(4, Math.round(280 / frameCount)); // px per frame step
+  const SENSITIVITY = Math.max(10, Math.round(400 / frameCount)); // px per frame step
 
   const handlePointerMove = (e) => {
     if (!isDragging || !ready) return;
@@ -118,7 +126,7 @@ const Product360Fallback = ({ images = [], onClose, productName = 'Product' }) =
         dragState.current.lastX = x;
       }
     }
-    if (dt > 0) dragState.current.velocity = (-deltaX / SENSITIVITY) * (16 / dt);
+    if (dt > 0) dragState.current.velocity = ((-deltaX / SENSITIVITY) * (16 / dt)) * 0.65;
     dragState.current.lastT = now;
   };
 
@@ -240,6 +248,13 @@ const Product360Fallback = ({ images = [], onClose, productName = 'Product' }) =
             aria-label="Zoom in"
           >
             <ZoomIn size={13} />
+          </button>
+          <button
+            onClick={() => setPlaybackSpeed(s => s === 0.5 ? 1.0 : s === 1.0 ? 1.5 : s === 1.5 ? 2.0 : 0.5)}
+            className="bg-white hover:bg-neutral-100 text-brand-text text-[10px] font-bold px-2 py-1.5 rounded-full shadow border border-neutral-200 transition-colors min-w-[36px] text-center"
+            aria-label="Change spin speed"
+          >
+            {playbackSpeed}x
           </button>
           <button
             onClick={() => setAutoplay(a => !a)}
