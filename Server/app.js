@@ -23,7 +23,12 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // ── Static Uploads ─────────────────────────────────────────────────────────────
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// setHeaders overrides Content-Type based on real file bytes, not extension —
+// see middleware/imageContentType.js for why this matters for 360 frames.
+const { fixImageContentType } = require('./middleware/imageContentType');
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  setHeaders: fixImageContentType,
+}));
 
 // ── API Routes ────────────────────────────────────────────────────────────────
 app.use('/api/auth',       require('./routes/authRoutes'));

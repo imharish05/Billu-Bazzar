@@ -2,7 +2,7 @@
  * Logo component — both apps
  * Renders the circular gold brand logo image alongside styled brand text.
  */
-const Logo = ({ size = 'md', className = '', showText = false }) => {
+const Logo = ({ size = 'md', className = '', showText = false, fullHeight = false }) => {
   const imageSizes = {
     sm: 'h-16 w-16',
     md: 'h-20 w-20',
@@ -15,12 +15,14 @@ const Logo = ({ size = 'md', className = '', showText = false }) => {
     lg: 'text-3xl',
   };
 
+  const imgSizeClass = fullHeight ? 'h-full w-auto max-h-full py-1.5' : imageSizes[size];
+
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
       <img
         src="/logo.png"
         alt="Billu Bazaar Logo"
-        className={`${imageSizes[size]} object-contain bg-black rounded-none shadow-[0_4px_12px_rgba(0,0,0,0.4)]`}
+        className={`${imgSizeClass} object-contain bg-black rounded-none shadow-[0_4px_12px_rgba(0,0,0,0.4)]`}
       />
       {showText && (
         <span

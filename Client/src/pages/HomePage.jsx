@@ -67,10 +67,10 @@ const CountUnit = ({ value, label }) => (
 );
 
 /* ── Section Header ──────────────────────────────────────────────────────── */
-const SectionHeader = ({ eyebrow, title, subtitle, centered = true }) => (
-  <div className={`mb-12 ${centered ? 'text-center' : ''}`}>
-    {eyebrow && <p className="text-brand-gold text-xs font-medium tracking-[0.2em] uppercase mb-3">{eyebrow}</p>}
-    <h2 className="font-playfair text-h2-sm md:text-h2 font-semibold text-brand-text">{title}</h2>
+const SectionHeader = ({ eyebrow, title, subtitle, centered = true, className = 'mb-12' }) => (
+  <div className={`${className} ${centered ? 'text-center' : ''}`}>
+    {eyebrow && <p className="text-brand-gold text-xs font-bold tracking-[0.2em] uppercase mb-3">{eyebrow}</p>}
+    <h2 className="font-playfair text-h2-sm md:text-h2 font-bold text-brand-text">{title}</h2>
     {subtitle && <p className="text-brand-grey mt-3 text-base max-w-xl mx-auto">{subtitle}</p>}
   </div>
 );
@@ -113,7 +113,10 @@ const HomePage = () => {
   const { items: products, featured, newArrivals, bestSellers, loading } = useSelector(s => s.products);
   const { items: categories } = useSelector(s => s.categories);
   const { items: banners } = useSelector(s => s.banners);
-  const [activeTab, setActiveTab] = useState('all');
+  const [mainTab, setMainTab] = useState('bestsellers');
+  const carouselScrollRef = useRef(null);
+  const [showCarouselLeftArrow, setShowCarouselLeftArrow] = useState(false);
+  const [showCarouselRightArrow, setShowCarouselRightArrow] = useState(false);
 
   const [isMobileViewport, setIsMobileViewport] = useState(
     () => typeof window !== 'undefined' && window.innerWidth < 768
@@ -245,8 +248,8 @@ const HomePage = () => {
   useEffect(() => {
     dispatch(fetchProducts({ limit: 16 }));
     dispatch(fetchFeatured());
-    dispatch(fetchNewArrivals(8));
-    dispatch(fetchBestSellers(8));
+    dispatch(fetchNewArrivals(16));
+    dispatch(fetchBestSellers(16));
     dispatch(fetchCategories());
     dispatch(fetchBanners());
     
@@ -278,19 +281,41 @@ const HomePage = () => {
     if (meta) meta.setAttribute('content', 'Discover luxury party wear, jewelry, perfumes and accessories at Billu Bazaar. Handcrafted, curated, and delivered with love across India.');
   }, [dispatch]);
 
-  const featuredProducts = (featured.length ? featured : products).slice(0, 8);
-  
-  const getCategorySlug = (tabId) => {
-    if (tabId === 'party') return 'party-wear';
-    return tabId;
-  };
+  const updateCarouselArrows = useCallback(() => {
+    const el = carouselScrollRef.current;
+    if (!el) return;
+    setShowCarouselLeftArrow(el.scrollLeft > 5);
+    setShowCarouselRightArrow(el.scrollLeft < el.scrollWidth - el.clientWidth - 5);
+  }, []);
 
-  const displayNewArrivals = newArrivals.length ? newArrivals : products;
-  const filteredProducts = activeTab === 'all'
-    ? displayNewArrivals.slice(0, 8)
-    : activeTab === 'featured'
-      ? featuredProducts
-      : displayNewArrivals.filter(p => p.category?.slug === getCategorySlug(activeTab)).slice(0, 8);
+  const productsToRender = useMemo(() => {
+    let list = [];
+    if (mainTab === 'bestsellers') {
+      list = bestSellers.length ? bestSellers : products.filter(p => p.isBestSeller);
+    } else {
+      list = newArrivals.length ? newArrivals : products.filter(p => p.isNewArrival);
+    }
+    return list.length ? list : products.slice(0, 8);
+  }, [mainTab, bestSellers, newArrivals, products]);
+
+  useEffect(() => {
+    const el = carouselScrollRef.current;
+    if (!el) return;
+    updateCarouselArrows();
+    el.addEventListener('scroll', updateCarouselArrows, { passive: true });
+    window.addEventListener('resize', updateCarouselArrows);
+    return () => {
+      el.removeEventListener('scroll', updateCarouselArrows);
+      window.removeEventListener('resize', updateCarouselArrows);
+    };
+  }, [updateCarouselArrows, productsToRender]);
+
+  const scrollCarousel = (direction) => {
+    const el = carouselScrollRef.current;
+    if (!el) return;
+    const cardWidth = el.clientWidth / (window.innerWidth >= 1024 ? 4 : window.innerWidth >= 768 ? 3 : 2);
+    el.scrollBy({ left: direction * cardWidth * 2, behavior: 'smooth' });
+  };
 
 
 
@@ -420,49 +445,41 @@ const HomePage = () => {
         </section>
       )}
 
-      {/* ── SECTION 4: New Arrivals Carousel + Filter Tabs ──────────────── */}
-      <section className="py-16 md:py-24 bg-white" aria-label="New arrivals">
+      {/* ── SECTION 4: Bestsellers & New Arrivals Carousel ──────────────── */}
+      <section className="py-16 md:py-24 bg-white" aria-label="Bestsellers and New Arrivals">
         <div className="max-w-site mx-auto px-6 md:px-8">
           <ScrollReveal>
-            <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
-              <SectionHeader eyebrow="Fresh In" title="New Arrivals" centered={false} />
-              <Link to="/products?newArrival=true" className="btn-outline flex items-center gap-2 whitespace-nowrap self-start md:self-auto" id="new-arrivals-cta">
-                View All <ChevronRight size={16} />
-              </Link>
+            <div className="text-center mb-12">
+              <p className="text-brand-gold text-xs font-bold tracking-[0.2em] uppercase mb-3">Fresh In</p>
+              <h2 className="font-playfair text-lg sm:text-2xl md:text-h2 font-bold text-brand-text flex items-center justify-center gap-2 sm:gap-4 uppercase tracking-[0.05em] select-none border-b border-neutral-100 pb-6 max-w-xl mx-auto whitespace-nowrap flex-nowrap">
+                <button
+                  type="button"
+                  onClick={() => setMainTab('bestsellers')}
+                  className={`transition-colors duration-200 focus-visible:outline-brand-gold ${
+                    mainTab === 'bestsellers' ? 'text-neutral-950 font-bold' : 'text-neutral-300 hover:text-neutral-400'
+                  }`}
+                >
+                  Best Sellers
+                </button>
+                <span className="text-neutral-300 font-light font-sans">|</span>
+                <button
+                  type="button"
+                  onClick={() => setMainTab('new-arrivals')}
+                  className={`transition-colors duration-200 focus-visible:outline-brand-gold ${
+                    mainTab === 'new-arrivals' ? 'text-neutral-950 font-bold' : 'text-neutral-300 hover:text-neutral-400'
+                  }`}
+                >
+                  New Arrivals
+                </button>
+              </h2>
             </div>
           </ScrollReveal>
 
-          {/* Filter tabs */}
-          <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide" role="tablist" aria-label="Product filter tabs">
-            {[
-              { id: 'all', label: 'All' },
-              { id: 'featured', label: 'Featured' },
-              { id: 'party', label: 'Party Wear' },
-              { id: 'jewelry', label: 'Jewelry' },
-              { id: 'perfumes', label: 'Perfumes' },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                role="tab"
-                aria-selected={activeTab === tab.id}
-                id={`tab-${tab.id}`}
-                className={`px-5 py-2 text-sm font-medium whitespace-nowrap border transition-all duration-200 focus-visible:outline-brand-gold ${
-                  activeTab === tab.id
-                    ? 'bg-brand-text text-white border-brand-text'
-                    : 'bg-transparent text-brand-grey border-brand-light hover:border-brand-text hover:text-brand-text'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Product grid — staggered entrance via ProductCard */}
+          {/* Product grid / Carousel */}
           {loading ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {[...Array(8)].map((_, i) => (
-                <div key={i} className="bg-white shadow-sm">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="bg-white shadow-sm skeleton-card">
                   <div className="skeleton aspect-[3/4]" />
                   <div className="p-4 space-y-2">
                     <div className="skeleton h-4 w-3/4" />
@@ -473,12 +490,59 @@ const HomePage = () => {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {filteredProducts.map((product, i) => (
-                <ProductCard key={product.id} product={product} index={i} />
-              ))}
+            <div className="relative group/carousel px-4">
+              {/* Left Arrow Button */}
+              {showCarouselLeftArrow && (
+                <button
+                  type="button"
+                  onClick={() => scrollCarousel(-1)}
+                  className="absolute -left-2 sm:left-2 top-1/2 -translate-y-1/2 z-10 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white hover:bg-neutral-50 border border-neutral-200 text-neutral-800 flex items-center justify-center active:scale-95 transition-all shadow-md hover:text-brand-gold cursor-pointer"
+                  aria-label="Previous products"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+              )}
+
+              {/* Scroll Track */}
+              <div
+                ref={carouselScrollRef}
+                className="flex gap-4 md:gap-6 overflow-x-auto scrollbar-hide py-4 px-1"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {productsToRender.map((product, i) => (
+                  <div
+                    key={product.id || i}
+                    className="w-[calc(50%-8px)] md:w-[calc(33.333%-16px)] lg:w-[calc(25%-18px)] flex-shrink-0"
+                  >
+                    <ProductCard product={product} index={i} />
+                  </div>
+                ))}
+              </div>
+
+              {/* Right Arrow Button */}
+              {showCarouselRightArrow && (
+                <button
+                  type="button"
+                  onClick={() => scrollCarousel(1)}
+                  className="absolute -right-2 sm:right-2 top-1/2 -translate-y-1/2 z-10 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white hover:bg-neutral-50 border border-neutral-200 text-neutral-800 flex items-center justify-center active:scale-95 transition-all shadow-md hover:text-brand-gold cursor-pointer"
+                  aria-label="Next products"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              )}
             </div>
           )}
+
+          {/* Centered VIEW ALL button at the bottom */}
+          <div className="flex justify-center mt-10">
+            <Link
+              to={mainTab === 'bestsellers' ? '/products?bestSeller=true' : '/products?newArrival=true'}
+              className="px-10 py-3 border border-neutral-800 text-neutral-800 hover:bg-neutral-900 hover:text-white hover:border-neutral-900 transition-all font-inter text-xs font-semibold uppercase tracking-widest"
+              id="carousel-view-all-btn"
+            >
+              View All
+            </Link>
+          </div>
         </div>
       </section>
 
