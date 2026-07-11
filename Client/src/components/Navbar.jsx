@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import anime from 'animejs';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { ShoppingBag, Heart, Search, Menu, X, User, ArrowRight, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -35,6 +35,8 @@ const TRENDING_KEYWORDS = ['bridal lehenga', 'party wear', 'gold jewelry', 'desi
 const Navbar = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
   const { items } = useSelector(s => s.cart);
   const { isAuthenticated, customer } = useSelector(s => s.auth);
   const { mobileMenuOpen } = useSelector(s => s.ui);
@@ -978,13 +980,17 @@ const Navbar = () => {
         )}
       </AnimatePresence>
 
-      {/* Spacer: shrinks when announcement bar hides on scroll */}
-      <div
-        style={{ height: announcementHidden ? '108px' : '144px', transition: 'height 0.3s ease' }}
-        className="lg:block hidden"
-        aria-hidden="true"
-      />
-      <div className="h-[132px] block lg:hidden" aria-hidden="true" />
+      {/* Spacer: shrinks when announcement bar hides on scroll (hidden on Homepage to overlay header and hero banner) */}
+      {!isHomePage && (
+        <>
+          <div
+            style={{ height: announcementHidden ? '108px' : '144px', transition: 'height 0.3s ease' }}
+            className="lg:block hidden"
+            aria-hidden="true"
+          />
+          <div className="h-[132px] block lg:hidden" aria-hidden="true" />
+        </>
+      )}
     </>
   );
 };

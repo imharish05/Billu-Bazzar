@@ -49,7 +49,7 @@ const HeroBanner = () => {
 
   if (loading) {
     return (
-      <section className="relative min-h-screen flex items-center overflow-hidden bg-brand-light" aria-label="Hero banner loading">
+      <section className="relative w-full aspect-[16/9] flex flex-col justify-center pt-[80px] sm:pt-[100px] lg:pt-[144px] pb-6 lg:pb-10 overflow-hidden bg-brand-light" aria-label="Hero banner loading">
         <div className="w-full h-full skeleton" />
       </section>
     );
@@ -57,7 +57,7 @@ const HeroBanner = () => {
 
   if (banners.length === 0) {
     return (
-      <section className="relative min-h-screen flex items-center overflow-hidden bg-brand-text" aria-label="Hero banner">
+      <section className="relative w-full aspect-[16/9] flex flex-col justify-center pt-[80px] sm:pt-[100px] lg:pt-[144px] pb-6 lg:pb-10 overflow-hidden bg-brand-text" aria-label="Hero banner">
         <div className="relative z-10 max-w-site mx-auto px-6 md:px-16 w-full">
           <div className="glass-hero-panel max-w-xl p-8 md:p-12">
             <p className="text-brand-gold text-xs tracking-[0.25em] uppercase mb-4">Billu Bazaar</p>
@@ -71,10 +71,16 @@ const HeroBanner = () => {
   }
 
   const banner = banners[current];
+  const hasTextContent = !!(
+    (banner?.badgeText && banner.badgeText.trim()) ||
+    (banner?.title && banner.title.trim()) ||
+    (banner?.subtitle && banner.subtitle.trim()) ||
+    (banner?.ctaText && banner.ctaText.trim())
+  );
 
   return (
     <section
-      className="relative min-h-screen flex items-center overflow-hidden"
+      className="relative w-full aspect-[16/9] flex flex-col justify-center pt-[80px] sm:pt-[100px] lg:pt-[144px] pb-6 lg:pb-10 overflow-hidden"
       aria-label="Hero banner carousel"
       role="region"
       aria-roledescription="carousel"
@@ -93,85 +99,105 @@ const HeroBanner = () => {
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <img
-            src={banner.image}
-            alt={banner.title}
-            className="w-full h-full object-cover"
-            fetchpriority="high"
-            loading="eager"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
+          {hasTextContent ? (
+            <>
+              <img
+                src={banner.image}
+                alt={banner.title || "Hero banner"}
+                className="w-full h-full object-cover"
+                fetchpriority="high"
+                loading="eager"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
+            </>
+          ) : (
+            <Link to={banner.ctaLink || '/products'} className="block w-full h-full cursor-pointer" id={`hero-link-${current}`}>
+              <img
+                src={banner.image}
+                alt={banner.title || "Hero banner"}
+                className="w-full h-full object-cover"
+                fetchpriority="high"
+                loading="eager"
+              />
+            </Link>
+          )}
         </motion.div>
       </AnimatePresence>
 
-      {/* Content */}
-      <div className="relative z-10 max-w-site mx-auto px-6 md:px-16 w-full">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={banner.id || current}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4 }}
-            className="glass-hero-panel max-w-xl p-8 md:p-12"
-          >
-            {banner.badgeText && (
-              <motion.span
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 }}
-                className="bg-brand-gold text-white text-[10px] font-bold px-3 py-1 inline-block mb-4 tracking-wider uppercase"
-              >
-                {banner.badgeText}
-              </motion.span>
-            )}
-            <motion.h1
-              className="font-playfair text-4xl md:text-6xl font-bold text-white leading-tight mb-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.5 }}
-            >
-              {banner.title.split(' ').map((word, i) => (
-                <motion.span
-                  key={i}
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.25 + i * 0.08 }}
-                  className="inline-block mr-3"
-                >
-                  {word}
-                </motion.span>
-              ))}
-            </motion.h1>
-            {banner.subtitle && (
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.6 }}
-                className="text-white/80 text-base md:text-lg mb-8 max-w-sm"
-              >
-                {banner.subtitle}
-              </motion.p>
-            )}
+      {/* Content Overlay */}
+      {hasTextContent && (
+        <div className="relative z-10 max-w-site mx-auto px-6 md:px-16 w-full">
+          <AnimatePresence mode="wait">
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7 }}
+              key={banner.id || current}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4 }}
+              className="glass-hero-panel max-w-xl p-8 md:p-12"
             >
-              <Link to={banner.ctaLink || '/products'} className="btn-primary-hero" id={`hero-cta-${current}`}>
-                {banner.ctaText || 'Explore Collection'}
-              </Link>
+              {banner.badgeText && banner.badgeText.trim() && (
+                <motion.span
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.15 }}
+                  className="bg-brand-gold text-white text-[10px] font-bold px-3 py-1 inline-block mb-4 tracking-wider uppercase"
+                >
+                  {banner.badgeText}
+                </motion.span>
+              )}
+              {banner.title && banner.title.trim() && (
+                <motion.h1
+                  className="font-playfair text-4xl md:text-6xl font-bold text-white leading-tight mb-6"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2, duration: 0.5 }}
+                >
+                  {banner.title.split(' ').map((word, i) => (
+                    <motion.span
+                      key={i}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.25 + i * 0.08 }}
+                      className="inline-block mr-3"
+                    >
+                      {word}
+                    </motion.span>
+                  ))}
+                </motion.h1>
+              )}
+              {banner.subtitle && banner.subtitle.trim() && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.6 }}
+                  className="text-white/80 text-base md:text-lg mb-8 max-w-sm"
+                >
+                  {banner.subtitle}
+                </motion.p>
+              )}
+              {banner.ctaText && banner.ctaText.trim() && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.7 }}
+                >
+                  <Link to={banner.ctaLink || '/products'} className="btn-primary-hero" id={`hero-cta-${current}`}>
+                    {banner.ctaText}
+                  </Link>
+                </motion.div>
+              )}
             </motion.div>
-          </motion.div>
-        </AnimatePresence>
-      </div>
+          </AnimatePresence>
+        </div>
+      )}
 
-      {/* Navigation arrows — desktop only */}
+      {/* Navigation arrows — desktop only (centered in the visible content space below the header) */}
       {banners.length > 1 && (
         <>
           <button
             onClick={prev}
-            className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 items-center justify-center bg-white/10 hover:bg-white/25 backdrop-blur-sm border border-white/20 text-white transition-all duration-200 focus-visible:outline-white"
+            className="hidden md:flex absolute left-4 top-[calc(50%+66px)] lg:top-[calc(50%+72px)] -translate-y-1/2 z-20 w-12 h-12 items-center justify-center bg-white/10 hover:bg-white/25 backdrop-blur-sm border border-white/20 text-white transition-all duration-200 focus-visible:outline-white"
             aria-label="Previous banner"
             id="hero-arrow-prev"
           >
@@ -179,7 +205,7 @@ const HeroBanner = () => {
           </button>
           <button
             onClick={next}
-            className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 items-center justify-center bg-white/10 hover:bg-white/25 backdrop-blur-sm border border-white/20 text-white transition-all duration-200 focus-visible:outline-white"
+            className="hidden md:flex absolute right-4 top-[calc(50%+66px)] lg:top-[calc(50%+72px)] -translate-y-1/2 z-20 w-12 h-12 items-center justify-center bg-white/10 hover:bg-white/25 backdrop-blur-sm border border-white/20 text-white transition-all duration-200 focus-visible:outline-white"
             aria-label="Next banner"
             id="hero-arrow-next"
           >

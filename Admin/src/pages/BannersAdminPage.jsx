@@ -12,6 +12,20 @@ const formatDatetimeLocal = (dateStr) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
+const checkImageDimensions = (file) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(img.src);
+      resolve({ width: img.width, height: img.height });
+    };
+    img.onerror = () => {
+      resolve(null);
+    };
+  });
+};
+
 const BannersAdminPage = () => {
   const [banners, setBanners] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -93,9 +107,30 @@ const BannersAdminPage = () => {
       }
     }
 
+    // Validate HERO mandatory fields
+    if (form.type === 'HERO') {
+      if (!form.ctaLink?.trim()) {
+        setUploadError('CTA Link is required for Hero banners.');
+        setSaving(false);
+        setUploadProgress(null);
+        return;
+      }
+    }
+
     try {
-      const fd = new FormData();
       const file = imageFile || fileInputRef.current?.files?.[0];
+      if (file && form.type === 'HERO') {
+        const dims = await checkImageDimensions(file);
+        if (dims) {
+          if (dims.width !== 1920 || dims.height !== 1080) {
+            setUploadError(`Hero banner images must be exactly 1920x1080 pixels. Your image is ${dims.width}x${dims.height}px.`);
+            setSaving(false);
+            setUploadProgress(null);
+            return;
+          }
+        }
+      }
+      const fd = new FormData();
       if (!file && !editing) {
         setUploadError('Please select an image file');
         setSaving(false);
@@ -295,6 +330,7 @@ const BannersAdminPage = () => {
                         <Upload size={28} className="mx-auto text-brand-grey mb-2" />
                         <p className="text-sm text-brand-grey">Drag & drop image here, or click to upload</p>
                         <p className="text-xs text-brand-grey mt-1">JPEG, PNG, WebP — max 50MB</p>
+                        <p className="text-[10px] text-brand-gold mt-1">For HERO: Must be exactly 1920x1080px (16:9 aspect ratio)</p>
                       </div>
                     )}
                   </div>
@@ -319,8 +355,8 @@ const BannersAdminPage = () => {
 
                 {/* Title */}
                 <div>
-                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-title">Title {form.type !== 'EXCLUSIVE_DEAL' && '*'}</label>
-                  <input id="ban-title" type="text" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} required={form.type !== 'EXCLUSIVE_DEAL'} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
+                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-title">Title {form.type !== 'EXCLUSIVE_DEAL' && form.type !== 'HERO' && '*'}</label>
+                  <input id="ban-title" type="text" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} required={form.type !== 'EXCLUSIVE_DEAL' && form.type !== 'HERO'} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
                 </div>
 
                 {/* Subtitle */}
@@ -360,9 +396,9 @@ const BannersAdminPage = () => {
                   <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-ctaText">CTA Button Text {form.type === 'EXCLUSIVE_DEAL' && '*'}</label>
                   <input id="ban-ctaText" type="text" value={form.ctaText} onChange={e => setForm(p => ({ ...p, ctaText: e.target.value }))} required={form.type === 'EXCLUSIVE_DEAL'} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-ctaLink">CTA Link {form.type === 'EXCLUSIVE_DEAL' && '*'}</label>
-                  <input id="ban-ctaLink" type="text" value={form.ctaLink} onChange={e => setForm(p => ({ ...p, ctaLink: e.target.value }))} required={form.type === 'EXCLUSIVE_DEAL'} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
+                 <div>
+                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-ctaLink">CTA Link {(form.type === 'EXCLUSIVE_DEAL' || form.type === 'HERO') && '*'}</label>
+                  <input id="ban-ctaLink" type="text" value={form.ctaLink} onChange={e => setForm(p => ({ ...p, ctaLink: e.target.value }))} required={form.type === 'EXCLUSIVE_DEAL' || form.type === 'HERO'} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
                 </div>
 
                 {/* Badge + Active */}
