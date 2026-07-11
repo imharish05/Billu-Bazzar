@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import anime from 'animejs';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { ShoppingBag, Heart, Search, Menu, X, User, ArrowRight, TrendingUp } from 'lucide-react';
+import { ShoppingBag, Heart, Search, Menu, X, User, ArrowRight, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from './Logo';
 import { toggleCart } from '../redux/slices/cartSlice';
@@ -21,12 +22,12 @@ import api from '../services/api';
 
 /* Glass surface 1: Navbar — rgba(250,250,248,0.72) + blur(12px) + 1px border */
 const DEFAULT_NAV_LINKS = [
-  { to: '/shop?category=new-arrivals', label: 'New Arrivals' },
-  { to: '/shop?category=party-wear', label: 'Party Wear' },
-  { to: '/shop?category=jewelry', label: 'Jewelry' },
-  { to: '/shop?category=perfumes', label: 'Perfumes' },
-  { to: '/shop?category=accessories', label: 'Accessories' },
-  { to: '/shop?category=sale', label: 'Sale', highlight: true },
+  { to: '/category/new-arrivals', label: 'New Arrivals', slug: 'new-arrivals' },
+  { to: '/category/party-wear', label: 'Party Wear', slug: 'party-wear' },
+  { to: '/category/jewelry', label: 'Jewelry', slug: 'jewelry' },
+  { to: '/category/perfumes', label: 'Perfumes', slug: 'perfumes' },
+  { to: '/category/accessories', label: 'Accessories', slug: 'accessories' },
+  { to: '/category/sale', label: 'Sale', highlight: true, slug: 'sale' },
 ];
 
 const TRENDING_KEYWORDS = ['bridal lehenga', 'party wear', 'gold jewelry', 'designer saree', 'perfume gift set'];
@@ -48,10 +49,19 @@ const Navbar = () => {
   } = useSelector(s => s.search);
 
   const [scrolled, setScrolled] = useState(false);
+  const [dropdownLeft, setDropdownLeft] = useState(0);
+  const [flyoutDirection, setFlyoutDirection] = useState('right');
+  const [expandedLevel1, setExpandedLevel1] = useState(null);
+  const [expandedLevel2, setExpandedLevel2] = useState(null);
+  const [announcementHidden, setAnnouncementHidden] = useState(false);
   const [localQuery, setLocalQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(-1);
   const searchRef = useRef(null);
   const debounceTimer = useRef(null);
+  const catScrollRef = useRef(null);
+  const [catCanScrollLeft, setCatCanScrollLeft] = useState(false);
+  const [catCanScrollRight, setCatCanScrollRight] = useState(false);
+  const [isOverflowing, setIsOverflowing] = useState(false);
 
   const [sliderMessages, setSliderMessages] = useState([]);
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
@@ -88,23 +98,27 @@ const Navbar = () => {
     });
   };
 
+  // Full 3-level category tree for mega dropdown
+  const [categoryTree, setCategoryTree] = useState([]);
   const [dynamicNavLinks, setDynamicNavLinks] = useState([]);
 
   useEffect(() => {
     const fetchHeaderCategories = async () => {
       try {
-        const res = await api.get('/categories');
+        const res = await api.get('/categories/tree');
         if (res.data?.success && res.data.categories?.length > 0) {
-          const headerLinks = res.data.categories
+          const tree = res.data.categories.filter(c => c.isActive);
+          setCategoryTree(tree);
+          const headerLinks = tree
             .filter(c => c.showHeader)
             .map(c => ({
-              to: `/shop?category=${c.slug}`,
+              to: `/category/${c.slug}`,
               label: c.name,
+              slug: c.slug,
               highlight: c.slug === 'sale',
+              children: (c.children || []).filter(s => s.isActive),
             }));
-          if (headerLinks.length > 0) {
-            setDynamicNavLinks(headerLinks);
-          }
+          if (headerLinks.length > 0) setDynamicNavLinks(headerLinks);
         }
       } catch (err) {
         console.error('Error fetching header categories:', err);
@@ -115,41 +129,103 @@ const Navbar = () => {
 
   const activeNavLinks = dynamicNavLinks.length > 0 ? dynamicNavLinks : DEFAULT_NAV_LINKS;
 
+  // Mega dropdown state
+  const [openDropdownSlug, setOpenDropdownSlug] = useState(null);
+  const [activeSubSlug, setActiveSubSlug] = useState(null);
+  const dropdownRef = useRef(null);
+  const dropdownTimerRef = useRef(null);
+
+  const openDropdown = useCallback((slug, triggerEl) => {
+    clearTimeout(dropdownTimerRef.current);
+    setOpenDropdownSlug(slug);
+    setActiveSubSlug(null);
+
+    if (triggerEl) {
+      const parentEl = triggerEl.closest('.nav-row-2');
+      if (parentEl) {
+        const triggerRect = triggerEl.getBoundingClientRect();
+        const parentRect = parentEl.getBoundingClientRect();
+        const leftPos = triggerRect.left - parentRect.left;
+        setDropdownLeft(leftPos);
+
+        const screenWidth = window.innerWidth;
+        if (triggerRect.left + 200 + 180 > screenWidth) {
+          setFlyoutDirection('left');
+        } else {
+          setFlyoutDirection('right');
+        }
+      }
+    }
+  }, []);
+
+  const closeDropdown = useCallback(() => {
+    dropdownTimerRef.current = setTimeout(() => {
+      setOpenDropdownSlug(null);
+      setActiveSubSlug(null);
+    }, 150);
+  }, []);
+
+  const keepDropdown = useCallback(() => {
+    clearTimeout(dropdownTimerRef.current);
+  }, []);
+
+  // Animate dropdown panel in using anime.js
+  useEffect(() => {
+    if (openDropdownSlug && dropdownRef.current) {
+      anime({
+        targets: dropdownRef.current,
+        opacity: [0, 1],
+        translateY: [-8, 0],
+        duration: 220,
+        easing: 'easeOutCubic',
+      });
+    }
+  }, [openDropdownSlug]);
+
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handler, { passive: true });
     return () => window.removeEventListener('scroll', handler);
   }, []);
 
-  // Hide header on scroll down, reveal on scroll up. Stays visible near the
-  // top and ignores sub-pixel/bounce jitter below a small threshold.
-  const [navHidden, setNavHidden] = useState(false);
-  const lastScrollYRef = useRef(0);
+  // Hide only the announcement bar when scrolled past its height (~36px).
+  // The main nav (logo + search + categories) always stays visible.
   useEffect(() => {
-    lastScrollYRef.current = window.scrollY;
-    const HIDE_THRESHOLD = 140; // roughly header height — don't hide until scrolled past it
-    const DELTA = 6; // ignore tiny scroll jitter
-    const handleDirection = () => {
-      const currentY = window.scrollY;
-      const diff = currentY - lastScrollYRef.current;
-      if (Math.abs(diff) < DELTA) return;
-      if (currentY <= HIDE_THRESHOLD) {
-        setNavHidden(false);
-      } else if (diff > 0) {
-        setNavHidden(true); // scrolling down
-      } else {
-        setNavHidden(false); // scrolling up
-      }
-      lastScrollYRef.current = currentY;
-    };
-    window.addEventListener('scroll', handleDirection, { passive: true });
-    return () => window.removeEventListener('scroll', handleDirection);
+    const ANNOUNCEMENT_H = 36;
+    const handler = () => setAnnouncementHidden(window.scrollY > ANNOUNCEMENT_H);
+    window.addEventListener('scroll', handler, { passive: true });
+    return () => window.removeEventListener('scroll', handler);
   }, []);
 
-  // Never hide the header while the mobile menu is open
+  // Category scroll arrow visibility
+  const updateCatArrows = useCallback(() => {
+    const el = catScrollRef.current;
+    if (!el) return;
+    const overflowing = el.scrollWidth > el.clientWidth;
+    setIsOverflowing(overflowing);
+    setCatCanScrollLeft(el.scrollLeft > 4);
+    setCatCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
   useEffect(() => {
-    if (mobileMenuOpen) setNavHidden(false);
-  }, [mobileMenuOpen]);
+    const el = catScrollRef.current;
+    if (!el) return;
+    updateCatArrows();
+    el.addEventListener('scroll', updateCatArrows, { passive: true });
+    window.addEventListener('resize', updateCatArrows);
+    return () => {
+      el.removeEventListener('scroll', updateCatArrows);
+      window.removeEventListener('resize', updateCatArrows);
+    };
+  }, [updateCatArrows]);
+
+  useEffect(() => { updateCatArrows(); }, [activeNavLinks, updateCatArrows]);
+
+  const scrollCats = (dir) => {
+    const el = catScrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * 200, behavior: 'smooth' });
+  };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -373,11 +449,13 @@ const Navbar = () => {
   return (
     <>
       <header
-        className={`glass-nav fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ease-in-out ${scrolled ? 'shadow-md' : ''} ${navHidden ? '-translate-y-full' : 'translate-y-0'}`}
+        className={`glass-nav fixed top-0 left-0 right-0 z-50 transition-shadow duration-300 ${scrolled ? 'shadow-md' : ''}`}
         role="banner"
       >
-        {/* Announcement bar */}
-        <div className="bg-white text-neutral-950 py-1.5 text-caption font-inter tracking-widest uppercase text-[10px] sm:text-xs overflow-hidden relative h-9 flex items-center justify-center border-b border-neutral-200">
+        {/* Announcement bar — slides up and hides on scroll, only nav stays */}
+        <div
+          className={`bg-white text-neutral-950 font-inter tracking-widest uppercase text-[10px] sm:text-xs overflow-hidden relative h-9 flex items-center justify-center border-b border-neutral-200 transition-all duration-300 ease-in-out ${announcementHidden ? 'h-0 opacity-0 pointer-events-none' : 'h-9 opacity-100'}`}
+        >
           {/* Mobile/Tablet marquee */}
           <div className="lg:hidden w-full overflow-hidden flex items-center relative h-full">
             <style>{`
@@ -440,113 +518,248 @@ const Navbar = () => {
           </div>
         </div>
 
-        <nav className="max-w-site mx-auto px-4 md:px-8" aria-label="Main navigation">
-          {/* Desktop layout */}
-          <div className="hidden lg:flex items-center justify-between h-20">
-            {/* Logo */}
-            <Link to="/" aria-label="Billu Bazaar — Home" className="flex-shrink-0">
-              <Logo size="md" />
+        <nav className="max-w-site mx-auto" aria-label="Main navigation">
+          {/* ── Desktop layout ── */}
+          <div className="hidden lg:flex items-stretch">
+
+            {/* Left side: cinematic vertical logo block spanning full header height */}
+            <Link
+              to="/"
+              aria-label="Billu Bazaar — Home"
+              className="flex-shrink-0 flex items-center justify-center px-6 border-r border-neutral-800/80 bg-black self-stretch"
+              style={{ width: '140px' }}
+            >
+              <Logo fullHeight />
             </Link>
 
-            {/* Search bar — centered */}
-            <div ref={searchRef} className="relative flex-1 max-w-md mx-8">
-              <form onSubmit={handleSearchSubmit} role="search" className="relative">
-                <input
-                  type="search"
-                  value={localQuery}
-                  onChange={handleSearchInput}
-                  onFocus={handleSearchFocus}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Search luxury..."
-                  className="w-full border border-neutral-800 bg-neutral-900 text-white placeholder-neutral-500 px-4 py-2 pr-20 text-sm focus:outline-none focus:border-brand-gold transition-colors font-inter"
-                  aria-label="Search products"
-                  id="nav-search-input-desktop"
-                  autoComplete="off"
-                />
-                <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                  {searchLoadingState && (
-                    <div className="w-4 h-4 border-2 border-brand-gold border-t-transparent rounded-full animate-spin" />
-                  )}
-                  <button
-                    type="submit"
-                    disabled={isEmpty}
-                    className={`px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors ${
-                      isEmpty
-                        ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
-                        : 'bg-brand-gold text-white hover:bg-amber-600'
-                    }`}
-                    id="nav-search-btn-desktop"
-                  >
-                    Search
-                  </button>
-                </div>
-              </form>
+            {/* Right side: Row 1 (68px) and Row 2 (40px) stacked */}
+            <div className="flex-1 flex flex-col min-w-0">
 
-              {renderDropdown()}
-            </div>
+              {/* Row 1: Search + Actions (height 68px) */}
+              <div className="flex items-center border-b border-neutral-800/50 w-full" style={{ height: '68px' }}>
 
-            {/* Actions */}
-            <div className="flex items-center gap-2">
-              <div className="mr-3 flex items-center">
-                <button
-                  type="button"
-                  onClick={() => dispatch(setCurrency(currencyCode === 'INR' ? 'AED' : 'INR'))}
-                  className="flex items-center bg-neutral-900/90 hover:bg-neutral-800/80 border border-neutral-800 rounded-full p-[3px] relative cursor-pointer focus-visible:outline-brand-gold transition-all duration-300 shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)] h-[32px] w-[86px]"
-                  aria-label={`Switch currency from ${currencyCode}`}
-                  id="nav-currency-toggle-desktop"
-                >
-                  <motion.div
-                    className="absolute bg-gradient-to-r from-amber-500 via-brand-gold to-amber-600 rounded-full shadow-[0_2px_5px_rgba(217,119,6,0.3)]"
-                    animate={{
-                      left: currencyCode === 'INR' ? '3px' : '43px',
-                    }}
-                    style={{
-                      width: '40px',
-                      height: '26px',
-                      top: '3px',
-                    }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                  />
-                  <span className={`relative z-10 text-[10px] font-bold tracking-widest w-[40px] text-center uppercase transition-all duration-300 ${currencyCode === 'INR' ? 'text-white scale-105' : 'text-white/50 hover:text-white scale-95 opacity-85'}`}>
-                    INR
-                  </span>
-                  <span className={`relative z-10 text-[10px] font-bold tracking-widest w-[40px] text-center uppercase transition-all duration-300 ${currencyCode === 'AED' ? 'text-white scale-105' : 'text-white/50 hover:text-white scale-95 opacity-85'}`}>
-                    AED
-                  </span>
-                </button>
-              </div>
-              <Link to="/account?tab=wishlist" className="p-2 text-white hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label="Wishlist" id="nav-wishlist-btn">
-                <Heart size={20} strokeWidth={1.5} />
-              </Link>
-              {isAuthenticated ? (
-                <div className="relative group">
-                  <button className="p-2 text-white hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label="Account menu" id="nav-account-btn">
-                    <User size={20} strokeWidth={1.5} />
-                  </button>
-                  <div className="absolute right-0 top-10 w-48 bg-neutral-950 text-white shadow-xl border border-neutral-800 opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 z-50">
-                    <div className="px-4 py-3 border-b border-neutral-800">
-                      <p className="font-medium text-sm truncate">{customer?.name}</p>
+              {/* Search — centered in remaining space */}
+              <div className="flex-1 flex justify-center px-6">
+                <div ref={searchRef} className="relative w-full max-w-lg">
+                  <form onSubmit={handleSearchSubmit} role="search" className="relative">
+                    <input
+                      type="search"
+                      value={localQuery}
+                      onChange={handleSearchInput}
+                      onFocus={handleSearchFocus}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Search luxury..."
+                      className="w-full border border-neutral-800 bg-neutral-900 text-white placeholder-neutral-500 px-4 py-2 pr-24 text-sm focus:outline-none focus:border-brand-gold transition-colors font-inter"
+                      aria-label="Search products"
+                      id="nav-search-input-desktop"
+                      autoComplete="off"
+                    />
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      {searchLoadingState && (
+                        <div className="w-4 h-4 border-2 border-brand-gold border-t-transparent rounded-full animate-spin" />
+                      )}
+                      <button
+                        type="submit"
+                        disabled={isEmpty}
+                        className={`px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors ${
+                          isEmpty
+                            ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
+                            : 'bg-neutral-700 text-white hover:bg-brand-gold'
+                        }`}
+                        id="nav-search-btn-desktop"
+                      >
+                        Search
+                      </button>
                     </div>
-                    <Link to="/account" className="block px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors">My Account</Link>
-                    <Link to="/account?tab=orders" className="block px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors">My Orders</Link>
-                    <button onClick={() => { dispatch(logout()); navigate('/'); }} className="w-full text-left px-4 py-2 text-sm hover:bg-neutral-800 transition-colors text-red-400">Sign Out</button>
-                  </div>
+                  </form>
+                  {renderDropdown()}
                 </div>
-              ) : (
-                <Link to="/account" className="p-2 text-white hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label="Sign in">
-                  <User size={20} strokeWidth={1.5} />
+              </div>
+
+              {/* Actions — right */}
+              <div className="flex items-center gap-2 flex-shrink-0 pr-4">
+                <div className="mr-1 flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => dispatch(setCurrency(currencyCode === 'INR' ? 'AED' : 'INR'))}
+                    className="flex items-center bg-neutral-900/90 hover:bg-neutral-800/80 border border-neutral-800 rounded-full p-[3px] relative cursor-pointer focus-visible:outline-brand-gold transition-all duration-300 shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)] h-[32px] w-[86px]"
+                    aria-label={`Switch currency from ${currencyCode}`}
+                    id="nav-currency-toggle-desktop"
+                  >
+                    <motion.div
+                      className="absolute bg-gradient-to-r from-amber-500 via-brand-gold to-amber-600 rounded-full shadow-[0_2px_5px_rgba(217,119,6,0.3)]"
+                      animate={{ left: currencyCode === 'INR' ? '3px' : '43px' }}
+                      style={{ width: '40px', height: '26px', top: '3px' }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    />
+                    <span className={`relative z-10 text-[10px] font-bold tracking-widest w-[40px] text-center uppercase transition-all duration-300 ${currencyCode === 'INR' ? 'text-white scale-105' : 'text-white/50 hover:text-white scale-95 opacity-85'}`}>INR</span>
+                    <span className={`relative z-10 text-[10px] font-bold tracking-widest w-[40px] text-center uppercase transition-all duration-300 ${currencyCode === 'AED' ? 'text-white scale-105' : 'text-white/50 hover:text-white scale-95 opacity-85'}`}>AED</span>
+                  </button>
+                </div>
+                <Link to="/account?tab=wishlist" className="p-2 text-white hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label="Wishlist" id="nav-wishlist-btn">
+                  <Heart size={20} strokeWidth={1.5} />
                 </Link>
-              )}
-              <button onClick={() => dispatch(toggleCart())} className="relative p-2 text-white hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label={`Shopping cart — ${cartCount} items`} id="nav-cart-btn">
-                <ShoppingBag size={20} strokeWidth={1.5} />
-                {cartCount > 0 && (
-                  <motion.span key={cartCount} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 500 }}
-                    className="absolute -top-1 -right-1 w-5 h-5 bg-brand-gold text-white text-xs font-bold rounded-full flex items-center justify-center"
-                  >{cartCount}</motion.span>
+                {isAuthenticated ? (
+                  <div className="relative group">
+                    <button className="p-2 text-white hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label="Account menu" id="nav-account-btn">
+                      <User size={20} strokeWidth={1.5} />
+                    </button>
+                    <div className="absolute right-0 top-10 w-48 bg-neutral-950 text-white shadow-xl border border-neutral-800 opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 z-50">
+                      <div className="px-4 py-3 border-b border-neutral-800">
+                        <p className="font-medium text-sm truncate">{customer?.name}</p>
+                      </div>
+                      <Link to="/account" className="block px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors">My Account</Link>
+                      <Link to="/account?tab=orders" className="block px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors">My Orders</Link>
+                      <button onClick={() => { dispatch(logout()); navigate('/'); }} className="w-full text-left px-4 py-2 text-sm hover:bg-neutral-800 transition-colors text-red-400">Sign Out</button>
+                    </div>
+                  </div>
+                ) : (
+                  <Link to="/account" className="p-2 text-white hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label="Sign in">
+                    <User size={20} strokeWidth={1.5} />
+                  </Link>
                 )}
-              </button>
+                <button onClick={() => dispatch(toggleCart())} className="relative p-2 text-white hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label={`Shopping cart — ${cartCount} items`} id="nav-cart-btn">
+                  <ShoppingBag size={20} strokeWidth={1.5} />
+                  {cartCount > 0 && (
+                    <motion.span key={cartCount} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 500 }}
+                      className="absolute -top-1 -right-1 w-5 h-5 bg-brand-gold text-white text-xs font-bold rounded-full flex items-center justify-center"
+                    >{cartCount}</motion.span>
+                  )}
+                </button>
+                </div>
             </div>
+
+            <div className="nav-row-2 relative border-t border-neutral-800/20" onMouseLeave={closeDropdown}>
+              {/* Category bar */}
+              <div className="relative flex items-center" style={{ height: '40px' }}>
+                {catCanScrollLeft && (
+                  <button type="button" onClick={() => scrollCats(-1)}
+                    className="absolute left-0 z-10 flex items-center justify-center h-full w-12 bg-black text-white hover:text-brand-gold transition-colors"
+                    aria-label="Scroll categories left">
+                    <ChevronLeft size={16} strokeWidth={2} />
+                  </button>
+                )}
+                <ul
+                  ref={catScrollRef}
+                  className={`flex items-center gap-10 h-full overflow-x-auto w-full px-0 ${
+                    isOverflowing ? 'justify-start' : 'justify-center'
+                  }`}
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                  role="list"
+                >
+                  {/* Left spacer element to offset items from left arrow button */}
+                  <li className="w-12 h-full flex-shrink-0" aria-hidden="true" />
+                  
+                  {activeNavLinks.map(link => {
+                    const hasChildren = link.children && link.children.length > 0;
+                    const isOpen = openDropdownSlug === link.slug;
+                    return (
+                      <li
+                        key={link.to || link.label}
+                        className="flex-shrink-0 relative h-full flex items-center"
+                        onMouseEnter={(e) => hasChildren ? openDropdown(link.slug, e.currentTarget) : setOpenDropdownSlug(null)}
+                      >
+                        <Link
+                          to={link.to}
+                          className={`font-inter text-[11px] font-medium tracking-widest uppercase transition-colors duration-200 hover:text-brand-gold focus-visible:outline-2 focus-visible:outline-brand-gold whitespace-nowrap pb-0.5 ${
+                            isOpen ? 'text-brand-gold border-b border-brand-gold' : link.highlight ? 'text-brand-gold' : 'text-white'
+                          }`}
+                        >{link.label}</Link>
+                      </li>
+                    );
+                  })}
+
+                  {/* Right spacer element to offset items from right arrow button */}
+                  <li className="w-12 h-full flex-shrink-0" aria-hidden="true" />
+                </ul>
+                {catCanScrollRight && (
+                  <button type="button" onClick={() => scrollCats(1)}
+                    className="absolute right-0 z-10 flex items-center justify-center h-full w-12 bg-black text-white hover:text-brand-gold transition-colors"
+                    aria-label="Scroll categories right">
+                    <ChevronRight size={16} strokeWidth={2} />
+                  </button>
+                )}
+              </div>
+
+              {/* Mega dropdown panel */}
+              {openDropdownSlug && (() => {
+                const activeLink = activeNavLinks.find(l => l.slug === openDropdownSlug);
+                const subs = activeLink?.children || [];
+                if (!subs.length) return null;
+                const activeSub = subs.find(s => s.slug === activeSubSlug) || subs[0];
+                const subSubs = (activeSub?.children || []).filter(s => s.isActive !== false);
+                return (
+                  <div
+                    ref={dropdownRef}
+                    onMouseEnter={keepDropdown}
+                    onMouseLeave={closeDropdown}
+                    className="absolute z-[100] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] py-2 px-0 border border-neutral-100"
+                    style={{
+                      top: '100%',
+                      left: `${dropdownLeft}px`,
+                      minWidth: '200px',
+                      width: 'max-content',
+                      opacity: 0
+                    }}
+                  >
+                    <ul className="flex flex-col">
+                      {subs.map(sub => {
+                        const hasSubSubs = sub.children && sub.children.length > 0;
+                        const isSubActive = activeSubSlug === sub.slug;
+                        return (
+                          <li
+                            key={sub.id}
+                            className="relative flex items-center h-8 px-5"
+                            onMouseEnter={() => hasSubSubs ? setActiveSubSlug(sub.slug) : setActiveSubSlug(null)}
+                          >
+                            <Link
+                              to={`/category/${activeLink.slug}/${sub.slug}`}
+                              onClick={closeDropdown}
+                              className="flex-1 text-sm text-neutral-700 hover:text-brand-gold hover:pl-1.5 transition-all duration-200 whitespace-nowrap"
+                            >
+                              {sub.name}
+                            </Link>
+                            {hasSubSubs && (
+                              <ChevronRight size={14} className="text-neutral-400 ml-1" />
+                            )}
+                            
+                            {/* Level 3 Dropdown (Flyout) */}
+                            {hasSubSubs && isSubActive && (
+                              <div
+                                className={`absolute top-0 z-[101] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] py-2 px-0 border border-neutral-100`}
+                                style={{
+                                  minWidth: '180px',
+                                  width: 'max-content',
+                                  left: flyoutDirection === 'right' ? '100%' : 'auto',
+                                  right: flyoutDirection === 'left' ? '100%' : 'auto'
+                                }}
+                              >
+                                <ul className="flex flex-col">
+                                  {sub.children.map(ss => (
+                                    <li key={ss.id} className="flex items-center h-8 px-5">
+                                      <Link
+                                        to={`/category/${activeLink.slug}/${sub.slug}/${ss.slug}`}
+                                        onClick={closeDropdown}
+                                        className="flex-1 text-sm text-neutral-700 hover:text-brand-gold hover:pl-1.5 transition-all duration-200 whitespace-nowrap"
+                                      >
+                                        {ss.name}
+                                      </Link>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })()}
+            </div>
+
           </div>
+        </div>
 
           {/* Mobile / Tablet layout */}
           <div className="lg:hidden">
@@ -633,20 +846,7 @@ const Navbar = () => {
           </div>
         </nav>
 
-        {/* Desktop nav links — below header row */}
-        <div className="hidden lg:block border-t border-neutral-800/80">
-          <div className="max-w-site mx-auto px-8">
-            <ul className="flex items-center justify-center gap-10 h-10" role="list">
-              {activeNavLinks.map(link => (
-                <li key={link.to}>
-                  <Link to={link.to}
-                    className={`font-inter text-[11px] font-medium tracking-widest uppercase transition-colors duration-200 hover:text-brand-gold focus-visible:outline-2 focus-visible:outline-brand-gold ${link.highlight ? 'text-brand-gold' : 'text-white'}`}
-                  >{link.label}</Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
+
       </header>
 
       {/* Mobile menu overlay */}
@@ -655,20 +855,121 @@ const Navbar = () => {
           <motion.div
             initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
             transition={{ type: 'tween', duration: 0.3 }}
-            className="fixed inset-0 z-40 bg-neutral-950 text-white pt-20 px-6"
+            className="fixed inset-0 z-[1000] bg-neutral-950 text-white pt-24 px-6 flex flex-col"
             role="dialog" aria-label="Mobile menu" aria-modal="true"
           >
             <button onClick={() => dispatch(closeMobileMenu())} className="absolute top-4 right-4 p-2 text-white hover:text-brand-gold focus-visible:outline-brand-gold" aria-label="Close menu"><X size={24} /></button>
-            <ul className="flex flex-col gap-6 mt-8">
-              {activeNavLinks.map(link => (
-                <li key={link.to}>
-                  <Link to={link.to} onClick={() => dispatch(closeMobileMenu())}
-                    className={`font-playfair text-2xl font-semibold ${link.highlight ? 'text-brand-gold' : 'text-white'}`}
-                  >{link.label}</Link>
-                </li>
-              ))}
+            
+            {/* 3-level accordion list */}
+            <ul className="flex flex-col gap-4 mt-4 overflow-y-auto flex-1 pb-6 pr-2 scrollbar-thin">
+              {activeNavLinks.map(link => {
+                const hasLevel2 = link.children && link.children.length > 0;
+                const isL1Expanded = expandedLevel1 === link.slug;
+                
+                return (
+                  <li key={link.slug || link.label} className="border-b border-neutral-800/60 pb-3">
+                    <div className="flex items-center justify-between">
+                      {hasLevel2 ? (
+                        <button
+                          onClick={() => setExpandedLevel1(isL1Expanded ? null : link.slug)}
+                          className={`font-playfair text-xl font-semibold text-left flex-1 ${link.highlight ? 'text-brand-gold' : 'text-white'}`}
+                        >
+                          {link.label}
+                        </button>
+                      ) : (
+                        <Link
+                          to={link.to}
+                          onClick={() => dispatch(closeMobileMenu())}
+                          className={`font-playfair text-xl font-semibold flex-1 ${link.highlight ? 'text-brand-gold' : 'text-white'}`}
+                        >
+                          {link.label}
+                        </Link>
+                      )}
+                      
+                      {hasLevel2 && (
+                        <button
+                          onClick={() => setExpandedLevel1(isL1Expanded ? null : link.slug)}
+                          className="p-2 text-neutral-400 hover:text-white"
+                          aria-label="Toggle subcategories"
+                        >
+                          <ChevronRight
+                            size={16}
+                            className={`transform transition-transform duration-200 ${isL1Expanded ? 'rotate-90' : ''}`}
+                          />
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Level 2 Subcategories Accordion */}
+                    {hasLevel2 && isL1Expanded && (
+                      <ul className="pl-4 mt-2.5 space-y-2.5 border-l border-neutral-800">
+
+                        {link.children.map(sub => {
+                          const hasLevel3 = sub.children && sub.children.length > 0;
+                          const isL2Expanded = expandedLevel2 === sub.slug;
+                          
+                          return (
+                            <li key={sub.slug || sub.id}>
+                              <div className="flex items-center justify-between">
+                                {hasLevel3 ? (
+                                  <button
+                                    onClick={() => setExpandedLevel2(isL2Expanded ? null : sub.slug)}
+                                    className="text-sm font-medium text-neutral-300 hover:text-brand-gold text-left flex-1 py-1"
+                                  >
+                                    {sub.name}
+                                  </button>
+                                ) : (
+                                  <Link
+                                    to={`/category/${link.slug}/${sub.slug}`}
+                                    onClick={() => dispatch(closeMobileMenu())}
+                                    className="text-sm font-medium text-neutral-300 hover:text-brand-gold flex-1 py-1"
+                                  >
+                                    {sub.name}
+                                  </Link>
+                                )}
+                                
+                                {hasLevel3 && (
+                                  <button
+                                    onClick={() => setExpandedLevel2(isL2Expanded ? null : sub.slug)}
+                                    className="p-1.5 text-neutral-500 hover:text-white"
+                                    aria-label="Toggle sub-subcategories"
+                                  >
+                                    <ChevronRight
+                                      size={14}
+                                      className={`transform transition-transform duration-200 ${isL2Expanded ? 'rotate-90' : ''}`}
+                                    />
+                                  </button>
+                                )}
+                              </div>
+                              
+                              {/* Level 3 Sub-subcategories Accordion */}
+                              {hasLevel3 && isL2Expanded && (
+                                <ul className="pl-4 mt-1.5 space-y-1 border-l border-neutral-700">
+
+                                  {sub.children.map(ss => (
+                                    <li key={ss.slug || ss.id}>
+                                      <Link
+                                        to={`/category/${link.slug}/${sub.slug}/${ss.slug}`}
+                                        onClick={() => dispatch(closeMobileMenu())}
+                                        className="text-xs text-neutral-400 hover:text-brand-gold block py-1"
+                                      >
+                                        {ss.name}
+                                      </Link>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
-            <div className="mt-12 pt-8 border-t border-neutral-800">
+            
+            <div className="mt-auto py-6 border-t border-neutral-800">
               <Link to="/account" onClick={() => dispatch(closeMobileMenu())} className="btn-primary w-full text-center block">
                 {isAuthenticated ? 'My Account' : 'Sign In'}
               </Link>
@@ -677,8 +978,13 @@ const Navbar = () => {
         )}
       </AnimatePresence>
 
-      {/* Spacer for fixed nav height */}
-      <div className="h-[132px] lg:h-[136px]" aria-hidden="true" />
+      {/* Spacer: shrinks when announcement bar hides on scroll */}
+      <div
+        style={{ height: announcementHidden ? '108px' : '144px', transition: 'height 0.3s ease' }}
+        className="lg:block hidden"
+        aria-hidden="true"
+      />
+      <div className="h-[132px] block lg:hidden" aria-hidden="true" />
     </>
   );
 };

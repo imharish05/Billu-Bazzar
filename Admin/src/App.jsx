@@ -4,6 +4,7 @@ import DashboardPage from './pages/DashboardPage';
 import ProductsAdminPage from './pages/ProductsAdminPage';
 import CategoriesAdminPage from './pages/CategoriesAdminPage';
 import SubCategoriesAdminPage from './pages/SubCategoriesAdminPage';
+import SubSubCategoriesAdminPage from './pages/SubSubCategoriesAdminPage';
 import OrdersAdminPage from './pages/OrdersAdminPage';
 import CustomersAdminPage from './pages/CustomersAdminPage';
 import BannersAdminPage from './pages/BannersAdminPage';
@@ -36,6 +37,7 @@ const App = () => (
       <Route path="/products"    element={<Protected><ProductsAdminPage /></Protected>} />
       <Route path="/categories"  element={<Protected><CategoriesAdminPage /></Protected>} />
       <Route path="/sub-categories" element={<Protected><SubCategoriesAdminPage /></Protected>} />
+      <Route path="/sub-sub-categories" element={<Protected><SubSubCategoriesAdminPage /></Protected>} />
       <Route path="/orders"      element={<Protected><OrdersAdminPage /></Protected>} />
       <Route path="/customers"   element={<Protected><CustomersAdminPage /></Protected>} />
       <Route path="/slider-messages" element={<Protected><SliderMessagesAdminPage /></Protected>} />

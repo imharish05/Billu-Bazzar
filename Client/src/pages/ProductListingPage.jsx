@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { SlidersHorizontal, ChevronDown, Grid2X2, List, X } from 'lucide-react';
 import { fetchProducts } from '../redux/slices/productsSlice';
@@ -41,11 +41,15 @@ const dummyBrands = [
 const ProductListingPage = () => {
   const dispatch = useDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { slug, sub, subsub } = useParams();
   const { items: products, loading, total, totalPages } = useSelector(s => s.products);
   const { items: categories } = useSelector(s => s.categories);
 
+  const routeCategory = subsub || sub || slug;
+  const currentCategory = routeCategory || searchParams.get('category') || '';
+
   const [filters, setFilters] = useState({
-    category: searchParams.get('category') || '',
+    category: currentCategory,
     search: searchParams.get('search') || '',
     minPrice: searchParams.get('minPrice') || '',
     maxPrice: searchParams.get('maxPrice') || '',
@@ -63,7 +67,7 @@ const ProductListingPage = () => {
   }, [filters, dispatch]);
 
   useEffect(() => {
-    const category = searchParams.get('category') || '';
+    const category = routeCategory || searchParams.get('category') || '';
     const search = searchParams.get('search') || '';
     const minPrice = searchParams.get('minPrice') || '';
     const maxPrice = searchParams.get('maxPrice') || '';
@@ -88,7 +92,7 @@ const ProductListingPage = () => {
       }
       return prev;
     });
-  }, [searchParams]);
+  }, [searchParams, slug, sub, subsub]);
 
   useEffect(() => {
     dispatch(fetchCategories());

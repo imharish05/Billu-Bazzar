@@ -1,0 +1,122 @@
+'use strict';
+const { Category, SubCategory, SubSubCategory, Product, sequelize } = require('../models');
+const fs = require('fs');
+const path = require('path');
+
+const handleDBError = (err, res, type = 'item') => {
+  if (err.name === 'SequelizeUniqueConstraintError') {
+    return res.status(400).json({ success: false, message: `A ${type} with this name or slug already exists.` });
+  }
+  if (err.name === 'SequelizeForeignKeyConstraintError') {
+    return res.status(400).json({ success: false, message: 'Foreign key constraint fails. Please verify that all parent links are valid.' });
+  }
+  if (err.name === 'SequelizeValidationError') {
+    const msg = err.errors.map(e => e.message).join(', ');
+    return res.status(400).json({ success: false, message: msg });
+  }
+  return res.status(500).json({ success: false, message: err.message });
+};
+
+const deleteLocalFile = (imagePath) => {
+  if (imagePath && imagePath.startsWith('/uploads/')) {
+    const localPath = path.join(__dirname, '..', imagePath.substring(1));
+    try {
+      if (fs.existsSync(localPath)) {
+        fs.unlinkSync(localPath);
+        console.log(`[Upload] Deleted local file: ${localPath}`);
+      }
+    } catch (err) {
+      console.error(`[Upload] Error deleting local file: ${err.message}`);
+    }
+  }
+};
+
+const getAll = async (req, res) => {
+  try {
+    const { all } = req.query;
+    const where = {};
+    if (!all) where.isActive = true;
+    const subCategories = await SubCategory.findAll({
+      where,
+      include: [{ model: Category, as: 'category', attributes: ['id', 'name'] }],
+      order: [['sortOrder', 'ASC']]
+    });
+    res.json({ success: true, subCategories });
+  } catch (err) {
+    return handleDBError(err, res, 'subcategory');
+  }
+};
+
+const create = async (req, res) => {
+  try {
+    const data = { ...req.body };
+    if (req.file) {
+      const normalizedPath = req.file.path.replace(/\\/g, '/');
+      const uploadsIndex = normalizedPath.indexOf('uploads');
+      data.image = '/' + normalizedPath.substring(uploadsIndex);
+    }
+    if (data.isActive !== undefined) {
+      data.isActive = data.isActive === 'true' || data.isActive === true;
+    }
+    const subCategory = await SubCategory.create(data);
+    res.status(201).json({ success: true, subCategory });
+  } catch (err) {
+    return handleDBError(err, res, 'sub-category');
+  }
+};
+
+const update = async (req, res) => {
+  try {
+    const subCategory = await SubCategory.findByPk(req.params.id);
+    if (!subCategory) {
+      return res.status(404).json({ success: false, message: 'Sub-category not found' });
+    }
+    const data = { ...req.body };
+    if (req.file) {
+      deleteLocalFile(subCategory.image);
+      const normalizedPath = req.file.path.replace(/\\/g, '/');
+      const uploadsIndex = normalizedPath.indexOf('uploads');
+      data.image = '/' + normalizedPath.substring(uploadsIndex);
+    }
+    if (data.isActive !== undefined) {
+      data.isActive = data.isActive === 'true' || data.isActive === true;
+    }
+    await subCategory.update(data);
+    res.json({ success: true, subCategory });
+  } catch (err) {
+    return handleDBError(err, res, 'sub-category');
+  }
+};
+
+const remove = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+    const subCategory = await SubCategory.findByPk(id, { transaction });
+    if (!subCategory) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: 'Sub-category not found' });
+    }
+
+    // Delete image file
+    deleteLocalFile(subCategory.image);
+
+    // Find and delete all sub-subcategories under this subcategory
+    const subSubs = await SubSubCategory.findAll({ where: { subCategoryId: id }, transaction });
+    for (const ss of subSubs) {
+      deleteLocalFile(ss.image);
+    }
+    await SubSubCategory.destroy({ where: { subCategoryId: id }, transaction });
+
+    // Note: If products are linked to Category, we leave them, but if we need any other cleanups, we do it here.
+    await SubCategory.destroy({ where: { id }, transaction });
+
+    await transaction.commit();
+    res.json({ success: true, message: 'Sub-category and associated sub-subcategories deleted successfully.' });
+  } catch (err) {
+    await transaction.rollback();
+    return handleDBError(err, res, 'sub-category');
+  }
+};
+
+module.exports = { getAll, create, update, remove };

@@ -12,6 +12,8 @@ const Role          = require('./Role');
 const AdminUser     = require('./AdminUser');
 const Customer      = require('./Customer');
 const Category      = require('./Category');
+const SubCategory   = require('./SubCategory');
+const SubSubCategory = require('./SubSubCategory');
 const Vendor        = require('./Vendor');
 const Product       = require('./Product');
 const Warehouse     = require('./Warehouse');
@@ -41,9 +43,12 @@ Category.hasMany(SearchKeyword,   { foreignKey: 'category_id', as: 'searchKeywor
 AdminUser.belongsTo(Role, { foreignKey: 'roleId', as: 'role' });
 Role.hasMany(AdminUser,   { foreignKey: 'roleId', as: 'admins' });
 
-// Category self-referential parent/child tree
-Category.belongsTo(Category, { foreignKey: 'parentId', as: 'parent' });
-Category.hasMany(Category,   { foreignKey: 'parentId', as: 'children' });
+// Category ↔ SubCategory ↔ SubSubCategory
+SubCategory.belongsTo(Category, { foreignKey: 'categoryId', as: 'category' });
+Category.hasMany(SubCategory,   { foreignKey: 'categoryId', as: 'subcategories' });
+
+SubSubCategory.belongsTo(SubCategory, { foreignKey: 'subCategoryId', as: 'subcategory' });
+SubCategory.hasMany(SubSubCategory,   { foreignKey: 'subCategoryId', as: 'subsubcategories' });
 
 // Product ↔ Category / Vendor
 Product.belongsTo(Category, { foreignKey: 'categoryId', as: 'category' });
@@ -119,7 +124,7 @@ SupportTicket.belongsTo(Order,     { foreignKey: 'orderId', as: 'order' });
 module.exports = {
   sequelize,
   Role, AdminUser, Customer,
-  Category, Vendor, Product,
+  Category, SubCategory, SubSubCategory, Vendor, Product,
   Warehouse, WarehouseStock,
   Cart, CartItem,
   Coupon, Affiliate,

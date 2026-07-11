@@ -3,6 +3,20 @@ const { Banner } = require('../models');
 const fs = require('fs');
 const path = require('path');
 
+const handleDBError = (err, res, type = 'item') => {
+  if (err.name === 'SequelizeUniqueConstraintError') {
+    return res.status(400).json({ success: false, message: `A ${type} with this name or slug already exists.` });
+  }
+  if (err.name === 'SequelizeForeignKeyConstraintError') {
+    return res.status(400).json({ success: false, message: 'Foreign key constraint fails. Please verify that all parent links are valid.' });
+  }
+  if (err.name === 'SequelizeValidationError') {
+    const msg = err.errors.map(e => e.message).join(', ');
+    return res.status(400).json({ success: false, message: msg });
+  }
+  return res.status(500).json({ success: false, message: err.message });
+};
+
 // Helper to delete local file
 const deleteLocalFile = (imagePath) => {
   if (imagePath && imagePath.startsWith('/uploads/')) {
@@ -27,7 +41,7 @@ const getAll = async (req, res) => {
     const banners = await Banner.findAll({ where, order: [['position', 'ASC']] });
     res.json({ success: true, banners });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    return handleDBError(err, res, 'banner');
   }
 };
 
@@ -51,7 +65,7 @@ const create = async (req, res) => {
     const banner = await Banner.create(data);
     res.status(201).json({ success: true, banner });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    return handleDBError(err, res, 'banner');
   }
 };
 
@@ -84,7 +98,7 @@ const update = async (req, res) => {
     await banner.update(data);
     res.json({ success: true, banner });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    return handleDBError(err, res, 'banner');
   }
 };
 
@@ -96,7 +110,7 @@ const remove = async (req, res) => {
     await banner.destroy();
     res.json({ success: true, message: 'Banner deleted' });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    return handleDBError(err, res, 'banner');
   }
 };
 

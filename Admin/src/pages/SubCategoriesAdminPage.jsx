@@ -6,14 +6,13 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 
 const SubCategoriesAdminPage = () => {
-  const [allCategories, setAllCategories] = useState([]);
   const [parentCategories, setParentCategories] = useState([]);
   const [subCategories, setSubCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  const [form, setForm] = useState({ parentId: '', name: '', slug: '', isActive: true });
+  const [form, setForm] = useState({ categoryId: '', name: '', slug: '', isActive: true });
   const [imagePreview, setImagePreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -25,17 +24,19 @@ const SubCategoriesAdminPage = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/categories?all=true');
-      const list = res.data.categories || [];
-      setAllCategories(list);
       
-      const parents = list.filter(c => !c.parentId);
+      // Fetch top level Categories
+      const categoriesRes = await api.get('/categories?all=true');
+      const parents = categoriesRes.data.categories || [];
       setParentCategories(parents);
 
-      const subs = list.filter(c => c.parentId);
+      // Fetch SubCategories from individual endpoint
+      const subRes = await api.get('/subcategories?all=true');
+      const subs = subRes.data.subCategories || [];
       setSubCategories(subs);
     } catch (err) {
       console.error(err);
+      toast.error('Failed to load categories data.');
     } finally {
       setLoading(false);
     }
@@ -48,12 +49,12 @@ const SubCategoriesAdminPage = () => {
   const openModal = (sub = null) => {
     setEditing(sub);
     setForm(sub ? {
-      parentId: String(sub.parentId || ''),
+      categoryId: String(sub.categoryId || ''),
       name: sub.name,
       slug: sub.slug || '',
       isActive: sub.isActive
     } : {
-      parentId: parentCategories[0]?.id ? String(parentCategories[0].id) : '',
+      categoryId: parentCategories[0]?.id ? String(parentCategories[0].id) : '',
       name: '',
       slug: '',
       isActive: true
@@ -86,8 +87,8 @@ const SubCategoriesAdminPage = () => {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!form.parentId) {
-      setUploadError('Please select a parent category');
+    if (!form.categoryId) {
+      setUploadError('Please select a category');
       return;
     }
     setSaving(true);
@@ -98,7 +99,7 @@ const SubCategoriesAdminPage = () => {
       fd.append('name', form.name.trim());
       fd.append('slug', form.slug.trim());
       fd.append('isActive', String(form.isActive));
-      fd.append('parentId', form.parentId);
+      fd.append('categoryId', form.categoryId);
 
       const file = imageFile || fileInputRef.current?.files?.[0];
       if (file) {
@@ -106,10 +107,10 @@ const SubCategoriesAdminPage = () => {
       }
 
       if (editing) {
-        await api.put(`/categories/${editing.id}`, fd);
+        await api.put(`/subcategories/${editing.id}`, fd);
         toast.success('Sub-category updated successfully.');
       } else {
-        await api.post('/categories', fd);
+        await api.post('/subcategories', fd);
         toast.success('Sub-category created successfully.');
       }
 
@@ -124,7 +125,7 @@ const SubCategoriesAdminPage = () => {
 
   const executeDelete = async (id) => {
     try {
-      const deleteRes = await api.delete(`/categories/${id}`);
+      const deleteRes = await api.delete(`/subcategories/${id}`);
       toast.success(deleteRes.data.message || 'Sub-category deleted successfully.');
       loadData();
     } catch (err) {
@@ -139,7 +140,7 @@ const SubCategoriesAdminPage = () => {
       <div className="flex flex-col gap-2 p-1">
         <p className="text-sm font-semibold text-neutral-800">Confirm Deletion</p>
         <p className="text-xs text-neutral-600">
-          Are you sure you want to permanently delete this sub-category? This will delete all products under it and cannot be undone.
+          Are you sure you want to permanently delete this sub-category? This will delete all sub-subcategories under it and cannot be undone.
         </p>
         <div className="flex justify-end gap-2 mt-2">
           <button
@@ -166,8 +167,8 @@ const SubCategoriesAdminPage = () => {
     });
   };
 
-  const getParentName = (parentId) => {
-    const parent = parentCategories.find(p => p.id === parentId);
+  const getParentName = (categoryId) => {
+    const parent = parentCategories.find(p => p.id === categoryId);
     return parent ? parent.name : '—';
   };
 
@@ -182,7 +183,7 @@ const SubCategoriesAdminPage = () => {
 
       {parentCategories.length === 0 && !loading && (
         <div className="mb-6 p-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg">
-          Please add at least one Parent Category before creating a sub-category.
+          Please add at least one Category before creating a sub-category.
         </div>
       )}
 
@@ -223,7 +224,7 @@ const SubCategoriesAdminPage = () => {
                       </div>
                     </td>
                     <td className="px-5 py-4 font-medium text-brand-text">
-                      {getParentName(sub.parentId)}
+                      {getParentName(sub.categoryId)}
                     </td>
                     <td className="px-5 py-4">
                       <p className="font-semibold text-brand-text">{sub.name}</p>
@@ -270,8 +271,8 @@ const SubCategoriesAdminPage = () => {
                 {/* Parent Category Selector */}
                 <div>
                   <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="sub-parent">Category *</label>
-                  <select id="sub-parent" value={form.parentId} onChange={e => setForm(p => ({ ...p, parentId: e.target.value }))} required className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors bg-white">
-                    <option value="" disabled>Select parent category...</option>
+                  <select id="sub-parent" value={form.categoryId} onChange={e => setForm(p => ({ ...p, categoryId: e.target.value }))} required className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors bg-white">
+                    <option value="" disabled>Select category...</option>
                     {parentCategories.map(p => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}

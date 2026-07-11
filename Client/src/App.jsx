@@ -54,6 +54,9 @@ const App = () => {
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<HomePage />} />
           <Route path="/products" element={<ProductListingPage />} />
+          <Route path="/category/:slug" element={<ProductListingPage />} />
+          <Route path="/category/:slug/:sub" element={<ProductListingPage />} />
+          <Route path="/category/:slug/:sub/:subsub" element={<ProductListingPage />} />
           <Route path="/products/:slug" element={<ProductDetailsPage />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />

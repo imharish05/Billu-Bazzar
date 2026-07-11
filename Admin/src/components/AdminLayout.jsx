@@ -32,6 +32,7 @@ const NAV_SECTIONS = [
     items: [
       { to: '/categories', label: 'Categories', icon: Tag },
       { to: '/sub-categories', label: 'Sub-categories', icon: Tag },
+      { to: '/sub-sub-categories', label: 'Sub-subcategories', icon: Tag },
       { to: '/products', label: 'Products', icon: Package },
       { to: '/orders', label: 'Orders', icon: ShoppingBag },
     ],

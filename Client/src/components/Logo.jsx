@@ -22,7 +22,7 @@ const Logo = ({ size = 'md', className = '', showText = false, fullHeight = fals
       <img
         src="/logo.png"
         alt="Billu Bazaar Logo"
-        className={`${imgSizeClass} object-contain bg-black rounded-none shadow-[0_4px_12px_rgba(0,0,0,0.4)]`}
+        className={`${imgSizeClass} object-contain`}
       />
       {showText && (
         <span
