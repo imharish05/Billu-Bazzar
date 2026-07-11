@@ -574,8 +574,8 @@ const Navbar = () => {
                         disabled={isEmpty}
                         className={`px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors ${
                           isEmpty
-                            ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
-                            : 'bg-neutral-700 text-white hover:bg-brand-gold'
+                            ? 'bg-brand-gold/40 text-white/40 cursor-not-allowed'
+                            : 'bg-brand-gold text-white hover:bg-white hover:text-black'
                         }`}
                         id="nav-search-btn-desktop"
                       >
@@ -842,8 +842,8 @@ const Navbar = () => {
                   disabled={isEmpty}
                   className={`absolute right-1 top-1/2 -translate-y-1/2 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
                     isEmpty
-                      ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
-                      : 'bg-brand-gold text-white hover:bg-amber-600'
+                      ? 'bg-brand-gold/40 text-white/40 cursor-not-allowed'
+                      : 'bg-brand-gold text-white hover:bg-white hover:text-black'
                   }`}
                   id="nav-search-btn-mobile"
                 >
