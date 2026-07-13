@@ -256,13 +256,13 @@ class App {
     this.noLoop = this.itemsLength <= 1; // single item: show once, static, no wrap/repeat
     this.lastActiveIndex = -1;
     this.isHovered = false;
+    this.isPlaying = false;
     this.createRenderer();
     this.createCamera();
     this.createScene();
     this.onResize();
     this.createGeometry();
     this.createMedias(items, bend, textColor, borderRadius, font);
-    this.update();
     this.addEventListeners();
   }
   createRenderer() {
@@ -404,7 +404,20 @@ class App {
     this.viewport = { width, height };
     if (this.medias) this.medias.forEach(m => m.onResize({ screen: this.screen, viewport: this.viewport }));
   }
+  start() {
+    if (this.isPlaying) return;
+    this.isPlaying = true;
+    this.update();
+  }
+  stop() {
+    this.isPlaying = false;
+    if (this.raf) {
+      window.cancelAnimationFrame(this.raf);
+      this.raf = null;
+    }
+  }
   update() {
+    if (!this.isPlaying) return;
     this.scroll.current = lerp(this.scroll.current, this.scroll.target, this.scroll.ease);
     const direction = this.scroll.current > this.scroll.last ? 'right' : 'left';
     if (this.medias) this.medias.forEach(m => m.update(this.scroll, direction));
@@ -449,7 +462,7 @@ class App {
     this.container.addEventListener('keydown',    this.boundKeyDown);
   }
   destroy() {
-    window.cancelAnimationFrame(this.raf);
+    this.stop();
     window.removeEventListener('resize', this.boundOnResize);
     this.container.removeEventListener('mousedown',  this.boundMouseDown);
     this.container.removeEventListener('mousemove',  this.boundMouseMove);
@@ -482,12 +495,26 @@ const CircularGallery = forwardRef(function CircularGallery({
   useEffect(() => {
     if (!containerRef.current) return;
     let isMounted = true;
+    let observer = null;
     resolveFont(font, fontUrl).then(resolvedFont => {
       if (!isMounted || !containerRef.current) return;
-      appRef.current = new App(containerRef.current, { items, bend, textColor, borderRadius, font: resolvedFont, scrollSpeed, scrollEase, onChangeActiveIndex });
+      const appInstance = new App(containerRef.current, { items, bend, textColor, borderRadius, font: resolvedFont, scrollSpeed, scrollEase, onChangeActiveIndex });
+      appRef.current = appInstance;
+      
+      observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            appInstance.start();
+          } else {
+            appInstance.stop();
+          }
+        });
+      }, { threshold: 0.05 });
+      observer.observe(containerRef.current);
     });
     return () => {
       isMounted = false;
+      if (observer) observer.disconnect();
       if (appRef.current) { appRef.current.destroy(); appRef.current = null; }
     };
   }, [items, bend, textColor, borderRadius, font, fontUrl, scrollSpeed, scrollEase, onChangeActiveIndex]);

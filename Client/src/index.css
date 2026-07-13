@@ -108,6 +108,7 @@ p  { font-size: 16px; line-height: 1.7; color: var(--color-grey); }
   -webkit-backdrop-filter: none;
   border-bottom: 1px solid var(--glass-nav-border);
   will-change: transform;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 @supports (backdrop-filter: blur(1px)) {
   .glass-nav { background: var(--glass-nav-bg); }
@@ -255,3 +256,33 @@ p  { font-size: 16px; line-height: 1.7; color: var(--color-grey); }
 /* ── Focus States (WCAG AA) ─────────────────────────────────────────────────── */
 :focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 3px; }
+
+/* ── Hero Banner Section (Taller on mobile to prevent overflow, fits within 100vh on Desktop) ────────────────── */
+.hero-banner-section {
+  aspect-ratio: 16/9;
+  min-height: 480px;
+}
+@media (min-width: 640px) {
+  .hero-banner-section {
+    min-height: 520px;
+  }
+}
+@media (min-width: 768px) {
+  .hero-banner-section {
+    aspect-ratio: 16/9;
+    min-height: auto;
+  }
+}
+@media (min-width: 1024px) {
+  .hero-banner-section {
+    aspect-ratio: auto;
+    height: calc(100vh - 144px);
+    min-height: calc(100vh - 144px);
+  }
+}
+
+/* Disable hover pointers during scrolling to prevent layout thrashing */
+.disable-hover,
+.disable-hover * {
+  pointer-events: none !important;
+}

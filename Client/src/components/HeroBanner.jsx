@@ -49,7 +49,7 @@ const HeroBanner = () => {
 
   if (loading) {
     return (
-      <section className="relative w-full aspect-[16/9] flex flex-col justify-center pt-[80px] sm:pt-[100px] lg:pt-[144px] pb-6 lg:pb-10 overflow-hidden bg-brand-light" aria-label="Hero banner loading">
+      <section className="hero-banner-section relative w-full flex flex-col justify-center overflow-hidden bg-brand-light" aria-label="Hero banner loading">
         <div className="w-full h-full skeleton" />
       </section>
     );
@@ -57,7 +57,7 @@ const HeroBanner = () => {
 
   if (banners.length === 0) {
     return (
-      <section className="relative w-full aspect-[16/9] flex flex-col justify-center pt-[80px] sm:pt-[100px] lg:pt-[144px] pb-6 lg:pb-10 overflow-hidden bg-brand-text" aria-label="Hero banner">
+      <section className="hero-banner-section relative w-full flex flex-col justify-center overflow-hidden bg-brand-text" aria-label="Hero banner">
         <div className="relative z-10 max-w-site mx-auto px-6 md:px-16 w-full">
           <div className="max-w-xl p-6 md:p-8">
             <p className="text-brand-gold text-xs tracking-[0.25em] uppercase mb-4">Billu Bazaar</p>
@@ -80,7 +80,7 @@ const HeroBanner = () => {
 
   return (
     <section
-      className="relative w-full aspect-[16/9] flex flex-col justify-center pt-[80px] sm:pt-[100px] lg:pt-[144px] pb-6 lg:pb-10 overflow-hidden"
+      className="hero-banner-section relative w-full flex flex-col justify-center overflow-hidden"
       aria-label="Hero banner carousel"
       role="region"
       aria-roledescription="carousel"
@@ -134,21 +134,21 @@ const HeroBanner = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.4 }}
-              className="max-w-xl p-6 md:p-8"
+              className="max-w-xl p-5 sm:p-8"
             >
               {banner.badgeText && banner.badgeText.trim() && (
                 <motion.span
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.15 }}
-                  className="bg-brand-gold text-white text-[10px] font-bold px-3 py-1 inline-block mb-4 tracking-wider uppercase"
+                  className="bg-brand-gold text-white text-[10px] font-bold px-3 py-1 inline-block mb-3 md:mb-4 tracking-wider uppercase"
                 >
                   {banner.badgeText}
                 </motion.span>
               )}
               {banner.title && banner.title.trim() && (
                 <motion.h1
-                  className="font-playfair text-4xl md:text-6xl font-bold text-white leading-tight mb-6"
+                  className="font-playfair text-3xl sm:text-4xl md:text-6xl font-bold text-white leading-tight mb-4 md:mb-6"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2, duration: 0.5 }}
@@ -171,7 +171,7 @@ const HeroBanner = () => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.6 }}
-                  className="text-white/80 text-base md:text-lg mb-8 max-w-sm"
+                  className="text-white/80 text-sm md:text-lg mb-6 md:mb-8 max-w-xs sm:max-w-sm"
                 >
                   {banner.subtitle}
                 </motion.p>
@@ -191,13 +191,13 @@ const HeroBanner = () => {
           </AnimatePresence>
         </div>
       )}
-
+ 
       {/* Navigation arrows — desktop only (centered in the visible content space below the header) */}
       {banners.length > 1 && (
         <>
           <button
             onClick={prev}
-            className="hidden md:flex absolute left-4 top-[calc(50%+66px)] lg:top-[calc(50%+72px)] -translate-y-1/2 z-20 w-12 h-12 items-center justify-center bg-white/10 hover:bg-white/25 backdrop-blur-sm border border-white/20 text-white transition-all duration-200 focus-visible:outline-white"
+            className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 items-center justify-center bg-white/10 hover:bg-white/25 backdrop-blur-sm border border-white/20 text-white transition-all duration-200 focus-visible:outline-white"
             aria-label="Previous banner"
             id="hero-arrow-prev"
           >
@@ -205,7 +205,7 @@ const HeroBanner = () => {
           </button>
           <button
             onClick={next}
-            className="hidden md:flex absolute right-4 top-[calc(50%+66px)] lg:top-[calc(50%+72px)] -translate-y-1/2 z-20 w-12 h-12 items-center justify-center bg-white/10 hover:bg-white/25 backdrop-blur-sm border border-white/20 text-white transition-all duration-200 focus-visible:outline-white"
+            className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 items-center justify-center bg-white/10 hover:bg-white/25 backdrop-blur-sm border border-white/20 text-white transition-all duration-200 focus-visible:outline-white"
             aria-label="Next banner"
             id="hero-arrow-next"
           >
@@ -213,10 +213,10 @@ const HeroBanner = () => {
           </button>
         </>
       )}
-
+ 
       {/* Dot indicators */}
       {banners.length > 1 && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2" role="tablist" aria-label="Banner slides">
+        <div className="absolute bottom-6 md:bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2" role="tablist" aria-label="Banner slides">
           {banners.map((_, i) => (
             <button
               key={i}
@@ -231,10 +231,10 @@ const HeroBanner = () => {
           ))}
         </div>
       )}
-
+ 
       {/* Scroll indicator */}
       <motion.div
-        className="absolute bottom-20 md:bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-10"
+        className="hidden md:flex absolute bottom-20 md:bottom-16 left-1/2 -translate-x-1/2 flex-col items-center gap-2 z-10"
         animate={{ y: [0, 8, 0] }}
         transition={{ repeat: Infinity, duration: 2 }}
         aria-hidden="true"

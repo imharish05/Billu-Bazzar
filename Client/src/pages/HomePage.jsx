@@ -170,6 +170,8 @@ const HomePage = () => {
 
   // Category Carousel State & Refs
   const catScrollRef = useRef(null);
+  const catTickingRef = useRef(false);
+  const carouselTickingRef = useRef(false);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [autoplayResetTrigger, setAutoplayResetTrigger] = useState(0);
@@ -187,19 +189,23 @@ const HomePage = () => {
 
   const updateCatScrollState = useCallback(() => {
     const el = catScrollRef.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 2);
-    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+    if (!el || catTickingRef.current) return;
+    catTickingRef.current = true;
+    window.requestAnimationFrame(() => {
+      if (el) {
+        const nextLeft = el.scrollLeft > 2;
+        const nextRight = el.scrollLeft < el.scrollWidth - el.clientWidth - 4;
+        setCanScrollLeft(prev => prev !== nextLeft ? nextLeft : prev);
+        setCanScrollRight(prev => prev !== nextRight ? nextRight : prev);
+      }
+      catTickingRef.current = false;
+    });
   }, []);
 
   useEffect(() => {
-    const el = catScrollRef.current;
-    if (!el) return;
     updateCatScrollState();
-    el.addEventListener('scroll', updateCatScrollState, { passive: true });
     window.addEventListener('resize', updateCatScrollState);
     return () => {
-      el.removeEventListener('scroll', updateCatScrollState);
       window.removeEventListener('resize', updateCatScrollState);
     };
   }, [updateCatScrollState, categoriesList.length]);
@@ -283,9 +289,17 @@ const HomePage = () => {
 
   const updateCarouselArrows = useCallback(() => {
     const el = carouselScrollRef.current;
-    if (!el) return;
-    setShowCarouselLeftArrow(el.scrollLeft > 5);
-    setShowCarouselRightArrow(el.scrollLeft < el.scrollWidth - el.clientWidth - 5);
+    if (!el || carouselTickingRef.current) return;
+    carouselTickingRef.current = true;
+    window.requestAnimationFrame(() => {
+      if (el) {
+        const nextLeft = el.scrollLeft > 5;
+        const nextRight = el.scrollLeft < el.scrollWidth - el.clientWidth - 5;
+        setShowCarouselLeftArrow(prev => prev !== nextLeft ? nextLeft : prev);
+        setShowCarouselRightArrow(prev => prev !== nextRight ? nextRight : prev);
+      }
+      carouselTickingRef.current = false;
+    });
   }, []);
 
   const productsToRender = useMemo(() => {
@@ -371,8 +385,8 @@ const HomePage = () => {
                       className="group flex flex-col items-center gap-3 focus-visible:outline-2 focus-visible:outline-brand-gold focus-visible:rounded-lg"
                       id={`cat-nav-${cat.id}`}
                     >
-                      <div className="relative w-full aspect-square rounded-full overflow-hidden border-2 border-transparent group-hover:border-brand-gold transition-all duration-300 shadow-sm">
-                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                      <div className="relative w-full aspect-square rounded-full overflow-hidden border-2 border-transparent group-hover:border-brand-gold transition-colors duration-300 shadow-sm">
+                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 transform-gpu" loading="lazy" />
                       </div>
                       <span className="font-inter text-xs font-medium text-brand-text text-center group-hover:text-brand-gold transition-colors">
                         {cat.name}
@@ -597,7 +611,7 @@ const HomePage = () => {
               <img
                 src={exclusiveBanners[0].image}
                 alt={exclusiveBanners[0].title || 'Exclusive Collection'}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 transform-gpu"
                 loading="lazy"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
@@ -639,7 +653,7 @@ const HomePage = () => {
                   <img
                     src={banner.image}
                     alt={banner.title || 'Exclusive Collection'}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 transform-gpu"
                     loading="lazy"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
@@ -725,7 +739,7 @@ const HomePage = () => {
                       <img
                         src={banner.image}
                         alt={banner.title || 'Exclusive Collection'}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 transform-gpu"
                         loading="lazy"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
@@ -926,7 +940,7 @@ const HomePage = () => {
                     <img
                       src={article.img}
                       alt={article.title}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 transform-gpu"
                       loading="lazy"
                     />
                   </div>

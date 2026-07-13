@@ -20,6 +20,25 @@ const App = () => {
   const location = useLocation();
 
   useEffect(() => {
+    let scrollTimeout;
+    const handleScroll = () => {
+      if (!document.body.classList.contains('disable-hover')) {
+        document.body.classList.add('disable-hover');
+      }
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        document.body.classList.remove('disable-hover');
+      }, 150); // 150ms debounce
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      clearTimeout(scrollTimeout);
+    };
+  }, []);
+
+  useEffect(() => {
     const params = new URLSearchParams(location.search);
     const refCode = params.get('referral') || params.get('ref');
     if (refCode) {

@@ -187,20 +187,33 @@ const Navbar = () => {
 
   useEffect(() => {
     let prevScrollY = window.scrollY;
+    let ticking = false;
 
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentScrollY = window.scrollY;
 
-      // Smart sticky header behavior: hide on scroll down, show on scroll up
-      if (currentScrollY > prevScrollY && currentScrollY > 100) {
-        setHeaderVisible(false);
-      } else if (currentScrollY < prevScrollY) {
-        setHeaderVisible(true);
+          // Smart sticky header behavior: hide on scroll down, show on scroll up
+          if (currentScrollY > prevScrollY && currentScrollY > 100) {
+            setHeaderVisible(prev => prev !== false ? false : prev);
+          } else if (currentScrollY < prevScrollY) {
+            setHeaderVisible(prev => prev !== true ? true : prev);
+          }
+
+          prevScrollY = currentScrollY;
+          setScrolled(prev => {
+            const next = currentScrollY > 20;
+            return prev !== next ? next : prev;
+          });
+          setAnnouncementHidden(prev => {
+            const next = currentScrollY > 36;
+            return prev !== next ? next : prev;
+          });
+          ticking = false;
+        });
+        ticking = true;
       }
-
-      prevScrollY = currentScrollY;
-      setScrolled(currentScrollY > 20);
-      setAnnouncementHidden(currentScrollY > 36);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -459,7 +472,7 @@ const Navbar = () => {
   return (
     <>
       <header
-        className={`glass-nav fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${headerVisible ? 'translate-y-0' : '-translate-y-full'} ${scrolled ? 'shadow-md' : ''}`}
+        className={`glass-nav fixed top-0 left-0 right-0 z-50 ${headerVisible ? 'translate-y-0' : '-translate-y-full'} ${scrolled ? 'shadow-md' : ''}`}
         role="banner"
       >
         {/* Announcement bar — slides up and hides on scroll, only nav stays */}
@@ -989,14 +1002,12 @@ const Navbar = () => {
         )}
       </AnimatePresence>
 
-      {/* Spacer: shrinks when announcement bar hides on scroll (hidden on Homepage to overlay header and hero banner) */}
-      {!isHomePage && (
-        <div
-          style={{ height: announcementHidden ? '108px' : '144px', transition: 'height 0.3s ease' }}
-          className="lg:block hidden"
-          aria-hidden="true"
-        />
-      )}
+      {/* Spacer: shrinks when announcement bar hides on scroll */}
+      <div
+        style={{ height: announcementHidden ? '108px' : '144px', transition: 'height 0.3s ease' }}
+        className="lg:block hidden"
+        aria-hidden="true"
+      />
       <div
         style={{ height: announcementHidden ? '96px' : '132px', transition: 'height 0.3s ease' }}
         className="block lg:hidden"
