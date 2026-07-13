@@ -29,14 +29,24 @@ const App = () => {
 
   useEffect(() => {
     let scrollTimeout;
+    let ticking = false;
+    // rAF-throttled to match Navbar's scroll listener — this used to run its
+    // classList work on every single 'scroll' event (which can fire dozens
+    // of times per frame), doubling up on layout work alongside Navbar's own
+    // handler and contributing to the scroll "lag".
     const handleScroll = () => {
-      if (!document.body.classList.contains('disable-hover')) {
-        document.body.classList.add('disable-hover');
-      }
-      clearTimeout(scrollTimeout);
-      scrollTimeout = setTimeout(() => {
-        document.body.classList.remove('disable-hover');
-      }, 150); // 150ms debounce
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        if (!document.body.classList.contains('disable-hover')) {
+          document.body.classList.add('disable-hover');
+        }
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => {
+          document.body.classList.remove('disable-hover');
+        }, 150); // 150ms debounce
+        ticking = false;
+      });
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });

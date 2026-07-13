@@ -39,7 +39,7 @@ const ExclusiveCollection = () => {
 
   if (loading) {
     return (
-      <section className="py-16 md:py-24 bg-white" aria-label="Exclusive collection loading">
+      <section className="py-16 md:py-18 bg-white" aria-label="Exclusive collection loading">
         <div className="max-w-site mx-auto px-6 md:px-8">
           <div className="skeleton h-8 w-64 mb-8" />
           <div className="flex gap-4">
@@ -53,7 +53,7 @@ const ExclusiveCollection = () => {
   if (collectionProducts.length === 0) return null;
 
   return (
-    <section className="py-16 md:py-24 bg-white overflow-hidden" aria-label="Exclusive collection">
+    <section className="py-16 md:py-18 bg-white overflow-hidden" aria-label="Exclusive collection">
       <div className="max-w-site mx-auto px-6 md:px-8">
         <div className="flex items-end justify-between mb-10">
           <div>

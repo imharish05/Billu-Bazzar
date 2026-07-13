@@ -14,7 +14,7 @@ const HeroBanner = () => {
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
   const sectionRef = useRef(null);
-  const [isVisible, setIsVisible] = useState(true);
+  const isVisibleRef = useRef(true);
 
   // Pause autoplay + looping animations when banner scrolled out of view —
   // prevents timers/transitions queuing work off-screen that all lands at
@@ -23,7 +23,9 @@ const HeroBanner = () => {
     const el = sectionRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
-      ([entry]) => setIsVisible(entry.isIntersecting),
+      ([entry]) => {
+        isVisibleRef.current = entry.isIntersecting;
+      },
       { threshold: 0.1 }
     );
     observer.observe(el);
@@ -48,10 +50,14 @@ const HeroBanner = () => {
   }, [banners.length]);
 
   useEffect(() => {
-    if (banners.length < 2 || !isVisible) return;
-    const timer = setInterval(next, AUTOPLAY_INTERVAL);
+    if (banners.length < 2) return;
+    const timer = setInterval(() => {
+      if (isVisibleRef.current) {
+        next();
+      }
+    }, AUTOPLAY_INTERVAL);
     return () => clearInterval(timer);
-  }, [banners.length, next, current, isVisible]);
+  }, [banners.length, next]);
 
   const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
   const handleTouchMove = (e) => { touchEndX.current = e.touches[0].clientX; };
@@ -149,7 +155,7 @@ const HeroBanner = () => {
 
       {/* Content Overlay */}
       {hasTextContent && (
-        <div className="relative z-10 max-w-site mx-auto px-6 md:px-16 w-full py-10 md:py-0">
+        <div className="relative z-10 max-w-site mx-auto px-6 md:px-16 w-full py-10 md:py-0 lg:pt-36">
           <AnimatePresence mode="wait">
             <motion.div
               key={banner.id || current}
@@ -220,7 +226,7 @@ const HeroBanner = () => {
         <>
           <button
             onClick={prev}
-            className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 items-center justify-center bg-white/10 hover:bg-white/25 backdrop-blur-sm border border-white/20 text-white transition-all duration-200 focus-visible:outline-white"
+            className="hidden md:flex absolute left-4 top-1/2 lg:top-[calc(50%+54px)] -translate-y-1/2 z-20 w-12 h-12 items-center justify-center bg-white/10 hover:bg-white/25 backdrop-blur-sm border border-white/20 text-white transition-all duration-200 focus-visible:outline-white"
             aria-label="Previous banner"
             id="hero-arrow-prev"
           >
@@ -228,7 +234,7 @@ const HeroBanner = () => {
           </button>
           <button
             onClick={next}
-            className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 items-center justify-center bg-white/10 hover:bg-white/25 backdrop-blur-sm border border-white/20 text-white transition-all duration-200 focus-visible:outline-white"
+            className="hidden md:flex absolute right-4 top-1/2 lg:top-[calc(50%+54px)] -translate-y-1/2 z-20 w-12 h-12 items-center justify-center bg-white/10 hover:bg-white/25 backdrop-blur-sm border border-white/20 text-white transition-all duration-200 focus-visible:outline-white"
             aria-label="Next banner"
             id="hero-arrow-next"
           >
@@ -258,8 +264,8 @@ const HeroBanner = () => {
       {/* Scroll indicator */}
       <motion.div
         className="hidden md:flex absolute bottom-20 md:bottom-16 left-1/2 -translate-x-1/2 flex-col items-center gap-2 z-10"
-        animate={isVisible ? { y: [0, 8, 0] } : { y: 0 }}
-        transition={isVisible ? { repeat: Infinity, duration: 2 } : { duration: 0 }}
+        animate={{ y: [0, 8, 0] }}
+        transition={{ repeat: Infinity, duration: 2 }}
         aria-hidden="true"
       >
         <div className="w-px h-10 bg-white/40" />

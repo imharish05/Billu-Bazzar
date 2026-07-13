@@ -1,22 +1,20 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Edit3 } from 'lucide-react';
+import { useSelector } from 'react-redux';
 import toast from 'react-hot-toast';
 import { mockCustomer } from '../../data/mockAccountData';
 
-/**
- * ProfilePage — /account
- * PRD ref: "Customer Account > Profile management"
- * Mock data only — save just toasts + logs; wire to a real PATCH /me once
- * the backend exists.
- */
 const ProfilePage = () => {
+  const { customer: authCustomer } = useSelector(s => s.auth);
+  const customer = authCustomer || mockCustomer;
+
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
-    name: mockCustomer.name,
-    email: mockCustomer.email,
-    phone: mockCustomer.phone,
-    referralCode: mockCustomer.referralCode,
+    name: customer.name || '',
+    email: customer.email || '',
+    phone: customer.phone || '',
+    referralCode: customer.referralCode || '',
   });
 
   const handleSave = () => {
@@ -63,7 +61,7 @@ const ProfilePage = () => {
         </div>
 
         <div className="mt-6 pt-6 border-t border-brand-light text-xs text-brand-grey">
-          Member since {new Date(mockCustomer.memberSince).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+          Member since {new Date(customer.memberSince || customer.createdAt || new Date()).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
         </div>
       </div>
     </motion.div>

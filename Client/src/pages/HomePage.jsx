@@ -3,7 +3,7 @@ import InfluencerCarouselMobile from '../components/InfluencerCarouselMobile';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { motion, useInView, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Play, Star, ArrowRight, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Play, Star, ArrowRight, Clock, Truck, Award, Lock, Headphones } from 'lucide-react';
 import { fetchProducts, fetchFeatured, fetchNewArrivals, fetchBestSellers } from '../redux/slices/productsSlice';
 import { fetchCategories } from '../redux/slices/categoriesSlice';
 import { fetchBanners } from '../redux/slices/bannersSlice';
@@ -175,8 +175,8 @@ const HomePage = () => {
   const carouselTickingRef = useRef(false);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const isCatVisibleRef = useRef(false);
   const [autoplayResetTrigger, setAutoplayResetTrigger] = useState(0);
-  const [isCatVisible, setIsCatVisible] = useState(false);
 
   // Pause category autoplay when the carousel is off-screen — otherwise the
   // setInterval below keeps queuing smooth-scroll animations while the user
@@ -186,7 +186,9 @@ const HomePage = () => {
     const el = catSectionRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
-      ([entry]) => setIsCatVisible(entry.isIntersecting),
+      ([entry]) => {
+        isCatVisibleRef.current = entry.isIntersecting;
+      },
       { threshold: 0.1 }
     );
     observer.observe(el);
@@ -244,8 +246,9 @@ const HomePage = () => {
 
   // Category Autoplay scroller
   useEffect(() => {
-    if (categoriesList.length <= 3 || !isCatVisible) return;
+    if (categoriesList.length <= 3) return;
     const interval = setInterval(() => {
+      if (!isCatVisibleRef.current) return;
       const el = catScrollRef.current;
       if (!el) return;
       const isAtEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 10;
@@ -261,7 +264,7 @@ const HomePage = () => {
       }
     }, 7500);
     return () => clearInterval(interval);
-  }, [categoriesList.length, autoplayResetTrigger, isCatVisible]);
+  }, [categoriesList.length, autoplayResetTrigger]);
 
   const countdownBanner = banners.find(b => b.type === 'COUNTDOWN');
   const countdown = useCountdown(countdownBanner?.countdown);
@@ -356,7 +359,7 @@ const HomePage = () => {
       <HeroBanner />
 
       {/* ── SECTION 2: Category Quick-Nav Carousel ──────────────────────── */}
-      <section ref={catSectionRef} className="py-16 md:py-24 bg-brand-bg overflow-hidden" aria-label="Browse categories">
+      <section ref={catSectionRef} className="py-10 md:py-18 bg-brand-bg overflow-hidden" aria-label="Browse categories">
         <div className="max-w-site mx-auto px-6 md:px-8">
           <ScrollReveal>
             <SectionHeader eyebrow="Shop by Category" title="Curated for Every Occasion" />
@@ -477,7 +480,7 @@ const HomePage = () => {
       )}
 
       {/* ── SECTION 4: Bestsellers & New Arrivals Carousel ──────────────── */}
-      <section className="py-16 md:py-24 bg-white" aria-label="Bestsellers and New Arrivals">
+      <section className="py-16 md:py-18 bg-white" aria-label="Bestsellers and New Arrivals">
         <div className="max-w-site mx-auto px-6 md:px-8">
           <ScrollReveal>
             <div className="text-center mb-12">
@@ -579,7 +582,7 @@ const HomePage = () => {
 
       {/* ── SECTION 6: Curated Collection Editorial Banner ──────────────── */}
       {promoBanner && (
-        <section className="py-16 md:py-24 bg-brand-light" aria-label="Curated collection">
+        <section className="py-16 md:py-18 bg-brand-light" aria-label="Curated collection">
           <div className="max-w-site mx-auto px-6 md:px-8">
             <div className="grid md:grid-cols-2 gap-0 shadow-lg overflow-hidden">
               <div className="relative aspect-[4/5] md:aspect-auto">
@@ -622,7 +625,7 @@ const HomePage = () => {
 
       {/* ── SECTION 8: Dual Promo Tiles / Exclusive Collection Banner ───── */}
       {exclusiveBanners.length === 1 && (
-        <section className="py-16 md:py-24 bg-white" aria-label="Promotional offers">
+        <section className="py-16 md:py-18 bg-white" aria-label="Promotional offers">
           <div className="max-w-site mx-auto px-6 md:px-8 flex justify-center">
             <ScrollReveal className="relative overflow-hidden w-full max-w-5xl aspect-[16/9] sm:aspect-[2.4/1] md:aspect-[3/1] group">
               <img
@@ -662,7 +665,7 @@ const HomePage = () => {
       )}
 
       {exclusiveBanners.length === 2 && (
-        <section className="py-16 md:py-24 bg-white" aria-label="Promotional offers">
+        <section className="py-16 md:py-18 bg-white" aria-label="Promotional offers">
           <div className="max-w-site mx-auto px-6 md:px-8">
             <div className="grid md:grid-cols-2 gap-6">
               {exclusiveBanners.map((banner, idx) => (
@@ -706,7 +709,7 @@ const HomePage = () => {
       )}
 
       {exclusiveBanners.length >= 3 && (
-        <section className="py-16 md:py-24 bg-white overflow-hidden" aria-label="Promotional offers">
+        <section className="py-16 md:py-18 bg-white overflow-hidden" aria-label="Promotional offers">
           <div className="max-w-site mx-auto px-6 md:px-8">
             <ScrollReveal className="relative group/carousel">
               <div className="flex items-center justify-between mb-8">
@@ -808,7 +811,7 @@ const HomePage = () => {
 
       {/* ── SECTION 9: Influencer Showcase ──────────────────────────────── */}
       {dbInfluencers.length > 0 && (
-        <section className="py-16 md:py-24 bg-brand-bg border-t border-brand-light" aria-label="Style influencers">
+        <section className="py-16 md:py-18 bg-brand-bg border-t border-brand-light" aria-label="Style influencers">
           <div className="max-w-site mx-auto px-6 md:px-8">
             <ScrollReveal>
               <SectionHeader eyebrow="As Seen On" title="Style Diaries" subtitle="Drag or scroll to explore our favorite curators wearing Billu Bazaar" />
@@ -900,75 +903,81 @@ const HomePage = () => {
 
 
       {/* ── SECTION 11: Best Sellers + Testimonials ─────────────────────── */}
-      <section className="py-16 md:py-24 bg-brand-light" aria-label="Best sellers and testimonials">
+      <section className="py-16 md:py-18 bg-brand-light" aria-label="Best sellers and testimonials">
         <div className="max-w-site mx-auto px-6 md:px-8">
           <ScrollReveal>
             <SectionHeader eyebrow="Customer Favourites" title="Most Loved Pieces" />
           </ScrollReveal>
 
-          {/* Best sellers — top 4 */}
+          {/* Featured items — top 4 */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-20">
-            {(bestSellers.length
-              ? bestSellers.slice(0, 4)
-              : products.filter(p => p.isBestSeller).slice(0, 4).length
-                ? products.filter(p => p.isBestSeller).slice(0, 4)
+            {(featured.length
+              ? featured.slice(0, 4)
+              : products.filter(p => p.isFeatured).slice(0, 4).length
+                ? products.filter(p => p.isFeatured).slice(0, 4)
                 : products.slice(0, 4)
             ).map((product, i) => (
               <ProductCard key={product.id} product={product} index={i} />
             ))}
           </div>
-
-          {/* Testimonials */}
-          <div className="grid md:grid-cols-3 gap-6">
-            {testimonials.map((t, i) => (
-              <ScrollReveal key={i} delay={i * 0.1}>
-                <div className="bg-white p-6 shadow-sm">
-                  <div className="flex mb-3">
-                    {[1,2,3,4,5].map(s => (
-                      <Star key={s} size={14} className={s <= t.rating ? 'fill-brand-gold text-brand-gold' : 'text-brand-light'} />
-                    ))}
-                  </div>
-                  <p className="text-brand-grey text-sm leading-relaxed mb-4 italic">"{t.text}"</p>
-                  <p className="font-medium text-sm text-brand-text">{t.name}</p>
-                </div>
-              </ScrollReveal>
-            ))}
-          </div>
         </div>
       </section>
 
-      {/* ── SECTION 12: Editorial/Blog Teaser Row ───────────────────────── */}
-      <section className="py-16 md:py-24 bg-white" aria-label="Editorial and style guides">
+      {/* ── SECTION 12: Trust Badges Row ────────────────────────────────── */}
+      <section className="py-16 bg-[#FDFDFB] border-t border-neutral-100" aria-label="Trust and security badges">
         <div className="max-w-site mx-auto px-6 md:px-8">
-          <ScrollReveal>
-            <div className="flex items-end justify-between mb-10">
-              <SectionHeader eyebrow="The Edit" title="Style Stories" centered={false} />
-              <Link to="/blog" className="btn-outline flex items-center gap-2" id="editorial-all">
-                Read All <ChevronRight size={16} />
-              </Link>
-            </div>
-          </ScrollReveal>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {/* Card 1: Shipping */}
+            <ScrollReveal className="h-full">
+              <div className="bg-white border border-neutral-200/60 rounded-xl p-6 flex items-center gap-4 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 h-full">
+                <div className="w-14 h-14 rounded-full bg-neutral-950 flex items-center justify-center text-brand-gold flex-shrink-0">
+                  <Truck size={22} strokeWidth={1.5} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-neutral-900 text-sm tracking-wide">Complimentary Shipping</h3>
+                  <p className="text-[11px] text-neutral-500 mt-0.5 leading-relaxed">Insured delivery</p>
+                </div>
+              </div>
+            </ScrollReveal>
 
-          <div className="grid md:grid-cols-3 gap-6 md:gap-8">
-            {editorials.map((article, i) => (
-              <ScrollReveal key={article.title} delay={i * 0.1}>
-                <article className="group cursor-pointer" aria-label={article.title}>
-                  <div className="relative aspect-video overflow-hidden mb-4">
-                    <img
-                      src={article.img}
-                      alt={article.title}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 transform-gpu"
-                      loading="lazy"
-                    />
-                  </div>
-                  <p className="text-brand-gold text-xs tracking-widest uppercase mb-2">{article.category}</p>
-                  <h3 className="font-playfair text-lg font-semibold text-brand-text group-hover:text-brand-gold transition-colors line-clamp-2 mb-2">
-                    {article.title}
-                  </h3>
-                  <p className="text-brand-grey text-xs">{article.date} · {article.readTime}</p>
-                </article>
-              </ScrollReveal>
-            ))}
+            {/* Card 2: Satisfaction */}
+            <ScrollReveal delay={0.08} className="h-full">
+              <div className="bg-white border border-neutral-200/60 rounded-xl p-6 flex items-center gap-4 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 h-full">
+                <div className="w-14 h-14 rounded-full bg-neutral-950 flex items-center justify-center text-brand-gold flex-shrink-0">
+                  <Award size={22} strokeWidth={1.5} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-neutral-900 text-sm tracking-wide">Artisan Authenticity</h3>
+                  <p className="text-[11px] text-neutral-500 mt-0.5 leading-relaxed">Quality guarantee on every piece</p>
+                </div>
+              </div>
+            </ScrollReveal>
+
+            {/* Card 3: Payments */}
+            <ScrollReveal delay={0.16} className="h-full">
+              <div className="bg-white border border-neutral-200/60 rounded-xl p-6 flex items-center gap-4 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 h-full">
+                <div className="w-14 h-14 rounded-full bg-neutral-950 flex items-center justify-center text-brand-gold flex-shrink-0">
+                  <Lock size={20} strokeWidth={1.5} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-neutral-900 text-sm tracking-wide">Secured Transactions</h3>
+                  <p className="text-[11px] text-neutral-500 mt-0.5 leading-relaxed">Safe and encrypted checkout</p>
+                </div>
+              </div>
+            </ScrollReveal>
+
+            {/* Card 4: Support */}
+            <ScrollReveal delay={0.24} className="h-full">
+              <div className="bg-white border border-neutral-200/60 rounded-xl p-6 flex items-center gap-4 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 h-full">
+                <div className="w-14 h-14 rounded-full bg-neutral-950 flex items-center justify-center text-brand-gold flex-shrink-0">
+                  <Headphones size={22} strokeWidth={1.5} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-neutral-900 text-sm tracking-wide">Dedicated Concierge</h3>
+                  <p className="text-[11px] text-neutral-500 mt-0.5 leading-relaxed">Expert assistance at your service</p>
+                </div>
+              </div>
+            </ScrollReveal>
           </div>
         </div>
       </section>

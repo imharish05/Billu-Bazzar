@@ -193,11 +193,21 @@ const Navbar = () => {
       if (!ticking) {
         window.requestAnimationFrame(() => {
           const currentScrollY = window.scrollY;
+          const delta = currentScrollY - prevScrollY;
 
-          // Smart sticky header behavior: hide on scroll down, show on scroll up
-          if (currentScrollY > prevScrollY && currentScrollY > 100) {
+          // Smart sticky header behavior: hide on scroll down, show on scroll up.
+          // Old logic hid on any downward move past 100px but showed again on
+          // ANY upward move (even a 1px trackpad jitter), with no minimum
+          // delta on either side. Right around the 100px line that caused the
+          // header to flicker hide/show every frame — the visible "lag" —
+          // and let the header pop back to full height mid-transition, which
+          // is what produced the white gap above the hero banner when
+          // scrolling back up from the footer. A shared min-delta + always
+          // showing near the very top fixes both.
+          const MIN_DELTA = 6;
+          if (delta > MIN_DELTA && currentScrollY > 100) {
             setHeaderVisible(prev => prev !== false ? false : prev);
-          } else if (currentScrollY < prevScrollY) {
+          } else if ((delta < -MIN_DELTA) || currentScrollY <= 100) {
             setHeaderVisible(prev => prev !== true ? true : prev);
           }
 
@@ -219,6 +229,16 @@ const Navbar = () => {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Keep --header-h / --header-h-mobile in sync with the announcement bar's
+  // collapsed state. HeroBanner (and anything else that sizes itself against
+  // the header) reads these vars instead of a hardcoded height, so it can
+  // never drift out of sync with the header's real rendered height again.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--header-h', announcementHidden ? '108px' : '144px');
+    root.style.setProperty('--header-h-mobile', announcementHidden ? '96px' : '132px');
+  }, [announcementHidden]);
 
   // Category scroll arrow visibility
   const updateCatArrows = useCallback(() => {
@@ -472,12 +492,16 @@ const Navbar = () => {
   return (
     <>
       <header
-        className={`glass-nav fixed top-0 left-0 right-0 z-50 ${headerVisible ? 'translate-y-0' : '-translate-y-full'} ${scrolled ? 'shadow-md' : ''}`}
+        className={`bg-black fixed top-0 left-0 right-0 z-50 ${headerVisible ? 'translate-y-0' : '-translate-y-full'} ${scrolled ? 'shadow-md' : ''} ${
+          location.pathname === '/' && !scrolled ? 'is-transparent' : ''
+        }`}
         role="banner"
       >
         {/* Announcement bar — slides up and hides on scroll, only nav stays */}
         <div
-          className={`bg-white text-neutral-950 font-inter tracking-widest uppercase text-[10px] sm:text-xs overflow-hidden relative h-9 flex items-center justify-center border-b border-neutral-200 transition-all duration-300 ease-in-out ${announcementHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+          className={`bg-white text-neutral-950 font-inter tracking-widest uppercase text-[10px] sm:text-xs overflow-hidden relative h-9 flex items-center justify-center border-b border-neutral-200 transition-all duration-300 ease-in-out ${announcementHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'} ${
+            location.pathname === '/' && !scrolled ? 'lg:bg-neutral-950/20 lg:text-white lg:border-b-transparent' : ''
+          }`}
           style={{ marginTop: announcementHidden ? '-36px' : '0px' }}
         >
           {/* Mobile/Tablet marquee */}
@@ -1002,14 +1026,17 @@ const Navbar = () => {
         )}
       </AnimatePresence>
 
-      {/* Spacer: shrinks when announcement bar hides on scroll */}
+      {/* Spacer: shrinks when announcement bar hides on scroll.
+          Reads the same --header-h / --header-h-mobile vars the header
+          itself keeps updated, instead of a second hardcoded copy of the
+          height that could fall out of sync with it. */}
       <div
-        style={{ height: announcementHidden ? '108px' : '144px', transition: 'height 0.3s ease' }}
-        className="lg:block hidden"
+        style={{ height: 'var(--header-h)', transition: 'height 0.3s ease' }}
+        className={`lg:block hidden ${location.pathname === '/' ? 'lg:hidden' : ''}`}
         aria-hidden="true"
       />
       <div
-        style={{ height: announcementHidden ? '96px' : '132px', transition: 'height 0.3s ease' }}
+        style={{ height: 'var(--header-h-mobile)', transition: 'height 0.3s ease' }}
         className="block lg:hidden"
         aria-hidden="true"
       />
