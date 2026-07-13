@@ -9,7 +9,7 @@ const Order = sequelize.define('Order', {
   affiliateId: { type: DataTypes.INTEGER, allowNull: true },
   couponId: { type: DataTypes.INTEGER, allowNull: true },
   status: {
-    type: DataTypes.ENUM('PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'RETURNED', 'REFUNDED'),
+    type: DataTypes.ENUM('PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'RETURNED', 'REFUNDED'),
     defaultValue: 'PENDING',
   },
   paymentStatus: { type: DataTypes.ENUM('UNPAID', 'PAID', 'PARTIAL', 'REFUNDED'), defaultValue: 'UNPAID' },

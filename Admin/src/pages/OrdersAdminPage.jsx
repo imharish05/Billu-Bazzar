@@ -7,11 +7,12 @@ import currencyJs from 'currency.js';
 
 const fmt = (v) => currencyJs(v, { symbol: '₹', precision: 0 }).format();
 
-const STATUS_TABS = ['All', 'PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+const STATUS_TABS = ['All', 'PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
 const STATUS_COLORS = {
   PENDING: 'bg-yellow-50 text-yellow-700', CONFIRMED: 'bg-blue-50 text-blue-700',
   PROCESSING: 'bg-purple-50 text-purple-700', SHIPPED: 'bg-indigo-50 text-indigo-700',
-  DELIVERED: 'bg-green-50 text-green-700', CANCELLED: 'bg-red-50 text-red-500',
+  OUT_FOR_DELIVERY: 'bg-orange-50 text-orange-700', DELIVERED: 'bg-green-50 text-green-700',
+  CANCELLED: 'bg-red-50 text-red-500',
 };
 const PAY_COLORS = { PAID: 'bg-green-50 text-green-700', UNPAID: 'bg-yellow-50 text-yellow-700', REFUNDED: 'bg-gray-100 text-gray-500' };
 
@@ -40,7 +41,7 @@ const OrdersAdminPage = () => {
             id={`orders-tab-${s}`}
             className={`flex-shrink-0 px-4 py-2 text-xs font-medium rounded-lg transition-all ${activeStatus === s ? 'bg-brand-gold text-white' : 'bg-white text-brand-grey hover:bg-brand-light'}`}
           >
-            {s}
+            {s.replace(/_/g, ' ')}
           </button>
         ))}
       </div>
@@ -87,8 +88,8 @@ const OrdersAdminPage = () => {
                       id={`status-${order.id}`}
                       aria-label="Order status"
                     >
-                      {['PENDING','CONFIRMED','PROCESSING','SHIPPED','DELIVERED','CANCELLED'].map(s => (
-                        <option key={s} value={s}>{s}</option>
+                      {['PENDING','CONFIRMED','PROCESSING','SHIPPED','OUT_FOR_DELIVERY','DELIVERED','CANCELLED'].map(s => (
+                        <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
                       ))}
                     </select>
                   </td>

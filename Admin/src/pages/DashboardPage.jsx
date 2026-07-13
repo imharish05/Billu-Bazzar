@@ -58,7 +58,9 @@ const StatCard = ({ icon: Icon, label, value, prefix = '', suffix = '', trend, c
 
 const STATUS_COLORS = {
   PENDING: 'bg-yellow-50 text-yellow-700', CONFIRMED: 'bg-blue-50 text-blue-700',
-  SHIPPED: 'bg-indigo-50 text-indigo-700', DELIVERED: 'bg-green-50 text-green-600',
+  PROCESSING: 'bg-purple-50 text-purple-700', SHIPPED: 'bg-indigo-50 text-indigo-700',
+  OUT_FOR_DELIVERY: 'bg-orange-50 text-orange-700',
+   DELIVERED: 'bg-green-50 text-green-600',
   CANCELLED: 'bg-red-50 text-red-500',
 };
 
@@ -177,7 +179,7 @@ const DashboardPage = () => {
                     <td className="px-4 py-3 text-brand-grey">{order.customer?.name || 'Customer'}</td>
                     <td className="px-4 py-3 font-semibold">{fmt(order.totalAmount)}</td>
                     <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full ${order.paymentStatus === 'PAID' ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>{order.paymentStatus}</span></td>
-                    <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[order.status] || 'bg-gray-100'}`}>{order.status}</span></td>
+                    <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[order.status] || 'bg-gray-100'}`}>{order.status ? order.status.replace(/_/g, ' ') : ''}</span></td>
                     <td className="px-4 py-3 text-brand-grey">{new Date(order.createdAt).toLocaleDateString('en-IN')}</td>
                   </tr>
                 ))}

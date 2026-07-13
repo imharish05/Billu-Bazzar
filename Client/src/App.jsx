@@ -21,6 +21,7 @@ import LoyaltyPage from './pages/account/LoyaltyPage';
 import PersonalShopperPage from './pages/account/PersonalShopperPage';
 import SupportPage from './pages/account/SupportPage';
 import NotFoundPage from './pages/NotFoundPage';
+import LoaderPreviewPage from './pages/LoaderPreviewPage';
 import api from './services/api';
 
 const App = () => {
@@ -87,6 +88,7 @@ const App = () => {
           <Route path="/cart" element={<CartPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
+          <Route path="/loader-preview" element={<LoaderPreviewPage />} />
           <Route path="/account" element={<AccountLayout />}>
             <Route index element={<ProfilePage />} />
             <Route path="orders" element={<OrdersPage />} />

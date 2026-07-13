@@ -31,6 +31,14 @@ const start = async () => {
       console.log('⚠️ Manual alter note (already altered or table not synced yet):', alterErr.message);
     }
 
+    // Run manual database alters for Orders table to support OUT_FOR_DELIVERY status
+    try {
+      await sequelize.query("ALTER TABLE Orders MODIFY COLUMN status ENUM('PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'RETURNED', 'REFUNDED') DEFAULT 'PENDING'");
+      console.log('✅ Orders table status column definition updated');
+    } catch (alterErr) {
+      console.log('⚠️ Manual alter note (already altered or table not synced yet):', alterErr.message);
+    }
+
     // Manual alter to add react-360-view materialized frame columns to existing Products tables
     try {
       await sequelize.query("ALTER TABLE Products ADD COLUMN spinImagePath VARCHAR(300) NULL");

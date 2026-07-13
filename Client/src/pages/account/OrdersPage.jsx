@@ -9,9 +9,21 @@ const STATUS_COLORS = {
   CONFIRMED: 'bg-blue-50 text-blue-700',
   PROCESSING: 'bg-purple-50 text-purple-700',
   SHIPPED: 'bg-indigo-50 text-indigo-700',
+  OUT_FOR_DELIVERY: 'bg-orange-50 text-orange-700',
   DELIVERED: 'bg-green-50 text-green-700',
   CANCELLED: 'bg-red-50 text-red-700',
   RETURNED: 'bg-gray-100 text-gray-600',
+};
+
+const STATUS_LABELS = {
+  PENDING: 'Order Placed',
+  CONFIRMED: 'Confirmed',
+  PROCESSING: 'Processing',
+  SHIPPED: 'Shipping',
+  OUT_FOR_DELIVERY: 'Out for Delivery',
+  DELIVERED: 'Delivered',
+  CANCELLED: 'Cancelled',
+  RETURNED: 'Returned',
 };
 
 /**
@@ -51,7 +63,7 @@ const OrdersPage = () => {
                   </p>
                 </div>
                 <span className={`text-xs font-medium px-3 py-1 rounded-full ${STATUS_COLORS[order.status] || 'bg-gray-100'}`}>
-                  {order.status}
+                  {STATUS_LABELS[order.status] || order.status}
                 </span>
               </div>
               <div className="flex justify-between items-center text-sm">
