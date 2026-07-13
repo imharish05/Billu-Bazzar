@@ -257,20 +257,23 @@ p  { font-size: 16px; line-height: 1.7; color: var(--color-grey); }
 :focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 3px; }
 
-/* ── Hero Banner Section (Taller on mobile to prevent overflow, fits within 100vh on Desktop) ────────────────── */
+/* ── Hero Banner Section ────────────────────────────────────────────────────
+   min-height only (no aspect-ratio) below desktop: aspect-ratio was forcing
+   a hard, short height on tablet (min-height reset to `auto` there), which
+   clipped the stacked badge/title/subtitle/CTA text via the section's
+   overflow-hidden. min-height lets the box grow to fit whatever text a
+   banner has; the background <img> still fills it fully via object-cover. */
 .hero-banner-section {
-  aspect-ratio: 16/9;
-  min-height: 480px;
+  min-height: 560px;
 }
 @media (min-width: 640px) {
   .hero-banner-section {
-    min-height: 520px;
+    min-height: 600px;
   }
 }
 @media (min-width: 768px) {
   .hero-banner-section {
-    aspect-ratio: 16/9;
-    min-height: auto;
+    min-height: 620px;
   }
 }
 @media (min-width: 1024px) {

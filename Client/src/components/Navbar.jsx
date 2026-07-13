@@ -620,7 +620,7 @@ const Navbar = () => {
                     <span className={`relative z-10 text-[10px] font-bold tracking-widest w-[40px] text-center uppercase transition-all duration-300 ${currencyCode === 'AED' ? 'text-white scale-105' : 'text-white/50 hover:text-white scale-95 opacity-85'}`}>AED</span>
                   </button>
                 </div>
-                <Link to="/account?tab=wishlist" className="p-2 text-white hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label="Wishlist" id="nav-wishlist-btn">
+                <Link to="/account/wishlist" className="p-2 text-white hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label="Wishlist" id="nav-wishlist-btn">
                   <Heart size={20} strokeWidth={1.5} />
                 </Link>
                 {isAuthenticated ? (
@@ -821,7 +821,7 @@ const Navbar = () => {
                     </span>
                   </button>
                 </div>
-                <Link to="/account?tab=wishlist" className="p-2 text-white hover:text-brand-gold transition-colors" aria-label="Wishlist">
+                <Link to="/account/wishlist" className="p-2 text-white hover:text-brand-gold transition-colors" aria-label="Wishlist">
                   <Heart size={18} strokeWidth={1.5} />
                 </Link>
                 <button onClick={() => dispatch(toggleCart())} className="relative p-2 text-white hover:text-brand-gold transition-colors" aria-label={`Shopping cart — ${cartCount} items`}>

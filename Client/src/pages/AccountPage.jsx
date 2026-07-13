@@ -21,7 +21,6 @@ const STATUS_COLORS = {
 const TABS = [
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'orders', label: 'My Orders', icon: Package },
-  { id: 'wishlist', label: 'Wishlist', icon: Heart },
   { id: 'loyalty', label: 'Loyalty Points', icon: Star },
   { id: 'shopper', label: 'Personal Shopper', icon: Gift },
   { id: 'support', label: 'Support', icon: Headphones },
@@ -36,7 +35,8 @@ const AccountPage = () => {
   const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
 
   const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'profile');
+  const initialTab = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState(initialTab && initialTab !== 'wishlist' ? initialTab : 'profile');
   const [editing, setEditing] = useState(false);
 
   useEffect(() => {
@@ -207,22 +207,7 @@ const AccountPage = () => {
                 </div>
               )}
 
-              {/* Wishlist Tab */}
-              {activeTab === 'wishlist' && (
-                <div>
-                  <h2 className="font-playfair text-xl font-semibold mb-5">My Wishlist</h2>
-                  {wishlistIds.length === 0 ? (
-                    <div className="bg-white shadow-sm p-12 text-center">
-                      <Heart size={40} className="text-brand-light mx-auto mb-3" strokeWidth={1} />
-                      <p className="font-playfair text-xl mb-2">Your wishlist is empty</p>
-                      <p className="text-brand-grey text-sm mb-4">Save items you love for later</p>
-                      <Link to="/products" className="btn-primary" id="wishlist-empty-shop">Explore Products</Link>
-                    </div>
-                  ) : (
-                    <p className="text-brand-grey text-sm">{wishlistIds.length} saved items — visit product pages to see details.</p>
-                  )}
-                </div>
-              )}
+
 
               {/* Personal Shopper Tab */}
               {activeTab === 'shopper' && (

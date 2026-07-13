@@ -12,7 +12,14 @@ import ProductDetailsPage from './pages/ProductDetailsPage';
 import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import OrderConfirmationPage from './pages/OrderConfirmationPage';
-import AccountPage from './pages/AccountPage';
+import AccountLayout from './pages/account/AccountLayout';
+import ProfilePage from './pages/account/ProfilePage';
+import OrdersPage from './pages/account/OrdersPage';
+import OrderDetailPage from './pages/account/OrderDetailPage';
+import WishlistPage from './pages/account/WishlistPage';
+import LoyaltyPage from './pages/account/LoyaltyPage';
+import PersonalShopperPage from './pages/account/PersonalShopperPage';
+import SupportPage from './pages/account/SupportPage';
 import NotFoundPage from './pages/NotFoundPage';
 import api from './services/api';
 
@@ -80,7 +87,15 @@ const App = () => {
           <Route path="/cart" element={<CartPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
-          <Route path="/account" element={<AccountPage />} />
+          <Route path="/account" element={<AccountLayout />}>
+            <Route index element={<ProfilePage />} />
+            <Route path="orders" element={<OrdersPage />} />
+            <Route path="orders/:id" element={<OrderDetailPage />} />
+            <Route path="wishlist" element={<WishlistPage />} />
+            <Route path="loyalty" element={<LoyaltyPage />} />
+            <Route path="personal-shopper" element={<PersonalShopperPage />} />
+            <Route path="support" element={<SupportPage />} />
+          </Route>
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </AnimatePresence>

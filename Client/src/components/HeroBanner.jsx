@@ -13,6 +13,22 @@ const HeroBanner = () => {
   const [direction, setDirection] = useState(1);
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
+  const sectionRef = useRef(null);
+  const [isVisible, setIsVisible] = useState(true);
+
+  // Pause autoplay + looping animations when banner scrolled out of view —
+  // prevents timers/transitions queuing work off-screen that all lands at
+  // once (jank + image pop) when the user scrolls back up.
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsVisible(entry.isIntersecting),
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const goTo = useCallback((index) => {
     setDirection(index > current ? 1 : -1);
@@ -32,10 +48,10 @@ const HeroBanner = () => {
   }, [banners.length]);
 
   useEffect(() => {
-    if (banners.length < 2) return;
+    if (banners.length < 2 || !isVisible) return;
     const timer = setInterval(next, AUTOPLAY_INTERVAL);
     return () => clearInterval(timer);
-  }, [banners.length, next, current]);
+  }, [banners.length, next, current, isVisible]);
 
   const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
   const handleTouchMove = (e) => { touchEndX.current = e.touches[0].clientX; };
@@ -49,19 +65,19 @@ const HeroBanner = () => {
 
   if (loading) {
     return (
-      <section className="hero-banner-section relative w-full flex flex-col justify-center overflow-hidden bg-brand-light" aria-label="Hero banner loading">
-        <div className="w-full h-full skeleton" />
+      <section ref={sectionRef} className="hero-banner-section relative w-full flex flex-col justify-center bg-brand-light" aria-label="Hero banner loading">
+        <div className="absolute inset-0 skeleton" />
       </section>
     );
   }
 
   if (banners.length === 0) {
     return (
-      <section className="hero-banner-section relative w-full flex flex-col justify-center overflow-hidden bg-brand-text" aria-label="Hero banner">
-        <div className="relative z-10 max-w-site mx-auto px-6 md:px-16 w-full">
+      <section ref={sectionRef} className="hero-banner-section relative w-full flex flex-col justify-center bg-brand-text" aria-label="Hero banner">
+        <div className="relative z-10 max-w-site mx-auto px-6 md:px-16 w-full py-10 md:py-0">
           <div className="max-w-xl p-6 md:p-8">
             <p className="text-brand-gold text-xs tracking-[0.25em] uppercase mb-4">Billu Bazaar</p>
-            <h1 className="font-playfair text-4xl md:text-6xl font-bold text-white leading-tight mb-6">Luxury Redefined</h1>
+            <h1 className="font-playfair text-3xl sm:text-4xl md:text-6xl font-bold text-white leading-tight mb-6">Luxury Redefined</h1>
             <p className="text-white/80 text-base md:text-lg mb-8 max-w-sm">Discover handcrafted elegance from India's finest artisans.</p>
             <Link to="/products" className="btn-primary" id="hero-cta-fallback">Explore Collection</Link>
           </div>
@@ -80,53 +96,60 @@ const HeroBanner = () => {
 
   return (
     <section
-      className="hero-banner-section relative w-full flex flex-col justify-center overflow-hidden"
+      ref={sectionRef}
+      className="hero-banner-section relative w-full flex flex-col justify-center"
       aria-label="Hero banner carousel"
       role="region"
       aria-roledescription="carousel"
     >
-      {/* Background images */}
-      <AnimatePresence mode="wait" custom={direction}>
-        <motion.div
-          key={banner.id || current}
-          custom={direction}
-          initial={{ opacity: 0, x: direction > 0 ? 200 : -200 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: direction > 0 ? -200 : 200 }}
-          transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-          className="absolute inset-0"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          {hasTextContent ? (
-            <>
-              <img
-                src={banner.image}
-                alt={banner.title || "Hero banner"}
-                className="w-full h-full object-cover"
-                fetchpriority="high"
-                loading="eager"
-              />
-              <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
-            </>
-          ) : (
-            <Link to={banner.ctaLink || '/products'} className="block w-full h-full cursor-pointer" id={`hero-link-${current}`}>
-              <img
-                src={banner.image}
-                alt={banner.title || "Hero banner"}
-                className="w-full h-full object-cover"
-                fetchpriority="high"
-                loading="eager"
-              />
-            </Link>
-          )}
-        </motion.div>
-      </AnimatePresence>
+      {/* Background images — overflow-hidden lives HERE only, so the sliding
+          x-transform never bleeds outside, but text below can never be
+          clipped even if a long title needs more height than the image. */}
+      <div className="absolute inset-0 overflow-hidden">
+        <AnimatePresence mode="wait" custom={direction}>
+          <motion.div
+            key={banner.id || current}
+            custom={direction}
+            initial={{ opacity: 0, x: direction > 0 ? 200 : -200 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: direction > 0 ? -200 : 200 }}
+            transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+            className="absolute inset-0"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
+            {hasTextContent ? (
+              <>
+                <img
+                  src={banner.image}
+                  alt={banner.title || "Hero banner"}
+                  className="w-full h-full object-cover"
+                  fetchpriority={current === 0 ? 'high' : 'auto'}
+                  loading={current === 0 ? 'eager' : 'lazy'}
+                  decoding="async"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
+              </>
+            ) : (
+              <Link to={banner.ctaLink || '/products'} className="block w-full h-full cursor-pointer" id={`hero-link-${current}`}>
+                <img
+                  src={banner.image}
+                  alt={banner.title || "Hero banner"}
+                  className="w-full h-full object-cover"
+                  fetchpriority={current === 0 ? 'high' : 'auto'}
+                  loading={current === 0 ? 'eager' : 'lazy'}
+                  decoding="async"
+                />
+              </Link>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
 
       {/* Content Overlay */}
       {hasTextContent && (
-        <div className="relative z-10 max-w-site mx-auto px-6 md:px-16 w-full">
+        <div className="relative z-10 max-w-site mx-auto px-6 md:px-16 w-full py-10 md:py-0">
           <AnimatePresence mode="wait">
             <motion.div
               key={banner.id || current}
@@ -148,7 +171,7 @@ const HeroBanner = () => {
               )}
               {banner.title && banner.title.trim() && (
                 <motion.h1
-                  className="font-playfair text-3xl sm:text-4xl md:text-6xl font-bold text-white leading-tight mb-4 md:mb-6"
+                  className="font-playfair text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-bold text-white leading-tight mb-4 md:mb-6 break-words"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2, duration: 0.5 }}
@@ -159,7 +182,7 @@ const HeroBanner = () => {
                       initial={{ opacity: 0, y: 15 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.25 + i * 0.08 }}
-                      className="inline-block mr-3"
+                      className="inline-block mr-2 sm:mr-3"
                     >
                       {word}
                     </motion.span>
@@ -235,8 +258,8 @@ const HeroBanner = () => {
       {/* Scroll indicator */}
       <motion.div
         className="hidden md:flex absolute bottom-20 md:bottom-16 left-1/2 -translate-x-1/2 flex-col items-center gap-2 z-10"
-        animate={{ y: [0, 8, 0] }}
-        transition={{ repeat: Infinity, duration: 2 }}
+        animate={isVisible ? { y: [0, 8, 0] } : { y: 0 }}
+        transition={isVisible ? { repeat: Infinity, duration: 2 } : { duration: 0 }}
         aria-hidden="true"
       >
         <div className="w-px h-10 bg-white/40" />

@@ -42,7 +42,7 @@ const useCountdown = (targetDate) => {
 /* ── Scroll-reveal wrapper (Vengeance UI pattern — manual impl w/ Framer Motion + IntersectionObserver) */
 const ScrollReveal = ({ children, delay = 0, className = '' }) => {
   const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: '-80px' });
+  const inView = useInView(ref, { once: true, margin: '200px 0px 200px 0px' });
   return (
     <motion.div
       ref={ref}
@@ -170,11 +170,28 @@ const HomePage = () => {
 
   // Category Carousel State & Refs
   const catScrollRef = useRef(null);
+  const catSectionRef = useRef(null);
   const catTickingRef = useRef(false);
   const carouselTickingRef = useRef(false);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [autoplayResetTrigger, setAutoplayResetTrigger] = useState(0);
+  const [isCatVisible, setIsCatVisible] = useState(false);
+
+  // Pause category autoplay when the carousel is off-screen — otherwise the
+  // setInterval below keeps queuing smooth-scroll animations while the user
+  // is reading the footer, and they all land on the main thread at once
+  // (stutter + image pop) the moment the user scrolls back up.
+  useEffect(() => {
+    const el = catSectionRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsCatVisible(entry.isIntersecting),
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const parentCategories = categories.filter(c => !c.parentId).slice(0, 8);
   const fallbackCategories = [
@@ -227,7 +244,7 @@ const HomePage = () => {
 
   // Category Autoplay scroller
   useEffect(() => {
-    if (categoriesList.length <= 3) return;
+    if (categoriesList.length <= 3 || !isCatVisible) return;
     const interval = setInterval(() => {
       const el = catScrollRef.current;
       if (!el) return;
@@ -244,7 +261,7 @@ const HomePage = () => {
       }
     }, 7500);
     return () => clearInterval(interval);
-  }, [categoriesList.length, autoplayResetTrigger]);
+  }, [categoriesList.length, autoplayResetTrigger, isCatVisible]);
 
   const countdownBanner = banners.find(b => b.type === 'COUNTDOWN');
   const countdown = useCountdown(countdownBanner?.countdown);
@@ -339,7 +356,7 @@ const HomePage = () => {
       <HeroBanner />
 
       {/* ── SECTION 2: Category Quick-Nav Carousel ──────────────────────── */}
-      <section className="py-16 md:py-24 bg-brand-bg overflow-hidden" aria-label="Browse categories">
+      <section ref={catSectionRef} className="py-16 md:py-24 bg-brand-bg overflow-hidden" aria-label="Browse categories">
         <div className="max-w-site mx-auto px-6 md:px-8">
           <ScrollReveal>
             <SectionHeader eyebrow="Shop by Category" title="Curated for Every Occasion" />
@@ -386,7 +403,7 @@ const HomePage = () => {
                       id={`cat-nav-${cat.id}`}
                     >
                       <div className="relative w-full aspect-square rounded-full overflow-hidden border-2 border-transparent group-hover:border-brand-gold transition-colors duration-300 shadow-sm">
-                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 transform-gpu" loading="lazy" />
+                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 transform-gpu" loading="lazy" decoding="async" />
                       </div>
                       <span className="font-inter text-xs font-medium text-brand-text text-center group-hover:text-brand-gold transition-colors">
                         {cat.name}
