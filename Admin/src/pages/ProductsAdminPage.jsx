@@ -6,17 +6,71 @@ import AdminLayout from '../components/AdminLayout';
 import { fetchAdminProducts, createProduct, updateProduct, deleteProduct } from '../redux/slices/productsSlice';
 import currencyJs from 'currency.js';
 import toast from 'react-hot-toast';
+import api from '../services/api';
 
 const fmt = (v) => currencyJs(v, { symbol: '₹', precision: 0 }).format();
 
 const EMPTY_FORM = {
   name: '', slug: '', shortDescription: '', description: '', price: '', comparePrice: '',
-  stock: '', sku: '', categoryId: '', vendorId: '', isFeatured: false, isNewArrival: false,
+  stock: '', sku: '', categoryId: '', subCategoryId: '', subSubCategoryId: '', vendorId: '', isFeatured: false, isNewArrival: false,
   isBestSeller: false, isActive: true, images: [], spin_images: [], tags: [],
 };
 
 const ProductModal = ({ product, onClose, onSave }) => {
   const [form, setForm] = useState(product ? { ...product } : { ...EMPTY_FORM });
+  const [categories, setCategories] = useState([]);
+  const [subCategories, setSubCategories] = useState([]);
+  const [subSubCategories, setSubSubCategories] = useState([]);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const [catRes, subRes, subSubRes] = await Promise.all([
+          api.get('/categories?all=true'),
+          api.get('/subcategories?all=true'),
+          api.get('/subsubcategories?all=true')
+        ]);
+        setCategories(catRes.data.categories || []);
+        setSubCategories(subRes.data.subCategories || []);
+        setSubSubCategories(subSubRes.data.subSubCategories || []);
+      } catch (err) {
+        console.error('Error fetching categories hierarchy', err);
+      }
+    };
+    loadCategories();
+  }, []);
+
+  const filteredSubCategories = subCategories.filter(
+    sub => Number(sub.categoryId) === Number(form.categoryId)
+  );
+
+  const filteredSubSubCategories = subSubCategories.filter(
+    ss => Number(ss.subCategoryId) === Number(form.subCategoryId)
+  );
+
+  const handleCategoryChange = (val) => {
+    setForm(p => ({
+      ...p,
+      categoryId: val,
+      subCategoryId: '',
+      subSubCategoryId: ''
+    }));
+  };
+
+  const handleSubCategoryChange = (val) => {
+    setForm(p => ({
+      ...p,
+      subCategoryId: val,
+      subSubCategoryId: ''
+    }));
+  };
+
+  const handleSubSubCategoryChange = (val) => {
+    setForm(p => ({
+      ...p,
+      subSubCategoryId: val
+    }));
+  };
   const [newImageFiles, setNewImageFiles] = useState([]);
   const [existingImages, setExistingImages] = useState(product ? [...(product.images || [])] : []);
   const [isDragging, setIsDragging] = useState(false);
@@ -164,13 +218,63 @@ const ProductModal = ({ product, onClose, onSave }) => {
             { label: 'Product Name *', key: 'name', req: true },
             { label: 'Slug', key: 'slug' },
             { label: 'SKU', key: 'sku' },
-            { label: 'Category ID', key: 'categoryId' },
           ].map(({ label, key, req }) => (
             <div key={key}>
               <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor={`prod-${key}`}>{label}</label>
               <input id={`prod-${key}`} type="text" value={form[key] || ''} onChange={e => set(key, e.target.value)} required={req} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" placeholder={label.replace(' *', '')} />
             </div>
           ))}
+
+          {/* Category Dropdown */}
+          <div>
+            <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="prod-category">Category *</label>
+            <select
+              id="prod-category"
+              value={form.categoryId || ''}
+              onChange={e => handleCategoryChange(e.target.value)}
+              required
+              className="w-full border border-brand-light bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors rounded-none"
+            >
+              <option value="">Select Category</option>
+              {categories.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Sub Category Dropdown */}
+          <div>
+            <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="prod-subcategory">Sub Category</label>
+            <select
+              id="prod-subcategory"
+              value={form.subCategoryId || ''}
+              onChange={e => handleSubCategoryChange(e.target.value)}
+              disabled={!form.categoryId}
+              className="w-full border border-brand-light bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors disabled:bg-neutral-50 disabled:cursor-not-allowed rounded-none"
+            >
+              <option value="">Select Sub Category</option>
+              {filteredSubCategories.map(sub => (
+                <option key={sub.id} value={sub.id}>{sub.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Sub Subcategory Dropdown */}
+          <div>
+            <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="prod-subsubcategory">Sub Subcategory</label>
+            <select
+              id="prod-subsubcategory"
+              value={form.subSubCategoryId || ''}
+              onChange={e => handleSubSubCategoryChange(e.target.value)}
+              disabled={!form.subCategoryId}
+              className="w-full border border-brand-light bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors disabled:bg-neutral-50 disabled:cursor-not-allowed rounded-none"
+            >
+              <option value="">Select Sub Subcategory</option>
+              {filteredSubSubCategories.map(ss => (
+                <option key={ss.id} value={ss.id}>{ss.name}</option>
+              ))}
+            </select>
+          </div>
           {[
             { label: 'Price (₹) *', key: 'price', req: true },
             { label: 'Compare Price (₹)', key: 'comparePrice' },
@@ -481,7 +585,17 @@ const ProductsAdminPage = () => {
                     <p className="font-medium line-clamp-1">{product.name}</p>
                     <p className="text-xs text-brand-grey">{product.sku}</p>
                   </td>
-                  <td className="px-4 py-3 text-brand-grey">{product.category?.name || '—'}</td>
+                  <td className="px-4 py-3 text-brand-grey">
+                    <div className="text-xs space-y-0.5">
+                      <span className="font-medium text-brand-text block">{product.category?.name || '—'}</span>
+                      {product.subcategory && (
+                        <span className="text-[10px] text-brand-grey block">› {product.subcategory.name}</span>
+                      )}
+                      {product.subsubcategory && (
+                        <span className="text-[9px] text-brand-gold block">» {product.subsubcategory.name}</span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-3 font-semibold">{fmt(product.price)}</td>
                   <td className="px-4 py-3">
                     <span className={`text-xs font-medium ${product.stock <= 5 ? 'text-red-500' : 'text-green-600'}`}>{product.stock}</span>

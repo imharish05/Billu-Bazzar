@@ -1,6 +1,6 @@
 'use strict';
 const { Op } = require('sequelize');
-const { Product, Category, Vendor } = require('../models');
+const { Product, Category, SubCategory, SubSubCategory, Vendor } = require('../models');
 const fs = require('fs');
 const path = require('path');
 const { materializeSpinSequence, deleteSpinSequence } = require('../services/spinSequenceService');
@@ -44,7 +44,9 @@ const processProductData = (req) => {
   if (data.price !== undefined) data.price = data.price === '' ? null : parseFloat(data.price);
   if (data.comparePrice !== undefined) data.comparePrice = data.comparePrice === '' || data.comparePrice === 'null' ? null : parseFloat(data.comparePrice);
   if (data.stock !== undefined) data.stock = data.stock === '' ? 0 : parseInt(data.stock, 10);
-  if (data.categoryId !== undefined) data.categoryId = data.categoryId === '' ? null : parseInt(data.categoryId, 10);
+  if (data.categoryId !== undefined) data.categoryId = data.categoryId === '' || data.categoryId === 'null' ? null : parseInt(data.categoryId, 10);
+  if (data.subCategoryId !== undefined) data.subCategoryId = data.subCategoryId === '' || data.subCategoryId === 'null' ? null : parseInt(data.subCategoryId, 10);
+  if (data.subSubCategoryId !== undefined) data.subSubCategoryId = data.subSubCategoryId === '' || data.subSubCategoryId === 'null' ? null : parseInt(data.subSubCategoryId, 10);
   if (data.vendorId !== undefined) data.vendorId = data.vendorId === '' || data.vendorId === 'null' ? null : parseInt(data.vendorId, 10);
 
   if (data.isFeatured !== undefined) data.isFeatured = data.isFeatured === 'true';
@@ -120,8 +122,25 @@ const getAll = async (req, res) => {
     const where = { isActive: true };
     if (category) {
       if (isNaN(category)) {
-        const foundCat = await Category.findOne({ where: { slug: category, isActive: true } });
-        where.categoryId = foundCat ? foundCat.id : -1;
+        // Try Category
+        let found = await Category.findOne({ where: { slug: category, isActive: true } });
+        if (found) {
+          where.categoryId = found.id;
+        } else {
+          // Try SubCategory
+          found = await SubCategory.findOne({ where: { slug: category, isActive: true } });
+          if (found) {
+            where.subCategoryId = found.id;
+          } else {
+            // Try SubSubCategory
+            found = await SubSubCategory.findOne({ where: { slug: category, isActive: true } });
+            if (found) {
+              where.subSubCategoryId = found.id;
+            } else {
+              where.categoryId = -1;
+            }
+          }
+        }
       } else {
         where.categoryId = parseInt(category);
       }
@@ -140,6 +159,8 @@ const getAll = async (req, res) => {
       order: [[sort, order]],
       include: [
         { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
+        { model: SubCategory, as: 'subcategory', attributes: ['id', 'name', 'slug'] },
+        { model: SubSubCategory, as: 'subsubcategory', attributes: ['id', 'name', 'slug'] },
         { model: Vendor, as: 'vendor', attributes: ['id', 'name', 'logo'] }
       ],
     });
@@ -154,7 +175,12 @@ const getOne = async (req, res) => {
   try {
     const product = await Product.findOne({
       where: { slug: req.params.slug, isActive: true },
-      include: [{ model: Category, as: 'category' }, { model: Vendor, as: 'vendor', attributes: ['id', 'name', 'rating'] }],
+      include: [
+        { model: Category, as: 'category' },
+        { model: SubCategory, as: 'subcategory' },
+        { model: SubSubCategory, as: 'subsubcategory' },
+        { model: Vendor, as: 'vendor', attributes: ['id', 'name', 'rating'] }
+      ],
     });
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
     res.json({ success: true, product });

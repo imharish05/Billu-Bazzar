@@ -49,6 +49,15 @@ const start = async () => {
       console.log('⚠️ Manual alter note (already altered or table not synced yet):', alterErr.message);
     }
 
+    // Manual alter to add subCategory and subSubCategory columns to Products table
+    try {
+      await sequelize.query("ALTER TABLE Products ADD COLUMN subCategoryId INT NULL");
+      await sequelize.query("ALTER TABLE Products ADD COLUMN subSubCategoryId INT NULL");
+      console.log('✅ Products table sub-category columns added');
+    } catch (alterErr) {
+      console.log('⚠️ Manual alter note (already altered or table not synced yet):', alterErr.message);
+    }
+
     // Migrate any legacy 'DEAL' banners to 'EXCLUSIVE_DEAL'
     try {
       await sequelize.query("UPDATE Banners SET type = 'EXCLUSIVE_DEAL' WHERE type = 'DEAL'");

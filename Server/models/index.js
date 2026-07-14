@@ -50,9 +50,15 @@ Category.hasMany(SubCategory,   { foreignKey: 'categoryId', as: 'subcategories' 
 SubSubCategory.belongsTo(SubCategory, { foreignKey: 'subCategoryId', as: 'subcategory' });
 SubCategory.hasMany(SubSubCategory,   { foreignKey: 'subCategoryId', as: 'subsubcategories' });
 
-// Product ↔ Category / Vendor
+// Product ↔ Category / Vendor / SubCategory / SubSubCategory
 Product.belongsTo(Category, { foreignKey: 'categoryId', as: 'category' });
 Category.hasMany(Product,   { foreignKey: 'categoryId', as: 'products' });
+
+Product.belongsTo(SubCategory, { foreignKey: 'subCategoryId', as: 'subcategory' });
+SubCategory.hasMany(Product,   { foreignKey: 'subCategoryId', as: 'products' });
+
+Product.belongsTo(SubSubCategory, { foreignKey: 'subSubCategoryId', as: 'subsubcategory' });
+SubSubCategory.hasMany(Product,   { foreignKey: 'subSubCategoryId', as: 'products' });
 
 Product.belongsTo(Vendor,   { foreignKey: 'vendorId', as: 'vendor' });
 Vendor.hasMany(Product,     { foreignKey: 'vendorId', as: 'products' });

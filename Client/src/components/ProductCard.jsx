@@ -23,8 +23,8 @@ const ProductCard = ({ product, index = 0 }) => {
 
   const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
 
-  const discount = product.comparePrice
-    ? Math.round(((product.comparePrice - product.price) / product.comparePrice) * 100)
+  const discount = (product.comparePrice && Number(product.comparePrice) > Number(product.price))
+    ? Math.round(((Number(product.comparePrice) - Number(product.price)) / Number(product.comparePrice)) * 100)
     : null;
 
   const handleAddToCart = (e) => {
@@ -68,10 +68,10 @@ const ProductCard = ({ product, index = 0 }) => {
           {product.isNewArrival && (
             <span className="bg-brand-text text-white text-[10px] font-bold px-2 py-0.5 tracking-wider uppercase">New</span>
           )}
-          {discount && (
+          {discount !== null && discount > 0 && (
             <span className="bg-brand-gold text-white text-[10px] font-bold px-2 py-0.5">−{discount}%</span>
           )}
-          {product.isBestSeller && !discount && (
+          {product.isBestSeller && (discount === null || discount <= 0) && (
             <span className="bg-white text-brand-text text-[10px] font-bold px-2 py-0.5 border border-brand-text">Best Seller</span>
           )}
         </div>
@@ -131,7 +131,7 @@ const ProductCard = ({ product, index = 0 }) => {
         </div>
         <div className="flex items-center gap-2 mt-auto">
           <span className="font-semibold text-brand-text">{fmt(product.price)}</span>
-          {product.comparePrice && (
+          {product.comparePrice && Number(product.comparePrice) > Number(product.price) && (
             <span className="text-brand-grey text-sm line-through">{fmt(product.comparePrice)}</span>
           )}
         </div>

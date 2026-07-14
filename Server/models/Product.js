@@ -14,6 +14,8 @@ const Product = sequelize.define('Product', {
   sku: { type: DataTypes.STRING(80), unique: true },
   stock: { type: DataTypes.INTEGER, defaultValue: 0 },
   categoryId: { type: DataTypes.INTEGER, allowNull: false },
+  subCategoryId: { type: DataTypes.INTEGER, allowNull: true },
+  subSubCategoryId: { type: DataTypes.INTEGER, allowNull: true },
   vendorId: { type: DataTypes.INTEGER },
   images: {
     type: DataTypes.JSON,

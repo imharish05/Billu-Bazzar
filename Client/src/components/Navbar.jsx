@@ -741,7 +741,7 @@ const Navbar = () => {
                     ref={dropdownRef}
                     onMouseEnter={keepDropdown}
                     onMouseLeave={closeDropdown}
-                    className="absolute z-[100] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] py-2 px-0 border border-neutral-100"
+                    className="absolute z-[100] bg-[#050505] shadow-[0_8px_30px_rgba(0,0,0,0.3)] py-2 px-0 border border-neutral-800"
                     style={{
                       top: '100%',
                       left: `${dropdownLeft}px`,
@@ -757,24 +757,26 @@ const Navbar = () => {
                         return (
                           <li
                             key={sub.id}
-                            className="relative flex items-center h-8 px-5"
+                            className={`relative flex items-center h-8 px-5 transition-colors hover:bg-neutral-900 ${isSubActive ? 'bg-neutral-900 text-brand-gold' : ''}`}
                             onMouseEnter={() => hasSubSubs ? setActiveSubSlug(sub.slug) : setActiveSubSlug(null)}
                           >
                             <Link
                               to={`/category/${activeLink.slug}/${sub.slug}`}
                               onClick={closeDropdown}
-                              className="flex-1 text-sm text-neutral-700 hover:text-brand-gold hover:pl-1.5 transition-all duration-200 whitespace-nowrap"
+                              className={`flex-1 text-sm transition-all duration-200 whitespace-nowrap hover:pl-1.5 ${
+                                isSubActive ? 'text-brand-gold pl-1.5 font-medium' : 'text-neutral-300 hover:text-brand-gold'
+                              }`}
                             >
                               {sub.name}
                             </Link>
                             {hasSubSubs && (
-                              <ChevronRight size={14} className="text-neutral-400 ml-1" />
+                              <ChevronRight size={14} className={`ml-1 transition-colors ${isSubActive ? 'text-brand-gold' : 'text-neutral-500'}`} />
                             )}
                             
                             {/* Level 3 Dropdown (Flyout) */}
                             {hasSubSubs && isSubActive && (
                               <div
-                                className={`absolute top-0 z-[101] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] py-2 px-0 border border-neutral-100`}
+                                className="absolute top-0 z-[101] bg-[#050505] shadow-[0_8px_30px_rgba(0,0,0,0.3)] py-2 px-0 border border-neutral-800"
                                 style={{
                                   minWidth: '180px',
                                   width: 'max-content',
@@ -784,11 +786,11 @@ const Navbar = () => {
                               >
                                 <ul className="flex flex-col">
                                   {sub.children.map(ss => (
-                                    <li key={ss.id} className="flex items-center h-8 px-5">
+                                    <li key={ss.id} className="flex items-center h-8 px-5 hover:bg-neutral-900 transition-colors">
                                       <Link
                                         to={`/category/${activeLink.slug}/${sub.slug}/${ss.slug}`}
                                         onClick={closeDropdown}
-                                        className="flex-1 text-sm text-neutral-700 hover:text-brand-gold hover:pl-1.5 transition-all duration-200 whitespace-nowrap"
+                                        className="flex-1 text-sm text-neutral-300 hover:text-brand-gold hover:pl-1.5 transition-all duration-200 whitespace-nowrap"
                                       >
                                         {ss.name}
                                       </Link>

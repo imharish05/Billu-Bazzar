@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Edit2, Trash2, MessageSquare, Sparkles } from 'lucide-react';
+import { Plus, X, Edit2, Trash2, MessageSquare, Sparkles, ToggleLeft, ToggleRight } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -130,13 +130,9 @@ const SliderMessagesAdminPage = () => {
                         id={`toggle-status-${msg.id}`}
                       >
                         {msg.isActive ? (
-                          <span className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700">
-                            Active
-                          </span>
+                          <ToggleRight size={24} className="text-brand-gold" />
                         ) : (
-                          <span className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
-                            Inactive
-                          </span>
+                          <ToggleLeft size={24} className="text-brand-grey" />
                         )}
                       </button>
                     </td>

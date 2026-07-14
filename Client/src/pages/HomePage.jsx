@@ -781,10 +781,11 @@ const HomePage = () => {
                         )}
                         <Link
                           to={banner.ctaLink}
-                          className="text-brand-gold font-medium text-sm flex items-center gap-2 hover:gap-3 transition-all focus-visible:outline-white self-start"
+                          className="group/btn inline-flex items-center gap-2 px-5 py-2.5 border border-brand-gold/60 hover:border-brand-gold bg-black/40 hover:bg-brand-gold text-brand-gold hover:text-neutral-950 text-xs font-semibold uppercase tracking-widest transition-all duration-300 rounded-none self-start"
                           id={`promo-deal-${banner.id}`}
                         >
-                          {banner.ctaText || 'Shop Now'} <ArrowRight size={16} />
+                          <span>{banner.ctaText || 'Shop Now'}</span>
+                          <ArrowRight size={14} className="transform transition-transform duration-300 group-hover/btn:translate-x-1" />
                         </Link>
                       </div>
                     </div>

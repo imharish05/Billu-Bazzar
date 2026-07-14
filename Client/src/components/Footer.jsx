@@ -62,7 +62,7 @@ const Footer = () => (
         <ul className="space-y-3">
           {['Track My Order', 'Returns & Exchange', 'Size Guide', 'Loyalty Program', 'Affiliate Program', 'Gift Cards', 'Contact Us'].map(link => (
             <li key={link}>
-              <Link to="/account" className="text-white/60 text-sm hover:text-brand-gold transition-colors focus-visible:outline-brand-gold">
+              <Link to={link === 'Contact Us' ? '/contact' : '/account'} className="text-white/60 text-sm hover:text-brand-gold transition-colors focus-visible:outline-brand-gold">
                 {link}
               </Link>
             </li>
