@@ -11,7 +11,7 @@ const Footer = () => (
           <h2 className="font-playfair text-2xl font-semibold text-white mb-1">Join the Billu Bazaar Circle</h2>
           <p className="text-white/60 text-sm">Early access, exclusive offers, and style inspiration in your inbox.</p>
         </div>
-        <form className="flex gap-0 w-full md:w-auto" onSubmit={e => e.preventDefault()} aria-label="Newsletter signup">
+        {/* <form className="flex gap-0 w-full md:w-auto" onSubmit={e => e.preventDefault()} aria-label="Newsletter signup">
           <input
             type="email"
             placeholder="Your email address"
@@ -21,7 +21,7 @@ const Footer = () => (
           <button type="submit" className="px-6 py-3 bg-brand-gold text-white font-semibold text-sm hover:bg-yellow-600 transition-colors focus-visible:outline-white" id="newsletter-submit">
             Subscribe
           </button>
-        </form>
+        </form> */}
       </div>
     </div>
 
@@ -60,10 +60,17 @@ const Footer = () => (
       <div>
         <h3 className="font-playfair text-lg font-semibold text-white mb-5">Help & Info</h3>
         <ul className="space-y-3">
-          {['Track My Order', 'Returns & Exchange', 'Size Guide', 'Loyalty Program', 'Affiliate Program', 'Gift Cards', 'Contact Us'].map(link => (
-            <li key={link}>
-              <Link to={link === 'Contact Us' ? '/contact' : '/account'} className="text-white/60 text-sm hover:text-brand-gold transition-colors focus-visible:outline-brand-gold">
-                {link}
+          {[
+            { label: 'About', to: '/about' },
+            { label: 'Privacy', to: '/privacy' },
+            { label: 'Shipping', to: '/shipping' },
+            { label: 'Cancellation', to: '/cancellation' },
+            { label: 'Returns and Refunds', to: '/returns' },
+            { label: 'Contact Us', to: '/contact' }
+          ].map(link => (
+            <li key={link.label}>
+              <Link to={link.to} className="text-white/60 text-sm hover:text-brand-gold transition-colors focus-visible:outline-brand-gold">
+                {link.label}
               </Link>
             </li>
           ))}
@@ -95,11 +102,11 @@ const Footer = () => (
     <div className="border-t border-white/10">
       <div className="max-w-site mx-auto px-6 md:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-white/40 text-xs">
         <p>© {new Date().getFullYear()} Billu Bazaar. All rights reserved.</p>
-        <div className="flex gap-4">
+        {/* <div className="flex gap-4">
           <Link to="/privacy" className="hover:text-brand-gold transition-colors focus-visible:outline-brand-gold">Privacy Policy</Link>
           <Link to="/terms" className="hover:text-brand-gold transition-colors focus-visible:outline-brand-gold">Terms of Service</Link>
           <Link to="/sitemap" className="hover:text-brand-gold transition-colors focus-visible:outline-brand-gold">Sitemap</Link>
-        </div>
+        </div> */}
       </div>
     </div>
   </footer>

@@ -546,7 +546,7 @@ const HomePage = () => {
                 {productsToRender.map((product, i) => (
                   <div
                     key={product.id || i}
-                    className="w-[calc(50%-8px)] md:w-[calc(33.333%-16px)] lg:w-[calc(25%-18px)] flex-shrink-0"
+                    className="w-[calc(50%-8px)] md:w-[calc(33.333%-16px)] lg:w-[calc(20%-15px)] xl:w-[calc(16.666%-15px)] flex-shrink-0"
                   >
                     <ProductCard product={product} index={i} />
                   </div>
@@ -621,7 +621,31 @@ const HomePage = () => {
         </section>
       )}
 
-
+      {/* ── PARALLAX SECTION A: The Art of Curated Living ── */}
+      <section 
+        className="relative min-h-[50vh] md:min-h-[60vh] flex items-center bg-black overflow-hidden bg-cover bg-center bg-scroll md:bg-fixed py-16"
+        style={{ backgroundImage: `url('/home-luxury-lifestyle.png')` }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
+        <div className="relative max-w-site mx-auto px-6 md:px-8 z-10 w-full">
+          <ScrollReveal>
+            <div className="max-w-xl space-y-4 md:space-y-6 text-left">
+              <span className="text-[11px] font-bold text-brand-gold tracking-[0.25em] uppercase block">Lifestyle Philosophy</span>
+              <h2 className="font-playfair text-3xl md:text-5xl font-bold text-white leading-tight">
+                The Art of <br />Curated Living
+              </h2>
+              <p className="text-white/70 text-xs md:text-sm font-light leading-relaxed max-w-md">
+                We believe that true elegance is a harmony of parts. The devices you connect with, the garments you express yourself in, and the items that shape your home—they all write the story of who you are. Our selection is curated to elevate every chapter of your modern life.
+              </p>
+              <div className="pt-2">
+                <Link to="/products" className="inline-flex items-center gap-2 text-xs font-semibold text-brand-gold tracking-widest uppercase hover:text-white transition-colors group">
+                  Explore Curation <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </div>
+            </div>
+          </ScrollReveal>
+        </div>
+      </section>
 
       {/* ── SECTION 8: Dual Promo Tiles / Exclusive Collection Banner ───── */}
       {exclusiveBanners.length === 1 && (
@@ -901,7 +925,31 @@ const HomePage = () => {
         </section>
       )}
 
-
+      {/* ── PARALLAX SECTION B: Our Commitment to Conscious Luxury ── */}
+      <section 
+        className="relative min-h-[50vh] md:min-h-[60vh] flex items-center justify-end bg-black overflow-hidden bg-cover bg-center bg-scroll md:bg-fixed py-16"
+        style={{ backgroundImage: `url('/home-luxury-conscious.png')` }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-l from-black/80 via-black/40 to-transparent" />
+        <div className="relative max-w-site mx-auto px-6 md:px-8 z-10 w-full">
+          <ScrollReveal>
+            <div className="max-w-xl space-y-4 md:space-y-6 text-right ml-auto">
+              <span className="text-[11px] font-bold text-brand-gold tracking-[0.25em] uppercase block">Our Guarantee</span>
+              <h2 className="font-playfair text-3xl md:text-5xl font-bold text-white leading-tight">
+                Conscious Sourcing <br />& Luxury
+              </h2>
+              <p className="text-white/70 text-xs md:text-sm font-light leading-relaxed max-w-md ml-auto">
+                Luxury is meaningless without responsibility. Every item in our catalog—from bio-sourced skincare to certified components and organic apparel—undergoes rigorous verification. We deal exclusively with makers who honor fair work standards, sustainable packaging, and uncompromising excellence.
+              </p>
+              <div className="pt-2">
+                <Link to="/about" className="inline-flex items-center gap-2 text-xs font-semibold text-brand-gold tracking-widest uppercase hover:text-white transition-colors group">
+                  Our Oath <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </div>
+            </div>
+          </ScrollReveal>
+        </div>
+      </section>
 
       {/* ── SECTION 11: Best Sellers + Testimonials ─────────────────────── */}
       <section className="py-16 md:py-18 bg-brand-light" aria-label="Best sellers and testimonials">
@@ -910,13 +958,13 @@ const HomePage = () => {
             <SectionHeader eyebrow="Customer Favourites" title="Most Loved Pieces" />
           </ScrollReveal>
 
-          {/* Featured items — top 4 */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-20">
+          {/* Featured items — top 6 */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6 mb-20">
             {(featured.length
-              ? featured.slice(0, 4)
-              : products.filter(p => p.isFeatured).slice(0, 4).length
-                ? products.filter(p => p.isFeatured).slice(0, 4)
-                : products.slice(0, 4)
+              ? featured.slice(0, 6)
+              : products.filter(p => p.isFeatured).slice(0, 6).length
+                ? products.filter(p => p.isFeatured).slice(0, 6)
+                : products.slice(0, 6)
             ).map((product, i) => (
               <ProductCard key={product.id} product={product} index={i} />
             ))}

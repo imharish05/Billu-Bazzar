@@ -103,14 +103,30 @@ const OrderDetailPage = () => {
       );
     }
     if (!address) return <p className="text-neutral-400 text-sm">No address details available</p>;
-    const { name, phone, addressLine1, addressLine2, city, state, postalCode } = address;
+    
+    // Support both old database schema and new input schema keys
+    const firstName = address.firstName || '';
+    const lastName = address.lastName || '';
+    const name = address.name || (firstName || lastName ? `${firstName} ${lastName}`.trim() : '');
+    const phone = address.phone || '';
+    
+    const line1 = address.flatHouse || address.addressLine1 || address.line1 || '';
+    const line2 = address.areaStreet || address.addressLine2 || address.line2 || '';
+    const landmark = address.landmark || '';
+    const city = address.city || '';
+    const state = address.state || '';
+    const pincode = address.pincode || address.postalCode || address.postal_code || '';
+    const country = address.country || '';
+
     return (
       <div>
         {name && <p className="font-medium text-neutral-800 mb-0.5">{name}</p>}
         <p className="text-neutral-500 text-sm leading-relaxed">
-          {addressLine1}
-          {addressLine2 && `, ${addressLine2}`}
-          {`, ${city}, ${state} ${postalCode}`}
+          {line1}
+          {line2 && `, ${line2}`}
+          {landmark && ` (near ${landmark})`}
+          {`, ${city}, ${state} ${pincode}`}
+          {country && `, ${country}`}
         </p>
         {phone && <p className="text-neutral-500 text-xs mt-2">Phone: {phone}</p>}
       </div>

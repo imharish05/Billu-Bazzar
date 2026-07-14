@@ -38,6 +38,7 @@ const Navbar = () => {
   const location = useLocation();
   const isHomePage = location.pathname === '/';
   const { items } = useSelector(s => s.cart);
+  const { items: wishlistItems } = useSelector(s => s.wishlist);
   const { isAuthenticated, customer } = useSelector(s => s.auth);
   const { mobileMenuOpen } = useSelector(s => s.ui);
   const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
@@ -487,6 +488,7 @@ const Navbar = () => {
   };
 
   const cartCount = items.reduce((s, i) => s + i.quantity, 0);
+  const wishlistCount = wishlistItems?.length || 0;
   const isEmpty = localQuery.trim().length === 0;
 
   return (
@@ -644,8 +646,13 @@ const Navbar = () => {
                     <span className={`relative z-10 text-[10px] font-bold tracking-widest w-[40px] text-center uppercase transition-all duration-300 ${currencyCode === 'AED' ? 'text-white scale-105' : 'text-white/50 hover:text-white scale-95 opacity-85'}`}>AED</span>
                   </button>
                 </div>
-                <Link to="/account/wishlist" className="p-2 text-white hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label="Wishlist" id="nav-wishlist-btn">
+                <Link to="/account/wishlist" className="relative p-2 text-white hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label={`Wishlist — ${wishlistCount} items`} id="nav-wishlist-btn">
                   <Heart size={20} strokeWidth={1.5} />
+                  {wishlistCount > 0 && (
+                    <motion.span key={wishlistCount} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 500 }}
+                      className="absolute -top-1 -right-1 w-5 h-5 bg-brand-gold text-white text-[10px] font-bold rounded-full flex items-center justify-center"
+                    >{wishlistCount}</motion.span>
+                  )}
                 </Link>
                 {isAuthenticated ? (
                   <div className="relative group">
@@ -847,8 +854,11 @@ const Navbar = () => {
                     </span>
                   </button>
                 </div>
-                <Link to="/account/wishlist" className="p-2 text-white hover:text-brand-gold transition-colors" aria-label="Wishlist">
+                 <Link to="/account/wishlist" className="relative p-2 text-white hover:text-brand-gold transition-colors" aria-label={`Wishlist — ${wishlistCount} items`}>
                   <Heart size={18} strokeWidth={1.5} />
+                  {wishlistCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-brand-gold text-white text-[9px] font-bold rounded-full flex items-center justify-center">{wishlistCount}</span>
+                  )}
                 </Link>
                 <button onClick={() => dispatch(toggleCart())} className="relative p-2 text-white hover:text-brand-gold transition-colors" aria-label={`Shopping cart — ${cartCount} items`}>
                   <ShoppingBag size={18} strokeWidth={1.5} />

@@ -7,6 +7,7 @@ import { placeOrder } from '../redux/slices/ordersSlice';
 import { clearLocal } from '../redux/slices/cartSlice';
 import Footer from '../components/Footer';
 import { formatPrice } from '../utils/currency';
+import toast from 'react-hot-toast';
 
 const STEPS = [
   { id: 1, label: 'Delivery', icon: MapPin },
@@ -27,10 +28,19 @@ const CheckoutPage = () => {
 
   const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
 
+  const [email, setEmail] = useState(customer?.email || '');
+  const [isVerified, setIsVerified] = useState(false);
   const [address, setAddress] = useState({
-    name: customer?.name || '',
+    firstName: customer?.name ? customer.name.split(' ')[0] : '',
+    lastName: customer?.name ? customer.name.split(' ').slice(1).join(' ') : '',
     phone: customer?.phone || '',
-    line1: '', city: '', state: '', pincode: '', country: 'India',
+    flatHouse: '',
+    areaStreet: '',
+    landmark: '',
+    city: '',
+    state: '',
+    pincode: '',
+    country: 'India',
   });
   const [paymentMethod, setPaymentMethod] = useState('Razorpay UPI');
 
@@ -39,8 +49,19 @@ const CheckoutPage = () => {
   const total = subtotal + shipping + tax;
 
   const sendOtp = () => {
-    // Mock OTP — TwilioService mock prints to server console
+    if (!email.includes('@')) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
     setOtpSent(true);
+    toast.success(`Verification code sent to ${email}`, {
+      iconTheme: { primary: '#C58837', secondary: 'white' },
+      style: {
+        border: '1px solid #C58837',
+        color: '#111111',
+        fontFamily: 'Montserrat, sans-serif'
+      }
+    });
   };
 
   const handlePlaceOrder = async () => {
@@ -63,7 +84,7 @@ const CheckoutPage = () => {
 
   return (
     <main id="main-content">
-      <div className="max-w-4xl mx-auto px-6 md:px-8 py-12">
+      <div className="max-w-6xl mx-auto px-6 md:px-8 py-12">
         <h1 className="font-playfair text-3xl font-bold mb-8 text-center">Checkout</h1>
 
         {/* Glass surface 6: Checkout step-indicator pill */}
@@ -84,9 +105,9 @@ const CheckoutPage = () => {
           ))}
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-4 gap-8 md:gap-10">
           {/* Form area */}
-          <div className="md:col-span-2">
+          <div className="md:col-span-3">
             <AnimatePresence mode="wait">
               {/* Step 1: Delivery */}
               {step === 1 && (
@@ -99,12 +120,16 @@ const CheckoutPage = () => {
                   <h2 className="font-playfair text-xl font-semibold mb-5">Delivery Address</h2>
                   <div className="grid sm:grid-cols-2 gap-4">
                     {[
-                      { field: 'name', label: 'Full Name', required: true },
-                      { field: 'phone', label: 'Phone Number', required: true },
-                      { field: 'line1', label: 'Address Line 1', required: true, full: true },
-                      { field: 'city', label: 'City', required: true },
+                      { field: 'firstName', label: 'First name', required: true },
+                      { field: 'lastName', label: 'Last name', required: true },
+                      { field: 'phone', label: 'Phone Number', required: true, full: true },
+                      { field: 'flatHouse', label: 'Flat, House no., Building, Company, Apartment', required: true, full: true },
+                      { field: 'areaStreet', label: 'Area, Street, Sector, Village', required: true, full: true },
+                      { field: 'landmark', label: 'Landmark', required: false, full: true },
+                      { field: 'city', label: 'Town/City', required: true },
                       { field: 'state', label: 'State', required: true },
                       { field: 'pincode', label: 'Pincode', required: true },
+                      { field: 'country', label: 'Country', required: true },
                     ].map(({ field, label, required, full }) => (
                       <div key={field} className={full ? 'sm:col-span-2' : ''}>
                         <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor={`checkout-${field}`}>
@@ -124,32 +149,131 @@ const CheckoutPage = () => {
                     ))}
                   </div>
 
-                  {/* OTP verification */}
-                  <div className="mt-6 p-4 bg-brand-light">
-                    <p className="text-sm font-medium mb-3">Verify your phone number</p>
-                    {!otpSent ? (
-                      <button onClick={sendOtp} className="btn-outline text-sm" id="send-otp-btn">
-                        Send OTP to {address.phone || 'your phone'}
-                      </button>
-                    ) : (
-                      <div className="flex gap-3">
-                        <input
-                          type="text"
-                          value={otp}
-                          onChange={e => setOtp(e.target.value)}
-                          placeholder="Enter 6-digit OTP"
-                          maxLength={6}
-                          className="w-40 border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold"
-                          id="otp-input"
-                          aria-label="OTP"
-                        />
-                        <button className="btn-primary text-sm" id="verify-otp-btn">Verify</button>
-                        <p className="text-xs text-brand-grey self-center">(Mock: any 6 digits works)</p>
+                  {/* Premium Email OTP verification */}
+                  <div className="mt-8 p-6 border border-brand-light bg-[#FCFAF7] rounded-sm shadow-[0_4px_12px_rgba(0,0,0,0.02)]">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="w-1.5 h-4 bg-brand-gold rounded-full"></span>
+                      <h3 className="font-playfair text-sm font-semibold tracking-wider text-brand-text uppercase">Secure Email Verification</h3>
+                    </div>
+                    <p className="text-xs text-brand-grey mb-4 leading-relaxed">
+                      To safeguard your transaction and authenticate your luxury purchase, please verify your email address.
+                    </p>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-brand-grey uppercase tracking-wider mb-1.5">
+                          Verification Email Address <span className="text-red-400">*</span>
+                        </label>
+                        <div className="flex gap-3 max-w-lg">
+                          <input
+                            type="email"
+                            value={email}
+                            onChange={e => setEmail(e.target.value)}
+                            placeholder="your.name@example.com"
+                            disabled={otpSent}
+                            className="flex-1 border border-brand-light px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-brand-gold disabled:bg-neutral-100 disabled:text-neutral-400 font-inter"
+                            required
+                          />
+                          {!otpSent && (
+                            <button
+                              type="button"
+                              onClick={sendOtp}
+                              disabled={!email.includes('@')}
+                              className="btn-outline text-xs px-4 py-2.5 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed hover:bg-brand-gold hover:text-white"
+                              id="send-otp-btn"
+                            >
+                              Send OTP
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    )}
+
+                      {otpSent && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="space-y-3 max-w-lg border-t border-brand-light/60 pt-4"
+                        >
+                          <label className="block text-[10px] font-semibold text-brand-grey uppercase tracking-wider mb-1.5">
+                            Enter 6-Digit Code
+                          </label>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="text"
+                              value={otp}
+                              onChange={e => {
+                                const val = e.target.value.replace(/\D/g, '');
+                                setOtp(val);
+                                if (val.length === 6) {
+                                  setIsVerified(true);
+                                  toast.success('Email authenticated successfully', {
+                                    style: {
+                                      border: '1px solid #C58837',
+                                      color: '#111111',
+                                      fontFamily: 'Montserrat, sans-serif'
+                                    }
+                                  });
+                                }
+                              }}
+                              placeholder="0 0 0 0 0 0"
+                              maxLength={6}
+                              className="w-44 border border-brand-light px-4 py-2.5 text-center text-sm font-mono tracking-[0.4em] focus:outline-none focus:border-brand-gold bg-white"
+                              id="otp-input"
+                              aria-label="OTP"
+                            />
+                            {isVerified ? (
+                              <span className="text-xs font-semibold text-green-600 bg-green-50 border border-green-200 px-3 py-2.5 rounded-sm flex items-center gap-1.5">
+                                <Check size={14} /> Verified
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (otp.length === 6) {
+                                    setIsVerified(true);
+                                    toast.success('Email authenticated successfully', {
+                                      style: {
+                                        border: '1px solid #C58837',
+                                        color: '#111111',
+                                        fontFamily: 'Montserrat, sans-serif'
+                                      }
+                                    });
+                                  } else {
+                                    toast.error('Please enter a 6-digit code');
+                                  }
+                                }}
+                                className="btn-primary text-xs px-4 py-2.5"
+                                id="verify-otp-btn"
+                              >
+                                Verify
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-brand-grey italic">
+                            Mock Mode: Enter any 6 digits to verify.
+                          </p>
+                        </motion.div>
+                      )}
+                    </div>
                   </div>
 
-                  <button onClick={() => setStep(2)} className="btn-primary mt-6 w-full" id="step1-next">
+                  <button
+                    onClick={() => {
+                      if (!isVerified) {
+                        toast.error('Please verify your email address to proceed', {
+                          style: {
+                            border: '1px solid #C58837',
+                            color: '#111111',
+                            fontFamily: 'Montserrat, sans-serif'
+                          }
+                        });
+                        return;
+                      }
+                      setStep(2);
+                    }}
+                    className="btn-primary mt-6 w-full"
+                    id="step1-next"
+                  >
                     Continue to Payment
                   </button>
                 </motion.div>
@@ -209,8 +333,14 @@ const CheckoutPage = () => {
                   <h2 className="font-playfair text-xl font-semibold">Review Your Order</h2>
                   <div>
                     <h3 className="font-medium text-sm mb-2">Delivery to</h3>
-                    <p className="text-sm text-brand-grey">{address.name} · {address.phone}</p>
-                    <p className="text-sm text-brand-grey">{address.line1}, {address.city}, {address.state} {address.pincode}</p>
+                    <p className="text-sm text-brand-grey">{address.firstName} {address.lastName} · {address.phone}</p>
+                    <p className="text-sm text-brand-grey">
+                      {address.flatHouse}, {address.areaStreet}
+                      {address.landmark && `, near ${address.landmark}`}
+                    </p>
+                    <p className="text-sm text-brand-grey">
+                      {address.city}, {address.state} {address.pincode}, {address.country}
+                    </p>
                   </div>
                   <div>
                     <h3 className="font-medium text-sm mb-2">Payment via</h3>

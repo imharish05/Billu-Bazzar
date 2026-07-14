@@ -52,7 +52,7 @@ const ProductDetailsPage = () => {
     }
   }, [videoSpeed, videoOpen]);
 
-  const isWishlisted = product ? wishlist.includes(product.id) : false;
+  const isWishlisted = product ? wishlist.some(item => (item.id || item) === product.id) : false;
   const inCart = product ? cartItems.some(i => i.productId === product.id) : false;
 
   const attributes = useMemo(() => {
@@ -343,7 +343,7 @@ const ProductDetailsPage = () => {
                   </button>
                 )}
                 <button
-                  onClick={() => dispatch(toggleItem(product.id))}
+                  onClick={() => dispatch(toggleItem(product))}
                   className={`btn-outline flex items-center justify-center gap-2 ${isWishlisted ? 'border-red-300 text-red-400' : ''}`}
                   id="pdp-wishlist"
                 >

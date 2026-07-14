@@ -56,22 +56,7 @@ const CartDrawer = () => {
               </button>
             </div>
 
-            {/* Free Shipping Progress — anime.js would drive the bar fill in a full impl */}
-            <div className="px-6 py-4 bg-brand-light/50">
-              <div className="flex justify-between text-xs text-brand-grey mb-2">
-                <span>{remaining > 0 ? `Add ${fmt(remaining)} more for free shipping` : '🎉 You qualify for free shipping!'}</span>
-                <span className="text-brand-gold font-semibold">{fmt(FREE_SHIPPING_THRESHOLD)}</span>
-              </div>
-              {/* Progress bar — inline transition for smooth fill */}
-              <div className="h-1.5 bg-brand-light rounded-full overflow-hidden" role="progressbar" aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100} aria-label="Free shipping progress">
-                <motion.div
-                  className="h-full bg-brand-gold rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progressPct}%` }}
-                  transition={{ duration: 0.6, ease: 'easeOut' }}
-                />
-              </div>
-            </div>
+
 
             {/* Cart Items */}
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">

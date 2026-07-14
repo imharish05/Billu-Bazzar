@@ -1,79 +1,188 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
-import { Heart, ShoppingBag, X } from 'lucide-react';
+import { Heart, ShoppingBag, Eye, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { mockWishlist } from '../../data/mockAccountData';
+import { toggleItem } from '../../redux/slices/wishlistSlice';
 import { formatPrice } from '../../utils/currency';
+import { addLocal, openCart } from '../../redux/slices/cartSlice';
 
-/**
- * WishlistPage — /account/wishlist
- * PRD ref: "Customer Account > Wishlist for future purchases" +
- * "Product Listing Page > Wishlist heart icon" (premium).
- * Mock data — local state only so remove/add-to-cart feel real in the demo;
- * swap for `useSelector(s => s.wishlist)` + real product fetch once wired up.
- */
 const WishlistPage = () => {
-  const [items, setItems] = useState(mockWishlist);
+  const dispatch = useDispatch();
+  
+  // Real Redux Wishlist items (containing fully detailed product objects)
+  const items = useSelector(s => s.wishlist.items) || [];
 
   const remove = (id) => {
-    setItems(prev => prev.filter(i => i.id !== id));
-    toast.success('Removed from wishlist');
+    dispatch(toggleItem(id));
+    toast.success('Removed from wishlist', {
+      style: {
+        border: '1px solid #C58837',
+        color: '#111111',
+        fontFamily: 'Montserrat, sans-serif'
+      }
+    });
   };
 
   const addToCart = (item) => {
-    if (!item.inStock) return;
-    toast.success(`${item.name} added to cart`);
+    if (!item.inStock) {
+      toast.error('Item is currently out of stock');
+      return;
+    }
+    dispatch(addLocal({ 
+      productId: item.id, 
+      name: item.name, 
+      image: item.image, 
+      priceAtAdd: item.price, 
+      quantity: 1 
+    }));
+    dispatch(openCart());
+    toast.success(`${item.name} added to cart`, {
+      iconTheme: { primary: '#C58837', secondary: 'white' },
+      style: {
+        border: '1px solid #C58837',
+        color: '#111111',
+        fontFamily: 'Montserrat, sans-serif'
+      }
+    });
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
-      <h1 className="font-playfair text-xl font-semibold mb-5">My Wishlist</h1>
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }} 
+      animate={{ opacity: 1, y: 0 }} 
+      transition={{ duration: 0.25 }}
+      className="w-full"
+    >
+      <div className="flex items-center justify-between mb-6 pb-2 border-b border-brand-light">
+        <h1 className="font-playfair text-2xl font-semibold text-brand-text">My Wishlist</h1>
+        <span className="text-xs text-brand-grey font-medium">({items.length} {items.length === 1 ? 'item' : 'items'})</span>
+      </div>
 
       {items.length === 0 ? (
-        <div className="bg-white shadow-sm p-12 text-center">
-          <Heart size={40} className="text-brand-light mx-auto mb-3" strokeWidth={1} />
-          <p className="font-playfair text-xl mb-2">Your wishlist is empty</p>
-          <p className="text-brand-grey text-sm mb-4">Save items you love for later</p>
-          <Link to="/products" className="btn-primary" id="wishlist-empty-shop">Explore Products</Link>
+        <div className="bg-white border border-brand-light p-16 text-center">
+          <Heart size={48} className="text-brand-gold/40 mx-auto mb-4 animate-pulse" strokeWidth={1} />
+          <p className="font-playfair text-xl text-brand-text mb-2">Your Wishlist is Empty</p>
+          <p className="text-brand-grey text-xs md:text-sm mb-6 max-w-sm mx-auto">
+            Explore our collections and save your favorite products, apparel, and lifestyle curations here.
+          </p>
+          <Link to="/products" className="btn-primary inline-block" id="wishlist-empty-shop">Explore Products</Link>
         </div>
       ) : (
-        <div className="grid sm:grid-cols-2 gap-4">
-          {items.map(item => (
-            <div key={item.id} className="bg-white shadow-sm relative group">
-              <button
-                onClick={() => remove(item.id)}
-                className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-white/90 shadow-sm flex items-center justify-center text-brand-grey hover:text-red-500 transition-colors focus-visible:outline-brand-gold"
-                aria-label={`Remove ${item.name} from wishlist`}
-                id={`wishlist-remove-${item.id}`}
+        /* Grid structured identical to Product Listing Page (4-columns on desktop) */
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+          {items.map((item, index) => {
+            const discount = (item.comparePrice && Number(item.comparePrice) > Number(item.price))
+              ? Math.round(((Number(item.comparePrice) - Number(item.price)) / Number(item.comparePrice)) * 100)
+              : null;
+
+            return (
+              <motion.article
+                key={item.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+                className="relative bg-white flex flex-col border border-brand-light shadow-sm hover:shadow-md transition-all duration-300"
+                aria-label={item.name}
               >
-                <X size={14} />
-              </button>
-              <Link to={`/products/${item.slug}`} className="block aspect-square overflow-hidden bg-brand-light">
-                <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" decoding="async" />
-              </Link>
-              <div className="p-4">
-                <Link to={`/products/${item.slug}`} className="text-sm font-medium line-clamp-1 hover:text-brand-gold transition-colors">
-                  {item.name}
-                </Link>
-                <div className="flex items-center gap-2 mt-1 mb-3">
-                  <span className="text-sm font-semibold text-brand-gold">{formatPrice(item.price)}</span>
-                  {item.comparePrice && (
-                    <span className="text-xs text-brand-grey line-through">{formatPrice(item.comparePrice)}</span>
-                  )}
-                  {!item.inStock && <span className="text-xs text-red-500 ml-auto">Out of stock</span>}
+                {/* Image Wrap - "group" class here so hover trigger is isolated to the image */}
+                <div className="group block relative overflow-hidden aspect-[3/4] bg-brand-light">
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    loading="lazy"
+                  />
+
+                  {/* Badges */}
+                  <div className="absolute top-3 left-3 flex flex-col gap-1.5 pointer-events-none">
+                    {!item.inStock && (
+                      <span className="bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 tracking-wider uppercase rounded-sm">
+                        Sold Out
+                      </span>
+                    )}
+                    {discount !== null && discount > 0 && (
+                      <span className="bg-brand-gold text-white text-[9px] font-bold px-2 py-0.5 rounded-sm">
+                        -{discount}%
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Remove Button (Red Heart on top right) */}
+                  <button
+                    onClick={(e) => { e.preventDefault(); remove(item.id); }}
+                    className="absolute top-3 right-3 p-2 rounded-full bg-white/95 text-red-500 shadow-sm hover:scale-110 hover:bg-white transition-all duration-200 focus-visible:outline-brand-gold z-20"
+                    aria-label={`Remove ${item.name} from wishlist`}
+                    id={`wishlist-remove-${item.id}`}
+                  >
+                    <Heart size={14} className="fill-current" />
+                  </button>
+
+                  {/* Hover Actions - Slide-up overlay (triggers ONLY on image group hover) */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/90 flex translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out z-10">
+                    <Link
+                      to={`/products/${item.slug}`}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-3 text-white text-[10px] font-medium hover:bg-white/10 transition-colors border-r border-white/10 text-center"
+                      id={`qv-${item.id}`}
+                    >
+                      <Eye size={12} /> View Details
+                    </Link>
+                    <button
+                      onClick={() => addToCart(item)}
+                      disabled={!item.inStock}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-3 text-white text-[10px] font-medium hover:bg-white/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      id={`add-cart-${item.id}`}
+                    >
+                      <ShoppingBag size={12} /> Add to Cart
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={() => addToCart(item)}
-                  disabled={!item.inStock}
-                  className="btn-outline w-full text-xs py-2 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-                  id={`wishlist-add-cart-${item.id}`}
-                >
-                  <ShoppingBag size={14} /> {item.inStock ? 'Add to Cart' : 'Notify Me'}
-                </button>
-              </div>
-            </div>
-          ))}
+
+                {/* Info Area */}
+                <div className="p-3 flex-1 flex flex-col justify-between">
+                  <div>
+                    <p className="text-[10px] text-brand-gold font-medium tracking-widest uppercase mb-1">
+                      {item.categoryName}
+                    </p>
+                    <Link 
+                      to={`/products/${item.slug}`} 
+                      className="hover:text-brand-gold text-brand-text transition-colors line-clamp-2"
+                    >
+                      <h3 className="font-inter font-medium text-xs md:text-sm leading-snug">
+                        {item.name}
+                      </h3>
+                    </Link>
+                  </div>
+
+                  <div className="mt-3">
+                    {/* Star Rating */}
+                    <div className="flex items-center gap-0.5 mb-1.5">
+                      {[1, 2, 3, 4, 5].map(s => (
+                        <Star 
+                          key={s} 
+                          size={10} 
+                          className={s <= Math.round(item.rating) ? 'fill-brand-gold text-brand-gold' : 'fill-brand-light text-brand-light'} 
+                        />
+                      ))}
+                      <span className="text-[9px] text-brand-grey ml-1">({item.reviewCount})</span>
+                    </div>
+
+                    {/* Price Grid */}
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-xs md:text-sm text-brand-text">
+                        {formatPrice(item.price)}
+                      </span>
+                      {item.comparePrice && Number(item.comparePrice) > Number(item.price) && (
+                        <span className="text-brand-grey text-[10px] md:text-xs line-through">
+                          {formatPrice(item.comparePrice)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.article>
+            );
+          })}
         </div>
       )}
     </motion.div>

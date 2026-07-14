@@ -23,6 +23,11 @@ import SupportPage from './pages/account/SupportPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoaderPreviewPage from './pages/LoaderPreviewPage';
 import ContactPage from './pages/ContactPage';
+import AboutPage from './pages/AboutPage';
+import PrivacyPage from './pages/PrivacyPage';
+import ShippingPage from './pages/ShippingPage';
+import CancellationPage from './pages/CancellationPage';
+import ReturnsPage from './pages/ReturnsPage';
 import api from './services/api';
 
 const App = () => {
@@ -101,6 +106,11 @@ const App = () => {
            <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
           <Route path="/loader-preview" element={<LoaderPreviewPage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/shipping" element={<ShippingPage />} />
+          <Route path="/cancellation" element={<CancellationPage />} />
+          <Route path="/returns" element={<ReturnsPage />} />
           <Route path="/account" element={<AccountLayout />}>
             <Route index element={<ProfilePage />} />
             <Route path="orders" element={<OrdersPage />} />

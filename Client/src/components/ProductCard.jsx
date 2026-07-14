@@ -16,10 +16,10 @@ import { getPlaceholderSvg } from '../utils/placeholder';
  */
 const ProductCard = ({ product, index = 0 }) => {
   const dispatch = useDispatch();
-  const wishlist = useSelector(s => s.wishlist.items);
+  const wishlist = useSelector(s => s.wishlist.items) || [];
   const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
   const [imgLoaded, setImgLoaded] = useState(false);
-  const isWishlisted = wishlist.includes(product.id);
+  const isWishlisted = wishlist.some(item => (item.id || item) === product.id);
 
   const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
 
@@ -39,11 +39,11 @@ const ProductCard = ({ product, index = 0 }) => {
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.07 }}
-      className="group relative bg-white flex flex-col shadow-sm hover:shadow-md transition-all duration-300"
+      className="relative bg-white flex flex-col shadow-sm hover:shadow-md transition-all duration-300"
       aria-label={product.name}
     >
       {/* Image */}
-      <Link to={`/products/${product.slug}`} className="block relative overflow-hidden aspect-[3/4] bg-brand-light" target="_blank" rel="noopener noreferrer">
+      <Link to={`/products/${product.slug}`} className="group block relative overflow-hidden aspect-[3/4] bg-brand-light" target="_blank" rel="noopener noreferrer">
         {/* Skeleton while image loads */}
         {!imgLoaded && <div className="skeleton absolute inset-0" aria-hidden="true" />}
         <img
@@ -78,7 +78,7 @@ const ProductCard = ({ product, index = 0 }) => {
 
         {/* Wishlist */}
         <button
-          onClick={(e) => { e.preventDefault(); dispatch(toggleItem(product.id)); }}
+          onClick={(e) => { e.preventDefault(); dispatch(toggleItem(product)); }}
           className={`absolute top-3 right-3 p-2 rounded-full shadow-sm transition-all duration-200 ${isWishlisted ? 'bg-red-50 text-red-500' : 'bg-white/80 text-brand-grey hover:text-red-400'} focus-visible:outline-brand-gold`}
           aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
           id={`wishlist-${product.id}`}
@@ -90,7 +90,7 @@ const ProductCard = ({ product, index = 0 }) => {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           whileHover={{ opacity: 1, y: 0 }}
-          className="absolute bottom-0 left-0 right-0 bg-brand-text/90 flex opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+          className="absolute bottom-0 left-0 right-0 bg-black/90 flex opacity-0 group-hover:opacity-100 transition-opacity duration-300"
         >
           <button
             onClick={(e) => { e.preventDefault(); dispatch(openQuickView(product)); }}
