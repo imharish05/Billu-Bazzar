@@ -94,7 +94,6 @@ const Footer = () => (
             <a href="mailto:hello@billubazaar.com" className="hover:text-brand-gold transition-colors focus-visible:outline-brand-gold">hello@billubazaar.com</a>
           </li>
         </ul>
-        <p className="text-white/40 text-xs mt-6">Mon–Sat: 10am–8pm IST</p>
       </div>
     </div>
 

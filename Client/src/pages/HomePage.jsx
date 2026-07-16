@@ -117,6 +117,23 @@ const HomePage = () => {
   const carouselScrollRef = useRef(null);
   const [showCarouselLeftArrow, setShowCarouselLeftArrow] = useState(false);
   const [showCarouselRightArrow, setShowCarouselRightArrow] = useState(false);
+  const [isScrolling, setIsScrolling] = useState(false);
+
+  useEffect(() => {
+    let timeoutId;
+    const handleScroll = () => {
+      setIsScrolling(true);
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setIsScrolling(false);
+      }, 150);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      clearTimeout(timeoutId);
+    };
+  }, []);
 
   const [isMobileViewport, setIsMobileViewport] = useState(
     () => typeof window !== 'undefined' && window.innerWidth < 768
@@ -135,8 +152,8 @@ const HomePage = () => {
   }, [banners]);
 
   useEffect(() => {
-    if (exclusiveBanners.length < 3) {
-      setCurrentExclusiveSlide(0);
+    if (exclusiveBanners.length < 3 || isScrolling) {
+      if (exclusiveBanners.length < 3) setCurrentExclusiveSlide(0);
       return;
     }
     const interval = setInterval(() => {
@@ -146,7 +163,7 @@ const HomePage = () => {
       });
     }, 6500);
     return () => clearInterval(interval);
-  }, [exclusiveBanners.length, isMobileViewport]);
+  }, [exclusiveBanners.length, isMobileViewport, isScrolling]);
 
   useEffect(() => {
     if (exclusiveBanners.length < 3) return;
@@ -175,7 +192,7 @@ const HomePage = () => {
   const carouselTickingRef = useRef(false);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
-  const isCatVisibleRef = useRef(false);
+  const [isCatVisible, setIsCatVisible] = useState(false);
   const [autoplayResetTrigger, setAutoplayResetTrigger] = useState(0);
 
   // Pause category autoplay when the carousel is off-screen — otherwise the
@@ -187,7 +204,7 @@ const HomePage = () => {
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        isCatVisibleRef.current = entry.isIntersecting;
+        setIsCatVisible(entry.isIntersecting);
       },
       { threshold: 0.1 }
     );
@@ -246,9 +263,8 @@ const HomePage = () => {
 
   // Category Autoplay scroller
   useEffect(() => {
-    if (categoriesList.length <= 3) return;
+    if (categoriesList.length <= 3 || !isCatVisible || isScrolling) return;
     const interval = setInterval(() => {
-      if (!isCatVisibleRef.current) return;
       const el = catScrollRef.current;
       if (!el) return;
       const isAtEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 10;
@@ -264,7 +280,7 @@ const HomePage = () => {
       }
     }, 7500);
     return () => clearInterval(interval);
-  }, [categoriesList.length, autoplayResetTrigger]);
+  }, [categoriesList.length, autoplayResetTrigger, isCatVisible, isScrolling]);
 
   const countdownBanner = banners.find(b => b.type === 'COUNTDOWN');
   const countdown = useCountdown(countdownBanner?.countdown);

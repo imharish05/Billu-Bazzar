@@ -116,8 +116,136 @@ const ProductListingPage = () => {
     setFilters(prev => ({ ...prev, sort, order }));
   };
 
+  const handleCollectionChange = (val) => {
+    setFilters(prev => ({
+      ...prev,
+      newArrival: val === 'newArrival' ? true : undefined,
+      bestSeller: val === 'bestSeller' ? true : undefined,
+      featured: val === 'featured' ? true : undefined,
+      page: 1,
+    }));
+  };
+
+  const selectedCollection = filters.newArrival
+    ? 'newArrival'
+    : filters.bestSeller
+    ? 'bestSeller'
+    : filters.featured
+    ? 'featured'
+    : '';
+
   const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
   const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
+
+  const findCategoryInTree = (cats, targetSlug) => {
+    for (const cat of cats) {
+      if (cat.slug === targetSlug) return cat;
+      if (cat.children && cat.children.length > 0) {
+        const found = findCategoryInTree(cat.children, targetSlug);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const activeCategoryObject = filters.category ? findCategoryInTree(categories, filters.category) : null;
+
+  const getBreadcrumbs = () => {
+    if (!slug) return null;
+    const catObj = categories.find(c => c.slug === slug);
+    if (!catObj) return null;
+
+    const crumbs = [{ label: catObj.name, path: `/category/${catObj.slug}` }];
+
+    if (sub) {
+      const subObj = catObj.children?.find(s => s.slug === sub);
+      if (subObj) {
+        crumbs.push({ label: subObj.name, path: `/category/${catObj.slug}/${subObj.slug}` });
+        
+        if (subsub) {
+          const subSubObj = subObj.children?.find(ss => ss.slug === subsub);
+          if (subSubObj) {
+            crumbs.push({ label: subSubObj.name, path: `/category/${catObj.slug}/${subObj.slug}/${subSubObj.slug}` });
+          }
+        }
+      }
+    }
+    return crumbs;
+  };
+
+  const renderCategoryTree = (cats, currentCatSlug, currentSubSlug, currentSubSubSlug) => {
+    return (
+      <div className="space-y-4">
+        <h3 className="font-playfair text-base font-bold uppercase tracking-wider text-brand-text mb-4 pb-2 border-b border-brand-light">Categories</h3>
+        <ul className="space-y-3 text-sm">
+          <li>
+            <Link
+              to="/products"
+              className={`hover:text-brand-gold transition-colors font-medium ${!currentCatSlug ? 'text-brand-gold font-semibold' : 'text-brand-text'}`}
+            >
+              All Products
+            </Link>
+          </li>
+          
+          {cats.map(cat => {
+            const isCatActive = currentCatSlug === cat.slug;
+            const hasSubcategories = cat.children && cat.children.length > 0;
+            
+            return (
+              <li key={cat.id} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Link
+                    to={`/category/${cat.slug}`}
+                    className={`hover:text-brand-gold transition-colors ${isCatActive ? 'text-brand-gold font-semibold' : 'text-brand-text'}`}
+                  >
+                    {cat.name}
+                  </Link>
+                </div>
+                
+                {hasSubcategories && (isCatActive || currentCatSlug === cat.slug) && (
+                  <ul className="pl-4 space-y-2 border-l border-brand-light/60 mt-2">
+                    {cat.children.map(subCat => {
+                      const isSubActive = currentSubSlug === subCat.slug;
+                      const hasSubSub = subCat.children && subCat.children.length > 0;
+                      
+                      return (
+                        <li key={subCat.id} className="space-y-1.5">
+                          <Link
+                            to={`/category/${cat.slug}/${subCat.slug}`}
+                            className={`block hover:text-brand-gold text-xs transition-colors ${isSubActive ? 'text-brand-gold font-semibold' : 'text-brand-grey hover:text-brand-text'}`}
+                          >
+                            {subCat.name}
+                          </Link>
+                          
+                          {hasSubSub && isSubActive && (
+                            <ul className="pl-3 space-y-1 mt-1 border-l border-brand-light/40">
+                              {subCat.children.map(subSubCat => {
+                                const isSubSubActive = currentSubSubSlug === subSubCat.slug;
+                                return (
+                                  <li key={subSubCat.id}>
+                                    <Link
+                                      to={`/category/${cat.slug}/${subCat.slug}/${subSubCat.slug}`}
+                                      className={`block hover:text-brand-gold text-[11px] transition-colors ${isSubSubActive ? 'text-brand-gold font-semibold' : 'text-brand-grey/80 hover:text-brand-text'}`}
+                                    >
+                                      {subSubCat.name}
+                                    </Link>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+  };
 
   const parentCategories = categories.filter(c => !c.parentId);
   const priceRanges = [
@@ -135,80 +263,43 @@ const ProductListingPage = () => {
           <nav className="text-xs text-brand-grey mb-2" aria-label="Breadcrumb">
             <Link to="/" className="hover:text-brand-gold transition-colors">Home</Link>
             <span className="mx-2">/</span>
-            <span>Products</span>
+            <Link to="/products" className="hover:text-brand-gold transition-colors">Products</Link>
+            {getBreadcrumbs()?.map((crumb, idx) => (
+              <span key={crumb.path}>
+                <span className="mx-2">/</span>
+                {idx === getBreadcrumbs().length - 1 ? (
+                  <span className="text-brand-gold font-medium">{crumb.label}</span>
+                ) : (
+                  <Link to={crumb.path} className="hover:text-brand-gold transition-colors">{crumb.label}</Link>
+                )}
+              </span>
+            ))}
           </nav>
-          <h1 className="font-playfair text-h2 font-bold text-brand-text">
-            {filters.category ? parentCategories.find(c => c.slug === filters.category)?.name || 'Products' : 'All Products'}
+          <h1 className="font-playfair text-3xl font-bold text-brand-text mb-1">
+            {activeCategoryObject ? activeCategoryObject.name : 'All Products'}
           </h1>
           <p className="text-brand-grey text-sm mt-1">{total} products</p>
         </div>
       </div>
 
       <div className="max-w-site mx-auto px-6 md:px-8 py-8">
-        {/* Filter bar */}
-        <div className="flex items-center justify-between gap-4 mb-6">
-          {/* Category filter tabs */}
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide" role="tablist">
-            <button
-              onClick={() => handleFilter('category', '')}
-              className={`flex-shrink-0 px-4 py-2 text-xs font-medium border transition-all ${!filters.category ? 'bg-brand-text text-white border-brand-text' : 'border-brand-light text-brand-grey hover:border-brand-text hover:text-brand-text'}`}
-              role="tab" aria-selected={!filters.category} id="filter-all"
-            >All</button>
-            {parentCategories.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => handleFilter('category', cat.slug)}
-                role="tab"
-                aria-selected={filters.category === cat.slug}
-                id={`filter-${cat.slug}`}
-                className={`flex-shrink-0 px-4 py-2 text-xs font-medium border transition-all whitespace-nowrap ${filters.category === cat.slug ? 'bg-brand-text text-white border-brand-text' : 'border-brand-light text-brand-grey hover:border-brand-text hover:text-brand-text'}`}
-              >
-                {cat.name}
-              </button>
-            ))}
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          {/* Left Sidebar (Desktop) */}
+          <aside className="hidden md:block md:col-span-1 space-y-8 bg-white p-6 shadow-[0_4px_20px_rgba(0,0,0,0.02)] border border-brand-light self-start sticky top-24">
+            {/* Category Tree */}
+            {renderCategoryTree(categories, slug, sub, subsub)}
 
-          {/* Sort + Filter toggle */}
-          <div className="flex gap-3 flex-shrink-0">
-            <select
-              onChange={e => handleSort(e.target.value)}
-              className="border border-brand-light text-sm px-3 py-2 bg-white text-brand-text focus:outline-none focus:border-brand-gold"
-              aria-label="Sort products"
-              id="products-sort"
-            >
-              {sortOptions.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-            <button
-              onClick={() => setFiltersOpen(!filtersOpen)}
-              className="border border-brand-light px-4 py-2 flex items-center gap-2 text-sm hover:border-brand-gold transition-colors focus-visible:outline-brand-gold"
-              aria-expanded={filtersOpen} id="filters-toggle"
-            >
-              <SlidersHorizontal size={16} /> Filters
-              {filtersOpen && <X size={14} />}
-            </button>
-          </div>
-        </div>
-
-        {/* Expanded filter panel */}
-        <motion.div
-          initial={false}
-          animate={{ height: filtersOpen ? 'auto' : 0, opacity: filtersOpen ? 1 : 0 }}
-          className="overflow-hidden"
-        >
-          <div className="bg-brand-light p-6 mb-6 grid sm:grid-cols-2 md:grid-cols-4 gap-6">
-            {/* Price range */}
-            <div>
-              <p className="font-medium text-sm mb-3">Price Range</p>
-              <div className="space-y-2">
+            {/* Price Range */}
+            <div className="pt-6 border-t border-brand-light">
+              <p className="font-playfair text-sm font-bold uppercase tracking-wider text-brand-text mb-4">Price Range</p>
+              <div className="space-y-2.5">
                 {priceRanges.map(range => (
-                  <label key={range.label} className="flex items-center gap-2 text-sm text-brand-grey cursor-pointer hover:text-brand-text">
+                  <label key={range.label} className="flex items-center gap-2.5 text-xs text-brand-grey cursor-pointer hover:text-brand-text select-none">
                     <input
                       type="radio"
-                      name="priceRange"
+                      name="priceRangeDesktop"
                       onChange={() => handleFilter('minPrice', range.min) || handleFilter('maxPrice', range.max)}
-                      className="accent-brand-gold"
+                      className="w-3.5 h-3.5 accent-brand-gold cursor-pointer"
                     />
                     {range.label}
                   </label>
@@ -216,108 +307,209 @@ const ProductListingPage = () => {
               </div>
             </div>
 
-            {/* New Arrivals */}
-            <div>
-              <p className="font-medium text-sm mb-3">Collection</p>
-              <div className="space-y-2">
-                {[
-                  { label: 'New Arrivals', key: 'newArrival' },
-                  { label: 'Best Sellers', key: 'bestSeller' },
-                  { label: 'Featured', key: 'featured' },
-                ].map(opt => (
-                  <label key={opt.key} className="flex items-center gap-2 text-sm text-brand-grey cursor-pointer hover:text-brand-text">
-                    <input type="checkbox" className="accent-brand-gold" onChange={e => handleFilter(opt.key, e.target.checked || undefined)} />
-                    {opt.label}
-                  </label>
-                ))}
-              </div>
-            </div>
+            {/* Collection Filter section removed (placed in top bar dropdown) */}
 
-            {/* Brand / Vendor */}
-            <div>
-              <p className="font-medium text-sm mb-3">Brands</p>
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-2 scrollbar-thin">
-                <label className="flex items-center gap-2 text-sm text-brand-grey cursor-pointer hover:text-brand-text">
+            {/* Brands Filter */}
+            <div className="pt-6 border-t border-brand-light">
+              <p className="font-playfair text-sm font-bold uppercase tracking-wider text-brand-text mb-4">Brands</p>
+              <div className="space-y-2.5 max-h-48 overflow-y-auto pr-2 scrollbar-thin">
+                <label className="flex items-center gap-2.5 text-xs text-brand-grey cursor-pointer hover:text-brand-text select-none">
                   <input
                     type="radio"
-                    name="brand"
+                    name="brandDesktop"
                     checked={!filters.vendorId}
                     onChange={() => handleFilter('vendorId', '')}
-                    className="accent-brand-gold"
+                    className="w-3.5 h-3.5 accent-brand-gold cursor-pointer"
                   />
                   All Brands
                 </label>
                 {dummyBrands.map(brand => (
-                  <label key={brand.id} className="flex items-center gap-2 text-sm text-brand-grey cursor-pointer hover:text-brand-text">
+                  <label key={brand.id} className="flex items-center gap-2.5 text-xs text-brand-grey cursor-pointer hover:text-brand-text select-none">
                     <input
                       type="radio"
-                      name="brand"
+                      name="brandDesktop"
                       checked={filters.vendorId === String(brand.id)}
                       onChange={() => handleFilter('vendorId', String(brand.id))}
-                      className="accent-brand-gold"
+                      className="w-3.5 h-3.5 accent-brand-gold cursor-pointer"
                     />
                     {brand.name}
                   </label>
                 ))}
               </div>
             </div>
-          </div>
-        </motion.div>
+          </aside>
 
-        {/* Product grid */}
-        {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-            {[...Array(12)].map((_, i) => (
-              <div key={i} className="bg-white shadow-sm">
-                <div className="skeleton aspect-[3/4]" />
-                <div className="p-4 space-y-2">
-                  <div className="skeleton h-4 w-3/4" /><div className="skeleton h-4 w-1/2" /><div className="skeleton h-5 w-1/3" />
+          {/* Product Listing Area */}
+          <div className="col-span-1 md:col-span-3">
+            {/* Filter bar */}
+            <div className="flex items-center justify-end gap-4 mb-6">
+              {/* Sort + Collection + Filter toggle */}
+              <div className="flex flex-wrap items-center gap-4">
+                {/* Collection Filter Dropdown */}
+                <div className="flex items-center gap-2">
+                  <label htmlFor="products-collection" className="text-xs font-semibold uppercase tracking-wider text-brand-grey whitespace-nowrap">
+                    Collection:
+                  </label>
+                  <select
+                    id="products-collection"
+                    value={selectedCollection}
+                    onChange={e => handleCollectionChange(e.target.value)}
+                    className="border border-brand-light text-xs px-3 py-2 bg-white text-brand-text focus:outline-none focus:border-brand-gold"
+                  >
+                    <option value="">All Collections</option>
+                    <option value="newArrival">New Arrivals</option>
+                    <option value="bestSeller">Best Sellers</option>
+                    <option value="featured">Featured</option>
+                  </select>
+                </div>
+
+                {/* Sort By Dropdown */}
+                <div className="flex items-center gap-2">
+                  <label htmlFor="products-sort" className="text-xs font-semibold uppercase tracking-wider text-brand-grey whitespace-nowrap">
+                    Sort By:
+                  </label>
+                  <select
+                    id="products-sort"
+                    onChange={e => handleSort(e.target.value)}
+                    className="border border-brand-light text-xs px-3 py-2 bg-white text-brand-text focus:outline-none focus:border-brand-gold"
+                  >
+                    {sortOptions.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Mobile Filter Toggle */}
+                <button
+                  onClick={() => setFiltersOpen(!filtersOpen)}
+                  className="md:hidden border border-brand-light px-4 py-2 flex items-center gap-2 text-xs font-medium hover:border-brand-gold transition-colors focus-visible:outline-brand-gold"
+                  aria-expanded={filtersOpen} id="filters-toggle"
+                >
+                  <SlidersHorizontal size={14} /> Filters
+                  {filtersOpen && <X size={12} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Expanded filter panel (Mobile only) */}
+            <motion.div
+              initial={false}
+              animate={{ height: filtersOpen ? 'auto' : 0, opacity: filtersOpen ? 1 : 0 }}
+              className="overflow-hidden md:hidden"
+            >
+              <div className="bg-brand-light p-6 mb-6 grid sm:grid-cols-2 gap-6">
+                {/* Category tree on mobile */}
+                <div className="pb-4 border-b border-brand-light">
+                  {renderCategoryTree(categories, slug, sub, subsub)}
+                </div>
+
+                {/* Price range */}
+                <div>
+                  <p className="font-medium text-sm mb-3">Price Range</p>
+                  <div className="space-y-2">
+                    {priceRanges.map(range => (
+                      <label key={range.label} className="flex items-center gap-2 text-sm text-brand-grey cursor-pointer hover:text-brand-text">
+                        <input
+                          type="radio"
+                          name="priceRange"
+                          onChange={() => handleFilter('minPrice', range.min) || handleFilter('maxPrice', range.max)}
+                          className="accent-brand-gold"
+                        />
+                        {range.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Collection Filter section removed (placed in top bar dropdown) */}
+
+                {/* Brand / Vendor */}
+                <div>
+                  <p className="font-medium text-sm mb-3">Brands</p>
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-2 scrollbar-thin">
+                    <label className="flex items-center gap-2 text-sm text-brand-grey cursor-pointer hover:text-brand-text">
+                      <input
+                        type="radio"
+                        name="brand"
+                        checked={!filters.vendorId}
+                        onChange={() => handleFilter('vendorId', '')}
+                        className="accent-brand-gold"
+                      />
+                      All Brands
+                    </label>
+                    {dummyBrands.map(brand => (
+                      <label key={brand.id} className="flex items-center gap-2 text-sm text-brand-grey cursor-pointer hover:text-brand-text">
+                        <input
+                          type="radio"
+                          name="brand"
+                          checked={filters.vendorId === String(brand.id)}
+                          onChange={() => handleFilter('vendorId', String(brand.id))}
+                          className="accent-brand-gold"
+                        />
+                        {brand.name}
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        ) : products.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-24 h-24 bg-brand-light flex items-center justify-center mb-6">
-              <Grid2X2 size={40} className="text-brand-grey" strokeWidth={1} />
-            </div>
-            <h2 className="font-playfair text-2xl mb-2">No products found</h2>
-            <p className="text-brand-grey mb-6">Try adjusting your filters or browse a different category.</p>
-            <button
-              onClick={() => {
-                setSearchParams({});
-                navigate('/products');
-              }}
-              className="btn-primary"
-            >
-              Clear Filters
-            </button>
-          </div>
-        ) : (
-          <>
-            <div ref={revealRef} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
-              {products.map((product, i) => (
-                <ProductCard key={product.id} product={product} index={i} />
-              ))}
-            </div>
+            </motion.div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex justify-center gap-2 mt-12">
-                {[...Array(totalPages)].map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setFilters(prev => ({ ...prev, page: i + 1 }))}
-                    className={`w-10 h-10 font-medium text-sm transition-all ${filters.page === i + 1 ? 'bg-brand-text text-white' : 'border border-brand-light text-brand-grey hover:border-brand-gold hover:text-brand-gold'}`}
-                    id={`page-${i+1}`}
-                  >
-                    {i + 1}
-                  </button>
+            {/* Product grid */}
+            {loading ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                {[...Array(12)].map((_, i) => (
+                  <div key={i} className="bg-white shadow-sm">
+                    <div className="skeleton aspect-[3/4]" />
+                    <div className="p-4 space-y-2">
+                      <div className="skeleton h-4 w-3/4" /><div className="skeleton h-4 w-1/2" /><div className="skeleton h-5 w-1/3" />
+                    </div>
+                  </div>
                 ))}
               </div>
+            ) : products.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="w-24 h-24 bg-brand-light flex items-center justify-center mb-6">
+                  <Grid2X2 size={40} className="text-brand-grey" strokeWidth={1} />
+                </div>
+                <h2 className="font-playfair text-2xl mb-2">No products found</h2>
+                <p className="text-brand-grey mb-6">Try adjusting your filters or browse a different category.</p>
+                <button
+                  onClick={() => {
+                    setSearchParams({});
+                    navigate('/products');
+                  }}
+                  className="btn-primary"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            ) : (
+              <>
+                <div ref={revealRef} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                  {products.map((product, i) => (
+                    <ProductCard key={product.id} product={product} index={i} />
+                  ))}
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center gap-2 mt-12">
+                    {[...Array(totalPages)].map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setFilters(prev => ({ ...prev, page: i + 1 }))}
+                        className={`w-10 h-10 font-medium text-sm transition-all ${filters.page === i + 1 ? 'bg-brand-text text-white' : 'border border-brand-light text-brand-grey hover:border-brand-gold hover:text-brand-gold'}`}
+                        id={`page-${i+1}`}
+                      >
+                        {i + 1}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
-          </>
-        )}
+          </div>
+        </div>
       </div>
 
       <Footer />

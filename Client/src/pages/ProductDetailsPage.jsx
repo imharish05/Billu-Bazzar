@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, Heart, Star, ChevronRight, Share2, Shield, Truck, RotateCcw, ZoomIn, Play, Mail, CheckCircle2, X } from 'lucide-react';
@@ -25,6 +25,7 @@ const mockReviews = [
 const ProductDetailsPage = () => {
   const { slug } = useParams();
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { current: product, items: allProducts, loading } = useSelector(s => s.products);
   const { items: wishlist } = useSelector(s => s.wishlist);
   const { items: cartItems } = useSelector(s => s.cart);
@@ -95,6 +96,12 @@ const ProductDetailsPage = () => {
     if (!product) return;
     dispatch(addLocal({ productId: product.id, name: product.name, image: product.images?.[0], priceAtAdd: product.price, quantity, selectedVariant: { size: selectedSize, color: selectedColor } }));
     dispatch(openCart());
+  };
+
+  const handleBuyNow = () => {
+    if (!product) return;
+    dispatch(addLocal({ productId: product.id, name: product.name, image: product.images?.[0], priceAtAdd: product.price, quantity, selectedVariant: { size: selectedSize, color: selectedColor } }));
+    navigate('/checkout');
   };
 
   if (loading || !product) {
@@ -232,12 +239,6 @@ const ProductDetailsPage = () => {
                 <RotateCcw size={14} /> 360° Spin
               </button>
               <button
-                onClick={() => setViewMode('ar')}
-                className="flex-1 flex items-center justify-center gap-2 py-2 px-3 border border-brand-light text-brand-text hover:border-brand-text text-xs font-medium transition-all"
-              >
-                <Shield size={14} /> View in AR
-              </button>
-              <button
                 onClick={() => setVideoOpen(true)}
                 className="flex-1 flex items-center justify-center gap-2 py-2 px-3 border border-brand-light text-brand-text hover:border-brand-text text-xs font-medium transition-all"
               >
@@ -321,36 +322,43 @@ const ProductDetailsPage = () => {
             </div>
 
             {/* CTA buttons */}
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row gap-3">
-                {product.stock > 0 ? (
+            <div className="flex flex-col gap-3">
+              {product.stock > 0 ? (
+                <div className="flex flex-col sm:flex-row gap-3">
                   <button
                     onClick={handleAddToCart}
-                    className="btn-primary flex-1 flex items-center justify-center gap-2"
+                    className="bg-brand-gold hover:bg-[#a8712a] text-white font-semibold text-sm tracking-wider uppercase py-4 flex-1 flex items-center justify-center gap-2 transition-all duration-200 shadow-sm"
                     id="pdp-add-cart"
                   >
                     <ShoppingBag size={18} />
                     {inCart ? 'Added to Cart' : 'Add to Cart'}
                   </button>
-                ) : (
                   <button
-                    type="button"
-                    onClick={() => setNotifySuccess(false)}
-                    className="bg-brand-text hover:bg-neutral-900 text-white font-medium py-3.5 px-6 text-xs tracking-widest uppercase flex-1 flex items-center justify-center gap-2 transition-all"
-                    id="pdp-notify"
+                    onClick={handleBuyNow}
+                    className="bg-neutral-950 hover:bg-neutral-800 text-white font-semibold text-sm tracking-wider uppercase py-4 flex-1 flex items-center justify-center gap-2 transition-all duration-200 shadow-sm"
+                    id="pdp-buy-now"
                   >
-                    <Mail size={16} /> Out of Stock — Notify Me
+                    Buy Now
                   </button>
-                )}
+                </div>
+              ) : (
                 <button
-                  onClick={() => dispatch(toggleItem(product))}
-                  className={`btn-outline flex items-center justify-center gap-2 ${isWishlisted ? 'border-red-300 text-red-400' : ''}`}
-                  id="pdp-wishlist"
+                  type="button"
+                  onClick={() => setNotifySuccess(false)}
+                  className="bg-neutral-950 hover:bg-neutral-800 text-white font-semibold text-sm tracking-wider uppercase py-4 w-full flex items-center justify-center gap-2 transition-all duration-200 shadow-sm"
+                  id="pdp-notify"
                 >
-                  <Heart size={18} className={isWishlisted ? 'fill-current' : ''} />
-                  {isWishlisted ? 'Wishlisted' : 'Wishlist'}
+                  <Mail size={16} /> Out of Stock — Notify Me
                 </button>
-              </div>
+              )}
+              <button
+                onClick={() => dispatch(toggleItem(product))}
+                className={`border border-neutral-950 hover:bg-neutral-950 hover:text-white text-neutral-950 font-semibold text-sm tracking-wider uppercase py-4 w-full flex items-center justify-center gap-2 transition-all duration-200 ${isWishlisted ? 'border-red-300 text-red-400 hover:border-red-400 hover:text-red-500 hover:bg-transparent' : ''}`}
+                id="pdp-wishlist"
+              >
+                <Heart size={18} className={isWishlisted ? 'fill-current' : ''} />
+                {isWishlisted ? 'Wishlisted' : 'Wishlist'}
+              </button>
 
               {/* Restock Notification Form */}
               {product.stock === 0 && !notifySuccess && (
@@ -419,10 +427,10 @@ const ProductDetailsPage = () => {
             </div>
 
             {/* Product attributes */}
-            {attributes && Object.keys(attributes).filter(k => !['sizes', 'size'].includes(k)).length > 0 && (
+            {attributes && Object.keys(attributes).filter(k => !['sizes', 'size', 'material', 'heelheight'].includes(k.toLowerCase())).length > 0 && (
               <div className="border-t border-brand-light pt-4">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                  {Object.entries(attributes).filter(([k]) => !['sizes', 'size'].includes(k)).map(([key, val]) => (
+                  {Object.entries(attributes).filter(([k]) => !['sizes', 'size', 'material', 'heelheight'].includes(k.toLowerCase())).map(([key, val]) => (
                     <div key={key} className="flex gap-2 text-sm">
                       <span className="text-brand-grey capitalize">{key}:</span>
                       <span className="font-medium text-brand-text">{Array.isArray(val) ? val.join(', ') : val}</span>
@@ -562,44 +570,7 @@ const ProductDetailsPage = () => {
         )}
       </AnimatePresence>
 
-      {/* AR Modal */}
-      <AnimatePresence>
-        {viewMode === 'ar' && (
-          <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setViewMode('standard')}>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              onClick={e => e.stopPropagation()}
-              className="bg-white p-8 rounded-2xl w-full max-w-md text-center relative border border-brand-light shadow-2xl"
-            >
-              <button
-                onClick={() => setViewMode('standard')}
-                className="absolute top-4 right-4 text-brand-grey hover:text-brand-text p-1"
-              >
-                <X size={20} />
-              </button>
-              <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4 border border-amber-200">
-                <Shield size={24} className="text-brand-gold" />
-              </div>
-              <h3 className="font-playfair text-xl font-bold mb-2">View in Augmented Reality</h3>
-              <p className="text-brand-grey text-xs mb-6">Scan the QR code below using your mobile device's camera to place this exquisite piece directly in your room.</p>
-              
-              {/* QR Code Placeholder */}
-              <div className="w-48 h-48 bg-neutral-100 border border-neutral-200 p-3 mx-auto mb-6 flex flex-col items-center justify-center relative">
-                <div className="absolute inset-2 border-2 border-brand-gold/25 pointer-events-none" />
-                <svg className="w-40 h-40 text-brand-text" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M3 3h6v6H3V3zm2 2v2h2V5H5zm8-2h6v6h-6V3zm2 2v2h2V5h-2zM3 13h6v6H3v-6zm2 2v2h2v-2H5zm13-2h3v3h-3v-3zm0 5h3v3h-3v-3zM13 13h3v3h-3v-3zm2 3h3v3h-3v-3zM11 11h2v2h-2v-2zm2-8h2v2h-2V3zm-2 2h2v2h-2V5zm0 14h2v2h-2v-2zm-6-6h2v2H5v-2zm14 2h2v2h-2v-2zm-6-2h2v2h-2v-2zm2-2h2v2h-2v-2zm-2-2h2v2h-2V9zm-2 4h2v2h-2v-2zm-2-2h2v2h-2v-2zm2 4h2v2h-2v-2zm6 2h2v2h-2v-2z"/>
-                </svg>
-              </div>
 
-              <div className="text-xs text-brand-grey bg-brand-light p-3 rounded-lg border border-brand-light">
-                Supports iOS (Safari AR QuickLook) and Android (Chrome SceneViewer).
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       <Footer />
     </main>

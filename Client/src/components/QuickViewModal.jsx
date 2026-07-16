@@ -132,12 +132,12 @@ const QuickViewModal = () => {
                 </p>
 
                 {/* Actions */}
-                <div className="flex flex-col gap-2 mt-auto">
+                <div className="flex flex-col gap-2.5 mt-auto">
                   {inStock ? (
-                    <div className="flex gap-2">
+                    <div className="flex gap-3">
                       <button
                         onClick={handleAddToCart}
-                        className="btn-primary flex-1 flex items-center justify-center gap-1.5 text-xs py-3"
+                        className="bg-brand-gold hover:bg-[#a8712a] text-white text-xs font-semibold tracking-widest uppercase py-3.5 flex-1 flex items-center justify-center gap-1.5 transition-all duration-200 shadow-sm"
                         id={`quickview-add-cart-${product.id}`}
                       >
                         <ShoppingBag size={14} />
@@ -145,7 +145,7 @@ const QuickViewModal = () => {
                       </button>
                       <button
                         onClick={handleBuyNow}
-                        className="bg-neutral-950 hover:bg-neutral-900 text-white text-xs font-semibold tracking-wider uppercase py-3 flex-1 flex items-center justify-center gap-1.5 transition-colors border border-transparent rounded-sm"
+                        className="bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-semibold tracking-widest uppercase py-3.5 flex-1 flex items-center justify-center gap-1.5 transition-all duration-200 shadow-sm"
                         id={`quickview-buy-now-${product.id}`}
                       >
                         Buy Now
@@ -154,7 +154,7 @@ const QuickViewModal = () => {
                   ) : (
                     <button
                       onClick={handleNotifyMe}
-                      className="bg-neutral-950 hover:bg-neutral-900 text-white text-xs font-semibold tracking-wider uppercase py-3 w-full flex items-center justify-center gap-1.5 transition-colors border border-transparent rounded-sm"
+                      className="bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-semibold tracking-widest uppercase py-3.5 w-full flex items-center justify-center gap-1.5 transition-all duration-200 shadow-sm"
                       id={`quickview-notify-${product.id}`}
                     >
                       Notify Me
@@ -163,7 +163,7 @@ const QuickViewModal = () => {
                   <Link
                     to={`/products/${product.slug}`}
                     onClick={() => dispatch(closeQuickView())}
-                    className="btn-outline w-full flex items-center justify-center gap-1.5 text-xs py-3 mt-1"
+                    className="border border-neutral-950 hover:bg-neutral-950 hover:text-white text-neutral-950 text-xs font-semibold tracking-widest uppercase py-3.5 w-full flex items-center justify-center gap-1.5 transition-all duration-200 mt-1"
                     id={`quickview-view-full-${product.id}`}
                   >
                     <Eye size={14} />

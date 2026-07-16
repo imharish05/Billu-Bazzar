@@ -14,7 +14,24 @@ const HeroBanner = () => {
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
   const sectionRef = useRef(null);
-  const isVisibleRef = useRef(true);
+  const [isVisible, setIsVisible] = useState(true);
+  const [isScrolling, setIsScrolling] = useState(false);
+
+  useEffect(() => {
+    let timeoutId;
+    const handleScroll = () => {
+      setIsScrolling(true);
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setIsScrolling(false);
+      }, 150);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      clearTimeout(timeoutId);
+    };
+  }, []);
 
   // Pause autoplay + looping animations when banner scrolled out of view —
   // prevents timers/transitions queuing work off-screen that all lands at
@@ -24,7 +41,7 @@ const HeroBanner = () => {
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        isVisibleRef.current = entry.isIntersecting;
+        setIsVisible(entry.isIntersecting);
       },
       { threshold: 0.1 }
     );
@@ -50,14 +67,12 @@ const HeroBanner = () => {
   }, [banners.length]);
 
   useEffect(() => {
-    if (banners.length < 2) return;
+    if (banners.length < 2 || !isVisible || isScrolling) return;
     const timer = setInterval(() => {
-      if (isVisibleRef.current) {
-        next();
-      }
+      next();
     }, AUTOPLAY_INTERVAL);
     return () => clearInterval(timer);
-  }, [banners.length, next]);
+  }, [banners.length, next, isVisible, isScrolling]);
 
   const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
   const handleTouchMove = (e) => { touchEndX.current = e.touches[0].clientX; };
