@@ -29,8 +29,8 @@ const OrderConfirmationPage = () => {
           transition={{ type: 'spring', stiffness: 200, damping: 20 }}
           className="text-center mb-12"
         >
-          <div className="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
-            <CheckCircle size={40} className="text-green-500" strokeWidth={1.5} />
+          <div className="w-24 h-24 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-6 shadow-sm">
+            <CheckCircle size={52} className="text-green-500 animate-pulse" strokeWidth={1.5} />
           </div>
           <h1 className="font-playfair text-4xl font-bold text-brand-text mb-2">Order Confirmed!</h1>
           <p className="text-brand-grey">Thank you for shopping at Billu Bazaar.</p>
@@ -42,26 +42,33 @@ const OrderConfirmationPage = () => {
         {/* Order details grid */}
         {order && (
           <div className="grid md:grid-cols-2 gap-6 mb-8">
-            <div className="bg-white shadow-sm p-5">
-              <h2 className="font-medium mb-3 flex items-center gap-2"><Package size={16} className="text-brand-gold" /> Order Details</h2>
+            <div className="bg-white shadow-sm p-6 border border-brand-light">
+              <h3 className="font-playfair text-lg font-bold text-brand-text mb-4 flex items-center gap-2.5">
+                <Package size={22} className="text-brand-gold" /> Order Details
+              </h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-brand-grey">Order Total</span><span className="font-semibold text-brand-gold">{fmt(order.totalAmount)}</span></div>
                 <div className="flex justify-between"><span className="text-brand-grey">Payment</span><span>{order.paymentMethod}</span></div>
                 <div className="flex justify-between"><span className="text-brand-grey">Items</span><span>{order.items?.length || 0}</span></div>
               </div>
             </div>
-            <div className="bg-white shadow-sm p-5">
-              <h2 className="font-medium mb-3 flex items-center gap-2"><MapPin size={16} className="text-brand-gold" /> Shipping To</h2>
-              <p className="text-sm text-brand-grey">{order.shippingAddress?.line1}</p>
-              <p className="text-sm text-brand-grey">{order.shippingAddress?.city}, {order.shippingAddress?.state}</p>
-              <p className="text-sm text-brand-grey">{order.shippingAddress?.pincode}</p>
+            <div className="bg-white shadow-sm p-6 border border-brand-light">
+              <h3 className="font-playfair text-lg font-bold text-brand-text mb-4 flex items-center gap-2.5">
+                <MapPin size={22} className="text-brand-gold" /> Shipping To
+              </h3>
+              <p className="text-sm text-brand-grey">{order.shippingAddress?.flatHouse || order.shippingAddress?.line1}</p>
+              <p className="text-sm text-brand-grey">
+                {order.shippingAddress?.areaStreet || order.shippingAddress?.line2 || ''}
+                {order.shippingAddress?.landmark ? ` (near ${order.shippingAddress.landmark})` : ''}
+              </p>
+              <p className="text-sm text-brand-grey mt-1">{order.shippingAddress?.city}, {order.shippingAddress?.state} {order.shippingAddress?.pincode}</p>
             </div>
           </div>
         )}
 
         {/* Order Tracking */}
-        <div className="bg-white shadow-sm p-6 mb-6">
-          <h2 className="font-playfair text-lg font-semibold mb-6">Order Tracking</h2>
+        <div className="bg-white shadow-sm p-6 mb-6 border border-brand-light">
+          <h3 className="font-playfair text-lg font-bold text-brand-text mb-6">Order Tracking</h3>
           <div className="relative">
             <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-brand-light" aria-hidden="true" />
             <div className="space-y-6">
@@ -100,12 +107,6 @@ const OrderConfirmationPage = () => {
         <div className="flex flex-col sm:flex-row gap-3">
           <button className="btn-outline flex items-center justify-center gap-2 flex-1" id="download-invoice">
             <Download size={16} /> Download Invoice
-          </button>
-          <button
-            className="btn-outline flex items-center justify-center gap-2 flex-1 border-green-500 text-green-600 hover:bg-green-500 hover:text-white"
-            id="whatsapp-updates"
-          >
-            <MessageCircle size={16} /> Get WhatsApp Updates
           </button>
           <Link to="/account?tab=orders" className="btn-primary flex items-center justify-center gap-2 flex-1" id="view-orders">
             Track My Orders

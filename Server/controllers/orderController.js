@@ -55,7 +55,7 @@ const getOne = async (req, res) => {
 
 const placeOrder = async (req, res) => {
   try {
-    const { items, shippingAddress, paymentMethod, couponCode, referralCode } = req.body;
+    const { items, shippingAddress, billingAddress, paymentMethod, couponCode, referralCode } = req.body;
     if (!items?.length) return res.status(400).json({ success: false, message: 'No items in order' });
 
     let subtotal = 0;
@@ -100,6 +100,7 @@ const placeOrder = async (req, res) => {
       affiliateId,
       couponId, status: 'PENDING', paymentStatus: 'UNPAID', paymentMethod,
       subtotal, discountAmount, shippingAmount, taxAmount, totalAmount, shippingAddress,
+      billingAddress: billingAddress || shippingAddress,
     });
 
     for (const item of orderItems) await OrderItem.create({ ...item, orderId: order.id });

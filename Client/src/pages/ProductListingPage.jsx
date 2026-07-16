@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useSearchParams, Link, useParams } from 'react-router-dom';
+import { useSearchParams, Link, useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { SlidersHorizontal, ChevronDown, Grid2X2, List, X } from 'lucide-react';
 import { fetchProducts } from '../redux/slices/productsSlice';
@@ -41,6 +41,7 @@ const dummyBrands = [
 const ProductListingPage = () => {
   const dispatch = useDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { slug, sub, subsub } = useParams();
   const { items: products, loading, total, totalPages } = useSelector(s => s.products);
   const { items: categories } = useSelector(s => s.categories);
@@ -99,7 +100,15 @@ const ProductListingPage = () => {
   }, [dispatch]);
 
   const handleFilter = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
+    if (key === 'category') {
+      if (value === '') {
+        navigate('/products');
+      } else {
+        navigate(`/category/${value}`);
+      }
+    } else {
+      setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
+    }
   };
 
   const handleSort = (val) => {
@@ -274,13 +283,19 @@ const ProductListingPage = () => {
             </div>
             <h2 className="font-playfair text-2xl mb-2">No products found</h2>
             <p className="text-brand-grey mb-6">Try adjusting your filters or browse a different category.</p>
-            <button onClick={() => setSearchParams({})} className="btn-primary">
+            <button
+              onClick={() => {
+                setSearchParams({});
+                navigate('/products');
+              }}
+              className="btn-primary"
+            >
               Clear Filters
             </button>
           </div>
         ) : (
           <>
-            <div ref={revealRef} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+            <div ref={revealRef} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
               {products.map((product, i) => (
                 <ProductCard key={product.id} product={product} index={i} />
               ))}

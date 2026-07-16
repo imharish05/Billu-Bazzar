@@ -1,7 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDispatch, useSelector } from 'react-redux';
 import { X, Star, Heart, ShoppingBag, Eye } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { closeQuickView } from '../redux/slices/uiSlice';
 import { addLocal, openCart } from '../redux/slices/cartSlice';
 import { formatPrice } from '../utils/currency';
@@ -9,17 +10,39 @@ import { formatPrice } from '../utils/currency';
 /* Glass surface 2: Quick-view modal — rgba(255,255,255,0.60) + blur(16px) + gold-tinted border glow */
 const QuickViewModal = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { isQuickViewOpen, quickViewProduct: product } = useSelector(s => s.ui);
   const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
+  const { customer } = useSelector(s => s.auth);
 
   if (!product) return null;
 
   const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
 
+  const inStock = product.inStock !== false;
+
   const handleAddToCart = () => {
     dispatch(addLocal({ productId: product.id, name: product.name, image: product.images?.[0], priceAtAdd: product.price, quantity: 1 }));
     dispatch(closeQuickView());
     dispatch(openCart());
+  };
+
+  const handleBuyNow = () => {
+    dispatch(addLocal({ productId: product.id, name: product.name, image: product.images?.[0], priceAtAdd: product.price, quantity: 1 }));
+    dispatch(closeQuickView());
+    navigate('/checkout');
+  };
+
+  const handleNotifyMe = () => {
+    toast.success(`We will notify you at ${customer?.email || 'your email'} once ${product.name} is back in stock!`, {
+      iconTheme: { primary: '#C58837', secondary: 'white' },
+      style: {
+        border: '1px solid #C58837',
+        color: '#111111',
+        fontFamily: 'Montserrat, sans-serif'
+      }
+    });
+    dispatch(closeQuickView());
   };
 
   const discount = product.comparePrice
@@ -109,22 +132,41 @@ const QuickViewModal = () => {
                 </p>
 
                 {/* Actions */}
-                <div className="flex flex-col gap-3 mt-auto">
-                  <button
-                    onClick={handleAddToCart}
-                    className="btn-primary flex items-center justify-center gap-2"
-                    id={`quickview-add-cart-${product.id}`}
-                  >
-                    <ShoppingBag size={16} />
-                    Add to Cart
-                  </button>
+                <div className="flex flex-col gap-2 mt-auto">
+                  {inStock ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleAddToCart}
+                        className="btn-primary flex-1 flex items-center justify-center gap-1.5 text-xs py-3"
+                        id={`quickview-add-cart-${product.id}`}
+                      >
+                        <ShoppingBag size={14} />
+                        Add to Cart
+                      </button>
+                      <button
+                        onClick={handleBuyNow}
+                        className="bg-neutral-950 hover:bg-neutral-900 text-white text-xs font-semibold tracking-wider uppercase py-3 flex-1 flex items-center justify-center gap-1.5 transition-colors border border-transparent rounded-sm"
+                        id={`quickview-buy-now-${product.id}`}
+                      >
+                        Buy Now
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleNotifyMe}
+                      className="bg-neutral-950 hover:bg-neutral-900 text-white text-xs font-semibold tracking-wider uppercase py-3 w-full flex items-center justify-center gap-1.5 transition-colors border border-transparent rounded-sm"
+                      id={`quickview-notify-${product.id}`}
+                    >
+                      Notify Me
+                    </button>
+                  )}
                   <Link
                     to={`/products/${product.slug}`}
                     onClick={() => dispatch(closeQuickView())}
-                    className="btn-outline flex items-center justify-center gap-2"
+                    className="btn-outline w-full flex items-center justify-center gap-1.5 text-xs py-3 mt-1"
                     id={`quickview-view-full-${product.id}`}
                   >
-                    <Eye size={16} />
+                    <Eye size={14} />
                     View Full Details
                   </Link>
                 </div>

@@ -546,7 +546,7 @@ const HomePage = () => {
                 {productsToRender.map((product, i) => (
                   <div
                     key={product.id || i}
-                    className="w-[calc(50%-8px)] md:w-[calc(33.333%-16px)] lg:w-[calc(20%-15px)] xl:w-[calc(16.666%-15px)] flex-shrink-0"
+                    className="w-[calc(50%-8px)] md:w-[calc(33.333%-16px)] lg:w-[calc(20%-15px)] flex-shrink-0"
                   >
                     <ProductCard product={product} index={i} />
                   </div>
@@ -958,13 +958,13 @@ const HomePage = () => {
             <SectionHeader eyebrow="Customer Favourites" title="Most Loved Pieces" />
           </ScrollReveal>
 
-          {/* Featured items — top 6 */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6 mb-20">
+          {/* Featured items — top 5 */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6 mb-20">
             {(featured.length
-              ? featured.slice(0, 6)
-              : products.filter(p => p.isFeatured).slice(0, 6).length
-                ? products.filter(p => p.isFeatured).slice(0, 6)
-                : products.slice(0, 6)
+              ? featured.slice(0, 5)
+              : products.filter(p => p.isFeatured).slice(0, 5).length
+                ? products.filter(p => p.isFeatured).slice(0, 5)
+                : products.slice(0, 5)
             ).map((product, i) => (
               <ProductCard key={product.id} product={product} index={i} />
             ))}

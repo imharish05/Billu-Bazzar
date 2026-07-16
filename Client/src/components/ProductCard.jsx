@@ -87,11 +87,7 @@ const ProductCard = ({ product, index = 0 }) => {
         </button>
 
         {/* Hover overlay — quick-view + add to cart */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          whileHover={{ opacity: 1, y: 0 }}
-          className="absolute bottom-0 left-0 right-0 bg-black/90 flex opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-        >
+        <div className="absolute bottom-0 left-0 right-0 bg-black/90 flex translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out z-10">
           <button
             onClick={(e) => { e.preventDefault(); dispatch(openQuickView(product)); }}
             className="flex-1 flex items-center justify-center gap-2 py-3 text-white text-xs font-medium hover:bg-white/10 transition-colors border-r border-white/20 focus-visible:outline-white"
@@ -108,7 +104,7 @@ const ProductCard = ({ product, index = 0 }) => {
           >
             <ShoppingBag size={14} /> Add to Cart
           </button>
-        </motion.div>
+        </div>
       </Link>
 
       {/* Info */}

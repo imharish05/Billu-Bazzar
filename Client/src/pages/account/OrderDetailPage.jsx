@@ -109,6 +109,7 @@ const OrderDetailPage = () => {
     const lastName = address.lastName || '';
     const name = address.name || (firstName || lastName ? `${firstName} ${lastName}`.trim() : '');
     const phone = address.phone || '';
+    const email = address.email || '';
     
     const line1 = address.flatHouse || address.addressLine1 || address.line1 || '';
     const line2 = address.areaStreet || address.addressLine2 || address.line2 || '';
@@ -128,7 +129,11 @@ const OrderDetailPage = () => {
           {`, ${city}, ${state} ${pincode}`}
           {country && `, ${country}`}
         </p>
-        {phone && <p className="text-neutral-500 text-xs mt-2">Phone: {phone}</p>}
+        {(phone || email) && (
+          <p className="text-neutral-500 text-xs mt-2">
+            {phone && `Phone: ${phone}`} {phone && email && ' · '} {email && `Email: ${email}`}
+          </p>
+        )}
       </div>
     );
   };

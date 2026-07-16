@@ -34,6 +34,21 @@ const CheckoutPage = () => {
     firstName: customer?.name ? customer.name.split(' ')[0] : '',
     lastName: customer?.name ? customer.name.split(' ').slice(1).join(' ') : '',
     phone: customer?.phone || '',
+    email: customer?.email || '',
+    flatHouse: '',
+    areaStreet: '',
+    landmark: '',
+    city: '',
+    state: '',
+    pincode: '',
+    country: 'India',
+  });
+  const [deliverySameAsBilling, setDeliverySameAsBilling] = useState(true);
+  const [billingAddress, setBillingAddress] = useState({
+    firstName: customer?.name ? customer.name.split(' ')[0] : '',
+    lastName: customer?.name ? customer.name.split(' ').slice(1).join(' ') : '',
+    phone: customer?.phone || '',
+    email: customer?.email || '',
     flatHouse: '',
     areaStreet: '',
     landmark: '',
@@ -43,6 +58,13 @@ const CheckoutPage = () => {
     country: 'India',
   });
   const [paymentMethod, setPaymentMethod] = useState('Razorpay UPI');
+
+  const handleToggleDeliverySame = (checked) => {
+    setDeliverySameAsBilling(checked);
+    if (!checked) {
+      setAddress({ ...billingAddress });
+    }
+  };
 
   const shipping = subtotal >= 1499 ? 0 : 99;
   const tax = subtotal * 0.05;
@@ -70,7 +92,9 @@ const CheckoutPage = () => {
       const referralCode = localStorage.getItem('bb_referral') || undefined;
       await dispatch(placeOrder({
         items: items.map(i => ({ productId: i.productId, quantity: i.quantity, selectedVariant: i.selectedVariant })),
-        shippingAddress: address, paymentMethod, referralCode,
+        shippingAddress: deliverySameAsBilling ? billingAddress : address,
+        billingAddress: billingAddress,
+        paymentMethod, referralCode,
       })).unwrap();
       localStorage.removeItem('bb_referral');
       dispatch(clearLocal());
@@ -117,12 +141,13 @@ const CheckoutPage = () => {
                   transition={{ duration: 0.25 }}
                   className="bg-white shadow-sm p-6"
                 >
-                  <h2 className="font-playfair text-xl font-semibold mb-5">Delivery Address</h2>
+                  <h2 className="font-playfair text-xl font-semibold mb-5">Billing Address</h2>
                   <div className="grid sm:grid-cols-2 gap-4">
                     {[
                       { field: 'firstName', label: 'First name', required: true },
                       { field: 'lastName', label: 'Last name', required: true },
-                      { field: 'phone', label: 'Phone Number', required: true, full: true },
+                      { field: 'phone', label: 'Phone Number', required: true },
+                      { field: 'email', label: 'Email Address', required: true },
                       { field: 'flatHouse', label: 'Flat, House no., Building, Company, Apartment', required: true, full: true },
                       { field: 'areaStreet', label: 'Area, Street, Sector, Village', required: true, full: true },
                       { field: 'landmark', label: 'Landmark', required: false, full: true },
@@ -131,15 +156,19 @@ const CheckoutPage = () => {
                       { field: 'pincode', label: 'Pincode', required: true },
                       { field: 'country', label: 'Country', required: true },
                     ].map(({ field, label, required, full }) => (
-                      <div key={field} className={full ? 'sm:col-span-2' : ''}>
-                        <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor={`checkout-${field}`}>
+                      <div key={`billing-${field}`} className={full ? 'sm:col-span-2' : ''}>
+                        <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor={`billing-${field}`}>
                           {label} {required && <span className="text-red-400">*</span>}
                         </label>
                         <input
-                          id={`checkout-${field}`}
-                          type="text"
-                          value={address[field]}
-                          onChange={e => setAddress(prev => ({ ...prev, [field]: e.target.value }))}
+                          id={`billing-${field}`}
+                          type={field === 'email' ? 'email' : 'text'}
+                          value={billingAddress[field]}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setBillingAddress(prev => ({ ...prev, [field]: val }));
+                            if (field === 'email') setEmail(val);
+                          }}
                           className="w-full border border-brand-light px-3 py-2.5 text-sm focus:outline-none focus:border-brand-gold"
                           placeholder={label}
                           required={required}
@@ -149,6 +178,66 @@ const CheckoutPage = () => {
                     ))}
                   </div>
 
+                  {/* Delivery address checkbox */}
+                  <div className="mt-6 mb-4 flex items-center gap-3">
+                    <input
+                      id="delivery-same-as-billing"
+                      type="checkbox"
+                      checked={deliverySameAsBilling}
+                      onChange={(e) => handleToggleDeliverySame(e.target.checked)}
+                      className="w-4 h-4 accent-brand-gold cursor-pointer"
+                    />
+                    <label htmlFor="delivery-same-as-billing" className="text-sm font-medium text-brand-text cursor-pointer select-none">
+                      Delivery address is same as billing address
+                    </label>
+                  </div>
+
+                  {/* Delivery Address fields (collapsible via Framer Motion) */}
+                  <AnimatePresence initial={false}>
+                    {!deliverySameAsBilling && (
+                      <motion.div
+                        key="delivery-address-section"
+                        initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                        animate={{ height: 'auto', opacity: 1, marginTop: 24 }}
+                        exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                        transition={{ duration: 0.3, ease: 'easeInOut' }}
+                        className="overflow-hidden"
+                      >
+                        <h2 className="font-playfair text-xl font-semibold mb-5 border-t border-brand-light pt-6">Delivery Address</h2>
+                        <div className="grid sm:grid-cols-2 gap-4">
+                          {[
+                            { field: 'firstName', label: 'First name', required: true },
+                            { field: 'lastName', label: 'Last name', required: true },
+                            { field: 'phone', label: 'Phone Number', required: true },
+                            { field: 'email', label: 'Email Address', required: true },
+                            { field: 'flatHouse', label: 'Flat, House no., Building, Company, Apartment', required: true, full: true },
+                            { field: 'areaStreet', label: 'Area, Street, Sector, Village', required: true, full: true },
+                            { field: 'landmark', label: 'Landmark', required: false, full: true },
+                            { field: 'city', label: 'Town/City', required: true },
+                            { field: 'state', label: 'State', required: true },
+                            { field: 'pincode', label: 'Pincode', required: true },
+                            { field: 'country', label: 'Country', required: true },
+                          ].map(({ field, label, required, full }) => (
+                            <div key={`delivery-${field}`} className={full ? 'sm:col-span-2' : ''}>
+                              <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor={`delivery-${field}`}>
+                                {label} {required && <span className="text-red-400">*</span>}
+                              </label>
+                              <input
+                                id={`delivery-${field}`}
+                                type={field === 'email' ? 'email' : 'text'}
+                                value={address[field]}
+                                onChange={e => setAddress(prev => ({ ...prev, [field]: e.target.value }))}
+                                className="w-full border border-brand-light px-3 py-2.5 text-sm focus:outline-none focus:border-brand-gold"
+                                placeholder={label}
+                                required={required}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   {/* Premium Email OTP verification */}
                   <div className="mt-8 p-6 border border-brand-light bg-[#FCFAF7] rounded-sm shadow-[0_4px_12px_rgba(0,0,0,0.02)]">
                     <div className="flex items-center gap-2 mb-3">
@@ -156,7 +245,7 @@ const CheckoutPage = () => {
                       <h3 className="font-playfair text-sm font-semibold tracking-wider text-brand-text uppercase">Secure Email Verification</h3>
                     </div>
                     <p className="text-xs text-brand-grey mb-4 leading-relaxed">
-                      To safeguard your transaction and authenticate your luxury purchase, please verify your email address.
+                      To safeguard your transaction and authenticate your purchase, please verify your email address.
                     </p>
 
                     <div className="space-y-4">
@@ -259,6 +348,40 @@ const CheckoutPage = () => {
 
                   <button
                     onClick={() => {
+                      // Validate billing address fields
+                      const requiredFields = [
+                        { key: 'firstName', label: 'First name' },
+                        { key: 'lastName', label: 'Last name' },
+                        { key: 'phone', label: 'Phone Number' },
+                        { key: 'email', label: 'Email Address' },
+                        { key: 'flatHouse', label: 'Flat/House Address' },
+                        { key: 'areaStreet', label: 'Area/Street' },
+                        { key: 'city', label: 'Town/City' },
+                        { key: 'state', label: 'State' },
+                        { key: 'pincode', label: 'Pincode' },
+                        { key: 'country', label: 'Country' }
+                      ];
+                      for (const f of requiredFields) {
+                        if (!billingAddress[f.key]?.trim()) {
+                          toast.error(`Please enter billing ${f.label}`, {
+                            style: { border: '1px solid #C58837', color: '#111111', fontFamily: 'Montserrat, sans-serif' }
+                          });
+                          return;
+                        }
+                      }
+
+                      // Validate delivery address fields if not same
+                      if (!deliverySameAsBilling) {
+                        for (const f of requiredFields) {
+                          if (!address[f.key]?.trim()) {
+                            toast.error(`Please enter delivery ${f.label}`, {
+                              style: { border: '1px solid #C58837', color: '#111111', fontFamily: 'Montserrat, sans-serif' }
+                            });
+                            return;
+                          }
+                        }
+                      }
+
                       if (!isVerified) {
                         toast.error('Please verify your email address to proceed', {
                           style: {
@@ -289,7 +412,7 @@ const CheckoutPage = () => {
                 >
                   <h2 className="font-playfair text-xl font-semibold mb-5">Payment Method</h2>
                   <div className="space-y-3">
-                    {['Razorpay UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Cash on Delivery'].map(method => (
+                    {['Razorpay UPI', 'Cash on Delivery'].map(method => (
                       <label key={method} className="flex items-center gap-3 p-3 border border-brand-light cursor-pointer hover:border-brand-gold transition-colors" id={`pay-${method.replace(/\s/g,'-')}`}>
                         <input
                           type="radio"
@@ -304,16 +427,6 @@ const CheckoutPage = () => {
                       </label>
                     ))}
                   </div>
-
-                  {(paymentMethod === 'Credit Card' || paymentMethod === 'Debit Card') && (
-                    <div className="mt-4 p-4 bg-brand-light space-y-3">
-                      <input className="w-full border border-white px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" placeholder="Card Number" id="card-number" aria-label="Card number" />
-                      <div className="grid grid-cols-2 gap-3">
-                        <input className="border border-white px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" placeholder="MM/YY" id="card-expiry" aria-label="Expiry" />
-                        <input className="border border-white px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" placeholder="CVV" id="card-cvv" aria-label="CVV" />
-                      </div>
-                    </div>
-                  )}
 
                   <div className="flex gap-3 mt-6">
                     <button onClick={() => setStep(1)} className="btn-outline flex-1" id="step2-back">Back</button>
@@ -331,16 +444,37 @@ const CheckoutPage = () => {
                   className="bg-white shadow-sm p-6 space-y-6"
                 >
                   <h2 className="font-playfair text-xl font-semibold">Review Your Order</h2>
-                  <div>
-                    <h3 className="font-medium text-sm mb-2">Delivery to</h3>
-                    <p className="text-sm text-brand-grey">{address.firstName} {address.lastName} · {address.phone}</p>
-                    <p className="text-sm text-brand-grey">
-                      {address.flatHouse}, {address.areaStreet}
-                      {address.landmark && `, near ${address.landmark}`}
-                    </p>
-                    <p className="text-sm text-brand-grey">
-                      {address.city}, {address.state} {address.pincode}, {address.country}
-                    </p>
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    <div>
+                      <h3 className="font-medium text-sm mb-2">Billing Address</h3>
+                      <p className="text-sm text-brand-grey">{billingAddress.firstName} {billingAddress.lastName} · {billingAddress.phone}</p>
+                      {billingAddress.email && <p className="text-xs text-brand-grey mb-1">{billingAddress.email}</p>}
+                      <p className="text-sm text-brand-grey">
+                        {billingAddress.flatHouse}, {billingAddress.areaStreet}
+                        {billingAddress.landmark && `, near ${billingAddress.landmark}`}
+                      </p>
+                      <p className="text-sm text-brand-grey">
+                        {billingAddress.city}, {billingAddress.state} {billingAddress.pincode}, {billingAddress.country}
+                      </p>
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-sm mb-2">Delivery to (Shipping)</h3>
+                      {deliverySameAsBilling ? (
+                        <p className="text-sm text-brand-grey italic">Same as billing address</p>
+                      ) : (
+                        <>
+                          <p className="text-sm text-brand-grey">{address.firstName} {address.lastName} · {address.phone}</p>
+                          {address.email && <p className="text-xs text-brand-grey mb-1">{address.email}</p>}
+                          <p className="text-sm text-brand-grey">
+                            {address.flatHouse}, {address.areaStreet}
+                            {address.landmark && `, near ${address.landmark}`}
+                          </p>
+                          <p className="text-sm text-brand-grey">
+                            {address.city}, {address.state} {address.pincode}, {address.country}
+                          </p>
+                        </>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <h3 className="font-medium text-sm mb-2">Payment via</h3>
