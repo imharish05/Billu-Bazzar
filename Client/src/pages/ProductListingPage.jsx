@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useSearchParams, Link, useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -8,6 +8,8 @@ import { fetchCategories } from '../redux/slices/categoriesSlice';
 import ProductCard from '../components/ProductCard';
 import Footer from '../components/Footer';
 import { formatPrice } from '../utils/currency';
+import PriceRangeSlider from '../components/PriceRangeSlider';
+import api from '../services/api';
 
 /* Scroll-reveal using IntersectionObserver + Framer Motion — Vengeance UI pattern (manual impl) */
 const useReveal = () => {
@@ -49,16 +51,34 @@ const ProductListingPage = () => {
   const routeCategory = subsub || sub || slug;
   const currentCategory = routeCategory || searchParams.get('category') || '';
 
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 50000 });
+
   const [filters, setFilters] = useState({
     category: currentCategory,
     search: searchParams.get('search') || '',
     minPrice: searchParams.get('minPrice') || '',
     maxPrice: searchParams.get('maxPrice') || '',
     vendorId: searchParams.get('vendorId') || '',
+    minDiscount: searchParams.get('minDiscount') || '',
+    maxDiscount: searchParams.get('maxDiscount') || '',
     sort: 'createdAt',
     order: 'DESC',
     page: 1,
   });
+
+  const applyPriceRange = useCallback((min, max) => {
+    setPriceRange(pr => ({
+      ...pr,
+      _applied: { min, max },
+    }));
+    setFilters(prev => ({
+      ...prev,
+      minPrice: min <= 0 ? '' : String(min),
+      maxPrice: min <= 0 && max >= priceRange.max ? '' : String(max),
+      page: 1,
+    }));
+  }, [priceRange.max]);
+
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [revealRef, revealed] = useReveal();
 
@@ -67,19 +87,31 @@ const ProductListingPage = () => {
     document.title = 'Shop All — Billu Bazaar';
   }, [filters, dispatch]);
 
+  // Fetch real min/max price from DB on mount
+  useEffect(() => {
+    api.get('/products/price-range').then(res => {
+      if (res.data?.success) {
+        setPriceRange({ min: res.data.minPrice, max: res.data.maxPrice });
+      }
+    }).catch(() => {});
+  }, []);
   useEffect(() => {
     const category = routeCategory || searchParams.get('category') || '';
     const search = searchParams.get('search') || '';
     const minPrice = searchParams.get('minPrice') || '';
     const maxPrice = searchParams.get('maxPrice') || '';
     const vendorId = searchParams.get('vendorId') || '';
+    const minDiscount = searchParams.get('minDiscount') || '';
+    const maxDiscount = searchParams.get('maxDiscount') || '';
     setFilters(prev => {
       if (
         prev.category !== category ||
         prev.search !== search ||
         prev.minPrice !== minPrice ||
         prev.maxPrice !== maxPrice ||
-        prev.vendorId !== vendorId
+        prev.vendorId !== vendorId ||
+        prev.minDiscount !== minDiscount ||
+        prev.maxDiscount !== maxDiscount
       ) {
         return {
           ...prev,
@@ -88,6 +120,8 @@ const ProductListingPage = () => {
           minPrice,
           maxPrice,
           vendorId,
+          minDiscount,
+          maxDiscount,
           page: 1,
         };
       }
@@ -124,6 +158,25 @@ const ProductListingPage = () => {
       featured: val === 'featured' ? true : undefined,
       page: 1,
     }));
+  };
+
+  const handleDiscountChange = (val) => {
+    if (val === '') {
+      setFilters(prev => ({
+        ...prev,
+        minDiscount: '',
+        maxDiscount: '',
+        page: 1,
+      }));
+    } else {
+      const [min, max] = val.split('-');
+      setFilters(prev => ({
+        ...prev,
+        minDiscount: min,
+        maxDiscount: max,
+        page: 1,
+      }));
+    }
   };
 
   const selectedCollection = filters.newArrival
@@ -247,13 +300,6 @@ const ProductListingPage = () => {
     );
   };
 
-  const parentCategories = categories.filter(c => !c.parentId);
-  const priceRanges = [
-    { label: `Under ${fmt(1000)}`, min: 0, max: 1000 },
-    { label: `${fmt(1000)} – ${fmt(5000)}`, min: 1000, max: 5000 },
-    { label: `${fmt(5000)} – ${fmt(15000)}`, min: 5000, max: 15000 },
-    { label: `Above ${fmt(15000)}`, min: 15000, max: 999999 },
-  ];
 
   return (
     <main id="main-content">
@@ -289,22 +335,17 @@ const ProductListingPage = () => {
             {/* Category Tree */}
             {renderCategoryTree(categories, slug, sub, subsub)}
 
-            {/* Price Range */}
+            {/* Price Range Slider */}
             <div className="pt-6 border-t border-brand-light">
               <p className="font-playfair text-sm font-bold uppercase tracking-wider text-brand-text mb-4">Price Range</p>
-              <div className="space-y-2.5">
-                {priceRanges.map(range => (
-                  <label key={range.label} className="flex items-center gap-2.5 text-xs text-brand-grey cursor-pointer hover:text-brand-text select-none">
-                    <input
-                      type="radio"
-                      name="priceRangeDesktop"
-                      onChange={() => handleFilter('minPrice', range.min) || handleFilter('maxPrice', range.max)}
-                      className="w-3.5 h-3.5 accent-brand-gold cursor-pointer"
-                    />
-                    {range.label}
-                  </label>
-                ))}
-              </div>
+              <PriceRangeSlider
+                priceMin={priceRange.min}
+                priceMax={priceRange.max}
+                initialMin={Number(filters.minPrice) || priceRange.min}
+                initialMax={Number(filters.maxPrice) || priceRange.max}
+                fmt={fmt}
+                onApply={applyPriceRange}
+              />
             </div>
 
             {/* Collection Filter section removed (placed in top bar dropdown) */}
@@ -363,6 +404,25 @@ const ProductListingPage = () => {
                   </select>
                 </div>
 
+                {/* Discount Filter Dropdown */}
+                <div className="flex items-center gap-2">
+                  <label htmlFor="products-discount" className="text-xs font-semibold uppercase tracking-wider text-brand-grey whitespace-nowrap">
+                    Discount:
+                  </label>
+                  <select
+                    id="products-discount"
+                    value={filters.minDiscount ? `${filters.minDiscount}-${filters.maxDiscount}` : ''}
+                    onChange={e => handleDiscountChange(e.target.value)}
+                    className="border border-brand-light text-xs px-3 py-2 bg-white text-brand-text focus:outline-none focus:border-brand-gold"
+                  >
+                    <option value="">All Discounts</option>
+                    <option value="1-10">Upto 10%</option>
+                    <option value="1-25">Upto 25%</option>
+                    <option value="1-50">Upto 50%</option>
+                    <option value="51-100">Above 50%</option>
+                  </select>
+                </div>
+
                 {/* Sort By Dropdown */}
                 <div className="flex items-center gap-2">
                   <label htmlFor="products-sort" className="text-xs font-semibold uppercase tracking-wider text-brand-grey whitespace-nowrap">
@@ -403,22 +463,17 @@ const ProductListingPage = () => {
                   {renderCategoryTree(categories, slug, sub, subsub)}
                 </div>
 
-                {/* Price range */}
+                {/* Price range slider */}
                 <div>
                   <p className="font-medium text-sm mb-3">Price Range</p>
-                  <div className="space-y-2">
-                    {priceRanges.map(range => (
-                      <label key={range.label} className="flex items-center gap-2 text-sm text-brand-grey cursor-pointer hover:text-brand-text">
-                        <input
-                          type="radio"
-                          name="priceRange"
-                          onChange={() => handleFilter('minPrice', range.min) || handleFilter('maxPrice', range.max)}
-                          className="accent-brand-gold"
-                        />
-                        {range.label}
-                      </label>
-                    ))}
-                  </div>
+                  <PriceRangeSlider
+                    priceMin={priceRange.min}
+                    priceMax={priceRange.max}
+                    initialMin={Number(filters.minPrice) || priceRange.min}
+                    initialMax={Number(filters.maxPrice) || priceRange.max}
+                    fmt={fmt}
+                    onApply={applyPriceRange}
+                  />
                 </div>
 
                 {/* Collection Filter section removed (placed in top bar dropdown) */}

@@ -445,7 +445,7 @@ const ProductDetailsPage = () => {
         {/* Tabs — Description / Reviews */}
         <div className="mt-16 border-t border-brand-light" id="reviews">
           <div className="flex" role="tablist">
-            {['description', 'reviews', 'care'].map(tab => (
+            {['description', 'reviews'/*, 'care'*/].map(tab => (
               <button
                 key={tab}
                 role="tab"
@@ -492,7 +492,7 @@ const ProductDetailsPage = () => {
                 ))}
               </div>
             )}
-            {activeTab === 'care' && (
+            {/* {activeTab === 'care' && (
               <div className="max-w-lg space-y-3">
                 {['Dry clean recommended', 'Store in a cool, dry place', 'Do not bleach', 'Iron on low heat with cloth cover', 'Avoid direct sunlight for extended periods'].map(tip => (
                   <div key={tip} className="flex items-start gap-3 text-sm text-brand-grey">
@@ -501,7 +501,7 @@ const ProductDetailsPage = () => {
                   </div>
                 ))}
               </div>
-            )}
+            )} */}
           </div>
         </div>
       </div>

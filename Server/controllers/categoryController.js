@@ -57,7 +57,9 @@ const getTree = async (req, res) => {
         }
       ],
       order: [
-        ['sortOrder', 'ASC']
+        ['sortOrder', 'ASC'],
+        [{ model: SubCategory, as: 'subcategories' }, 'sortOrder', 'ASC'],
+        [{ model: SubCategory, as: 'subcategories' }, { model: SubSubCategory, as: 'subsubcategories' }, 'sortOrder', 'ASC'],
       ]
     });
 
@@ -224,4 +226,20 @@ const remove = async (req, res) => {
   }
 };
 
-module.exports = { getTree, getAll, create, update, remove };
+const reorder = async (req, res) => {
+  try {
+    const { items } = req.body; // [{ id, sortOrder }]
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, message: 'items array required' });
+    }
+    await Promise.all(
+      items.map(({ id, sortOrder }) => Category.update({ sortOrder }, { where: { id } }))
+    );
+    res.json({ success: true });
+  } catch (err) {
+    return handleDBError(err, res, 'category');
+  }
+};
+
+module.exports = { getTree, getAll, create, update, remove, reorder };
+

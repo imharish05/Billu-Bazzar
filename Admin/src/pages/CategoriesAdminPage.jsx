@@ -1,7 +1,22 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Edit2, Trash2, X, Upload } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import AdminLayout from '../components/AdminLayout';
+import Switch from '../components/Switch';
+import SortableRow from '../components/SortableRow';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -20,11 +35,14 @@ const CategoriesAdminPage = () => {
 
   const fileInputRef = useRef(null);
 
-  const loadCategories = async () => {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  const loadCategories = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.get('/categories?all=true');
-      // Filter only parent categories
       const parents = (res.data.categories || []).filter(c => !c.parentId);
       setCategories(parents);
     } catch (err) {
@@ -32,11 +50,32 @@ const CategoriesAdminPage = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadCategories();
   }, []);
+
+  useEffect(() => { loadCategories(); }, [loadCategories]);
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = categories.findIndex(c => c.id === active.id);
+    const newIndex = categories.findIndex(c => c.id === over.id);
+    const reordered = arrayMove(categories, oldIndex, newIndex);
+
+    // Optimistic update
+    setCategories(reordered);
+
+    // Persist to server
+    try {
+      await api.patch('/categories/reorder', {
+        items: reordered.map((cat, idx) => ({ id: cat.id, sortOrder: idx })),
+      });
+      toast.success('Order saved!');
+    } catch (err) {
+      toast.error('Failed to save order');
+      loadCategories(); // revert
+    }
+  };
 
   const openModal = (cat = null) => {
     setEditing(cat);
@@ -88,12 +127,10 @@ const CategoriesAdminPage = () => {
       fd.append('slug', form.slug.trim());
       fd.append('isActive', String(form.isActive));
       fd.append('showHeader', String(form.showHeader));
-      fd.append('parentId', ''); // Strictly parent category
+      fd.append('parentId', '');
 
       const file = imageFile || fileInputRef.current?.files?.[0];
-      if (file) {
-        fd.append('image', file);
-      }
+      if (file) fd.append('image', file);
 
       if (editing) {
         await api.put(`/categories/${editing.id}`, fd);
@@ -118,9 +155,7 @@ const CategoriesAdminPage = () => {
       toast.success(deleteRes.data.message || 'Category deleted successfully.');
       loadCategories();
     } catch (err) {
-      const errMsg = err.response?.data?.message || err.message || 'Failed to delete category';
-      toast.error(errMsg);
-      console.error(err);
+      toast.error(err.response?.data?.message || err.message || 'Failed to delete category');
     }
   };
 
@@ -133,10 +168,7 @@ const CategoriesAdminPage = () => {
         </p>
         <div className="flex justify-end gap-2 mt-2">
           <button
-            onClick={() => {
-              toast.dismiss(t.id);
-              executeDelete(id);
-            }}
+            onClick={() => { toast.dismiss(t.id); executeDelete(id); }}
             className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold uppercase tracking-wider transition-colors rounded shadow-sm"
           >
             Yes, Delete
@@ -149,17 +181,13 @@ const CategoriesAdminPage = () => {
           </button>
         </div>
       </div>
-    ), {
-      duration: 10000,
-      position: 'top-center',
-      style: { minWidth: '350px' }
-    });
+    ), { duration: 10000, position: 'top-center', style: { minWidth: '350px' } });
   };
 
   return (
     <AdminLayout title="Categories">
       <div className="flex justify-between items-center mb-6">
-        <p className="text-sm text-brand-grey">{categories.length} parent categories</p>
+        <p className="text-sm text-brand-grey">{categories.length} parent categories · drag rows to reorder</p>
         <button onClick={() => openModal()} className="btn-primary flex items-center gap-2" id="add-cat-btn">
           <Plus size={16} /> Add Category
         </button>
@@ -180,6 +208,7 @@ const CategoriesAdminPage = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-brand-light bg-brand-light/20 text-brand-grey text-xs font-semibold uppercase tracking-wider">
+                  <th className="pl-3 pr-1 py-3 w-8"></th>
                   <th className="px-5 py-3 w-16">NO</th>
                   <th className="px-5 py-3 w-24">Image</th>
                   <th className="px-5 py-3">Category Name</th>
@@ -188,50 +217,62 @@ const CategoriesAdminPage = () => {
                   <th className="px-5 py-3 w-28 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-brand-light text-sm">
-                {categories.map((cat, idx) => (
-                  <tr key={cat.id} className="hover:bg-brand-light/10 transition-colors">
-                    <td className="px-5 py-4 font-medium text-brand-grey">{idx + 1}</td>
-                    <td className="px-5 py-4">
-                      <div className="w-10 h-10 rounded bg-brand-light overflow-hidden border border-brand-light flex items-center justify-center">
-                        {cat.image ? (
-                          <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-brand-grey text-[10px] font-bold uppercase">{cat.name.substring(0, 2)}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <p className="font-semibold text-brand-text">{cat.name}</p>
-                      <p className="text-xs text-brand-grey">/{cat.slug}</p>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${
-                        cat.isActive ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50 text-gray-500 border border-gray-200'
-                      }`}>
-                        {cat.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${
-                        cat.showHeader ? 'bg-amber-50 text-brand-gold border border-amber-200' : 'bg-gray-50 text-gray-500 border border-gray-200'
-                      }`}>
-                        {cat.showHeader ? 'Show' : 'Hide'}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <div className="flex justify-end gap-1.5">
-                        <button onClick={() => openModal(cat)} className="p-2 text-brand-grey hover:text-brand-gold hover:bg-brand-light/30 rounded transition-colors" id={`edit-cat-${cat.id}`} title="Edit">
-                          <Edit2 size={14} />
-                        </button>
-                        <button onClick={() => handleDelete(cat.id)} className="p-2 text-brand-grey hover:text-red-500 hover:bg-red-50 rounded transition-colors" id={`del-cat-${cat.id}`} title="Delete">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+                modifiers={[restrictToVerticalAxis]}
+              >
+                <SortableContext
+                  items={categories.map(c => c.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <tbody className="divide-y divide-brand-light text-sm">
+                    {categories.map((cat, idx) => (
+                      <SortableRow key={cat.id} id={cat.id}>
+                        <td className="px-5 py-4 font-medium text-brand-grey">{idx + 1}</td>
+                        <td className="px-5 py-4">
+                          <div className="w-10 h-10 rounded bg-brand-light overflow-hidden border border-brand-light flex items-center justify-center">
+                            {cat.image ? (
+                              <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-brand-grey text-[10px] font-bold uppercase">{cat.name.substring(0, 2)}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <p className="font-semibold text-brand-text">{cat.name}</p>
+                          <p className="text-xs text-brand-grey">/{cat.slug}</p>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${
+                            cat.isActive ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50 text-gray-500 border border-gray-200'
+                          }`}>
+                            {cat.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${
+                            cat.showHeader ? 'bg-amber-50 text-brand-gold border border-amber-200' : 'bg-gray-50 text-gray-500 border border-gray-200'
+                          }`}>
+                            {cat.showHeader ? 'Show' : 'Hide'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <div className="flex justify-end gap-1.5">
+                            <button onClick={() => openModal(cat)} className="p-2 text-brand-grey hover:text-brand-gold hover:bg-brand-light/30 rounded transition-colors" id={`edit-cat-${cat.id}`} title="Edit">
+                              <Edit2 size={14} />
+                            </button>
+                            <button onClick={() => handleDelete(cat.id)} className="p-2 text-brand-grey hover:text-red-500 hover:bg-red-50 rounded transition-colors" id={`del-cat-${cat.id}`} title="Delete">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </SortableRow>
+                    ))}
+                  </tbody>
+                </SortableContext>
+              </DndContext>
             </table>
           </div>
         )}
@@ -265,9 +306,7 @@ const CategoriesAdminPage = () => {
                   <label className="block text-xs font-medium text-brand-grey mb-1.5">Category Image</label>
                   <div
                     className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${
-                      isDragging
-                        ? 'border-brand-gold bg-brand-gold/5'
-                        : 'border-brand-light hover:border-brand-gold'
+                      isDragging ? 'border-brand-gold bg-brand-gold/5' : 'border-brand-light hover:border-brand-gold'
                     }`}
                     onClick={() => fileInputRef.current?.click()}
                     onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -276,9 +315,7 @@ const CategoriesAdminPage = () => {
                       e.preventDefault();
                       setIsDragging(false);
                       const file = e.dataTransfer.files?.[0];
-                      if (file && file.type.startsWith('image/')) {
-                        processFile(file);
-                      }
+                      if (file && file.type.startsWith('image/')) processFile(file);
                     }}
                   >
                     {imagePreview ? (
@@ -301,11 +338,11 @@ const CategoriesAdminPage = () => {
 
                 <div className="flex items-center gap-6 pt-1">
                   <div className="flex items-center gap-2">
-                    <input type="checkbox" checked={form.isActive} onChange={e => setForm(p => ({ ...p, isActive: e.target.checked }))} className="accent-brand-gold w-4 h-4 cursor-pointer" id="cat-active" />
+                    <Switch checked={form.isActive} onChange={e => setForm(p => ({ ...p, isActive: e.target.checked }))} id="cat-active" />
                     <label className="text-xs font-semibold text-brand-text cursor-pointer select-none" htmlFor="cat-active">Active (Visible in store)</label>
                   </div>
                   <div className="flex items-center gap-2">
-                    <input type="checkbox" checked={form.showHeader} onChange={e => setForm(p => ({ ...p, showHeader: e.target.checked }))} className="accent-brand-gold w-4 h-4 cursor-pointer" id="cat-header" />
+                    <Switch checked={form.showHeader} onChange={e => setForm(p => ({ ...p, showHeader: e.target.checked }))} id="cat-header" />
                     <label className="text-xs font-semibold text-brand-text cursor-pointer select-none" htmlFor="cat-header">Show in header</label>
                   </div>
                 </div>

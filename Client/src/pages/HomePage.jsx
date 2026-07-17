@@ -323,6 +323,12 @@ const HomePage = () => {
     if (meta) meta.setAttribute('content', 'Discover luxury party wear, jewelry, perfumes and accessories at Billu Bazaar. Handcrafted, curated, and delivered with love across India.');
   }, [dispatch]);
 
+  useEffect(() => {
+    if (isExpired && countdownBanner) {
+      dispatch(fetchBanners());
+    }
+  }, [isExpired, countdownBanner, dispatch]);
+
   const updateCarouselArrows = useCallback(() => {
     const el = carouselScrollRef.current;
     if (!el || carouselTickingRef.current) return;
@@ -437,7 +443,7 @@ const HomePage = () => {
       </section>
 
       {/* ── SECTION 3: Countdown / Deal of the Month Banner ────────────── */}
-      {countdownBanner && (
+      {countdownBanner && !isExpired && (
         <section className="bg-brand-text py-12 md:py-16 overflow-hidden" aria-label="Deal of the month countdown">
           <div className="max-w-site mx-auto px-6 md:px-8 flex flex-col md:flex-row items-center justify-between gap-8">
             <div className="text-center md:text-left">

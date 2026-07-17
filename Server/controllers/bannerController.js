@@ -35,6 +35,28 @@ const deleteLocalFile = (imagePath) => {
 const getAll = async (req, res) => {
   try {
     const { type, all } = req.query;
+
+    // Auto-deactivate expired countdown banners in the database
+    const { Op } = require('sequelize');
+    const now = new Date();
+    const expiredBanners = await Banner.findAll({
+      where: {
+        isActive: true,
+        countdown: {
+          [Op.ne]: null,
+          [Op.lt]: now
+        }
+      }
+    });
+
+    if (expiredBanners.length > 0) {
+      for (const banner of expiredBanners) {
+        banner.isActive = false;
+        await banner.save();
+        console.log(`[Banner Auto-deactivate] Deactivated expired banner ID ${banner.id} (type: ${banner.type}, countdown: ${banner.countdown})`);
+      }
+    }
+
     const where = {};
     if (!all) where.isActive = true;
     if (type) where.type = type;

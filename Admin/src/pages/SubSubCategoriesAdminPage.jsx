@@ -1,7 +1,22 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Edit2, Trash2, X, Upload, ChevronRight } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import AdminLayout from '../components/AdminLayout';
+import Switch from '../components/Switch';
+import SortableRow from '../components/SortableRow';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -18,34 +33,49 @@ const SubSubCategoriesAdminPage = () => {
   const [saving, setSaving] = useState(false);
   const [uploadError, setUploadError] = useState(null);
 
-  const loadData = async () => {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      // Fetch Categories
       const catRes = await api.get('/categories?all=true');
-      const cats = catRes.data.categories || [];
-      setParentCategories(cats);
-
-      // Fetch SubCategories
+      setParentCategories(catRes.data.categories || []);
       const subRes = await api.get('/subcategories?all=true');
-      const subs = subRes.data.subCategories || [];
-      setSubCategories(subs);
-
-      // Fetch SubSubCategories
+      setSubCategories(subRes.data.subCategories || []);
       const subSubRes = await api.get('/subsubcategories?all=true');
-      const subSubs = subSubRes.data.subSubCategories || [];
-      setSubSubCategories(subSubs);
+      setSubSubCategories(subSubRes.data.subSubCategories || []);
     } catch (err) {
       console.error(err);
       toast.error('Failed to load sub-sub-categories data.');
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadData();
   }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = subSubCategories.findIndex(s => s.id === active.id);
+    const newIndex = subSubCategories.findIndex(s => s.id === over.id);
+    const reordered = arrayMove(subSubCategories, oldIndex, newIndex);
+
+    setSubSubCategories(reordered);
+
+    try {
+      await api.patch('/subsubcategories/reorder', {
+        items: reordered.map((s, idx) => ({ id: s.id, sortOrder: idx })),
+      });
+      toast.success('Order saved!');
+    } catch (err) {
+      toast.error('Failed to save order');
+      loadData();
+    }
+  };
 
   const handleCategoryChange = (e) => {
     const catId = e.target.value;
@@ -57,7 +87,6 @@ const SubSubCategoriesAdminPage = () => {
   const openModal = (item = null) => {
     setEditing(item);
     if (item) {
-      // Find subcategory parent
       const parentSub = subCategories.find(c => c.id === item.subCategoryId);
       const grandParentId = parentSub ? String(parentSub.categoryId) : '';
       const subs = subCategories.filter(c => String(c.categoryId) === grandParentId);
@@ -70,12 +99,11 @@ const SubSubCategoriesAdminPage = () => {
         isActive: item.isActive
       });
     } else {
-      const defaultTop = parentCategories[0]?.id ? String(parentCategories[0].id) : '';
-      const subs = subCategories.filter(c => String(c.categoryId) === defaultTop);
-      setFilteredSubs(subs);
+      // Add mode: start with empty placeholders — user must select
+      setFilteredSubs([]);
       setForm({
-        categoryId: defaultTop,
-        subCategoryId: subs[0]?.id ? String(subs[0].id) : '',
+        categoryId: '',
+        subCategoryId: '',
         name: '',
         slug: '',
         isActive: true
@@ -90,13 +118,9 @@ const SubSubCategoriesAdminPage = () => {
     setForm(p => ({ ...p, name: val, slug: val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') }));
   };
 
-
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!form.subCategoryId) {
-      setUploadError('Please select a sub-category');
-      return;
-    }
+    if (!form.subCategoryId) { setUploadError('Please select a sub-category'); return; }
     setSaving(true);
     setUploadError(null);
     try {
@@ -105,8 +129,6 @@ const SubSubCategoriesAdminPage = () => {
       fd.append('slug', form.slug.trim());
       fd.append('isActive', String(form.isActive));
       fd.append('subCategoryId', form.subCategoryId);
-
-
 
       if (editing) {
         await api.put(`/subsubcategories/${editing.id}`, fd);
@@ -162,7 +184,7 @@ const SubSubCategoriesAdminPage = () => {
   return (
     <AdminLayout title="Sub-subcategories">
       <div className="flex justify-between items-center mb-6">
-        <p className="text-sm text-brand-grey">{subSubCategories.length} sub-sub-categories</p>
+        <p className="text-sm text-brand-grey">{subSubCategories.length} sub-sub-categories · drag rows to reorder</p>
         <button onClick={() => openModal()} className="btn-primary flex items-center gap-2" disabled={subCategories.length === 0}>
           <Plus size={16} /> Add Sub-sub-category
         </button>
@@ -191,6 +213,7 @@ const SubSubCategoriesAdminPage = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-brand-light bg-brand-light/20 text-brand-grey text-xs font-semibold uppercase tracking-wider">
+                  <th className="pl-3 pr-1 py-3 w-8"></th>
                   <th className="px-5 py-3 w-12">#</th>
                   <th className="px-5 py-3">Category</th>
                   <th className="px-5 py-3">Sub-category</th>
@@ -199,44 +222,51 @@ const SubSubCategoriesAdminPage = () => {
                   <th className="px-5 py-3 w-24 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-brand-light text-sm">
-                {subSubCategories.map((item, idx) => {
-                  const { cat, sub } = getNames(item);
-                  return (
-                    <tr key={item.id} className="hover:bg-brand-light/10 transition-colors">
-                      <td className="px-5 py-4 font-medium text-brand-grey">{idx + 1}</td>
-
-                      <td className="px-5 py-4 font-medium text-brand-text">
-                        {cat}
-                      </td>
-                      <td className="px-5 py-4 text-brand-grey">
-                        {sub}
-                      </td>
-                      <td className="px-5 py-4">
-                        <p className="font-semibold text-brand-text">{item.name}</p>
-                        <p className="text-xs text-brand-grey">/{item.slug}</p>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${
-                          item.isActive ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50 text-gray-500 border border-gray-200'
-                        }`}>
-                          {item.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <div className="flex justify-end gap-1.5">
-                          <button onClick={() => openModal(item)} className="p-2 text-brand-grey hover:text-brand-gold hover:bg-brand-light/30 rounded transition-colors" title="Edit">
-                            <Edit2 size={14} />
-                          </button>
-                          <button onClick={() => handleDelete(item.id)} className="p-2 text-brand-grey hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Delete">
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+                modifiers={[restrictToVerticalAxis]}
+              >
+                <SortableContext
+                  items={subSubCategories.map(s => s.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <tbody className="divide-y divide-brand-light text-sm">
+                    {subSubCategories.map((item, idx) => {
+                      const { cat, sub } = getNames(item);
+                      return (
+                        <SortableRow key={item.id} id={item.id}>
+                          <td className="px-5 py-4 font-medium text-brand-grey">{idx + 1}</td>
+                          <td className="px-5 py-4 font-medium text-brand-text">{cat}</td>
+                          <td className="px-5 py-4 text-brand-grey">{sub}</td>
+                          <td className="px-5 py-4">
+                            <p className="font-semibold text-brand-text">{item.name}</p>
+                            <p className="text-xs text-brand-grey">/{item.slug}</p>
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${
+                              item.isActive ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50 text-gray-500 border border-gray-200'
+                            }`}>
+                              {item.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <div className="flex justify-end gap-1.5">
+                              <button onClick={() => openModal(item)} className="p-2 text-brand-grey hover:text-brand-gold hover:bg-brand-light/30 rounded transition-colors" title="Edit">
+                                <Edit2 size={14} />
+                              </button>
+                              <button onClick={() => handleDelete(item.id)} className="p-2 text-brand-grey hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Delete">
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </SortableRow>
+                      );
+                    })}
+                  </tbody>
+                </SortableContext>
+              </DndContext>
             </table>
           </div>
         )}
@@ -306,13 +336,13 @@ const SubSubCategoriesAdminPage = () => {
                     onChange={e => setForm(p => ({ ...p, slug: e.target.value }))}
                     className="w-full border border-brand-light bg-neutral-50 px-3 py-2 text-sm focus:outline-none focus:border-brand-gold"
                     placeholder="perfume-combos" />
-                    </div>
+                </div>
 
                 {/* Status */}
                 <div className="flex items-center gap-2 pt-1">
-                  <input type="checkbox" checked={form.isActive}
+                  <Switch checked={form.isActive}
                     onChange={e => setForm(p => ({ ...p, isActive: e.target.checked }))}
-                    className="accent-brand-gold w-4 h-4 cursor-pointer" id="ssc-active" />
+                    id="ssc-active" />
                   <label className="text-xs font-semibold text-brand-text cursor-pointer select-none" htmlFor="ssc-active">
                     Active (Visible in store)
                   </label>

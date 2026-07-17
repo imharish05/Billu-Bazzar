@@ -101,6 +101,16 @@ const Product = sequelize.define('Product', {
   },
 });
 
+Product.beforeValidate((product) => {
+  if (product.name && (!product.slug || product.slug.trim() === '')) {
+    product.slug = product.name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+  }
+});
+
 Product.afterCreate(async (product, options) => {
   try {
     const { syncProductKeywords } = require('../services/searchSyncService');

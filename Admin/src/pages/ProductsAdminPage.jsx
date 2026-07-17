@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Edit2, Trash2, X, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
+import Switch from '../components/Switch';
 import { fetchAdminProducts, createProduct, updateProduct, deleteProduct } from '../redux/slices/productsSlice';
 import currencyJs from 'currency.js';
 import toast from 'react-hot-toast';
@@ -81,7 +82,15 @@ const ProductModal = ({ product, onClose, onSave }) => {
   const [isSpinDragging, setIsSpinDragging] = useState(false);
   const spinFileInputRef = useRef(null);
 
-  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const set = (k, v) => {
+    setForm(p => {
+      const next = { ...p, [k]: v };
+      if (k === 'name' && (!p.slug || p.slug.trim() === '' || p.slug === p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''))) {
+        next.slug = v.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      }
+      return next;
+    });
+  };
 
   const handleFileSelect = (eOrFiles) => {
     const files = eOrFiles.target ? eOrFiles.target.files : eOrFiles;
@@ -463,10 +472,10 @@ const ProductModal = ({ product, onClose, onSave }) => {
             )}
           </div>
 
-          <div className="sm:col-span-2 flex gap-6">
+          <div className="sm:col-span-2 flex flex-wrap items-center gap-6">
             {[{k:'isFeatured',l:'Featured'},{k:'isNewArrival',l:'New Arrival'},{k:'isBestSeller',l:'Best Seller'},{k:'isActive',l:'Active'}].map(({k,l}) => (
-              <label key={k} className="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" checked={!!form[k]} onChange={e => set(k, e.target.checked)} className="accent-brand-gold w-4 h-4" id={`prod-${k}`} />
+              <label key={k} className="flex items-center gap-2 text-sm cursor-pointer select-none" htmlFor={`prod-${k}`}>
+                <Switch checked={!!form[k]} onChange={e => set(k, e.target.checked)} id={`prod-${k}`} />
                 {l}
               </label>
             ))}

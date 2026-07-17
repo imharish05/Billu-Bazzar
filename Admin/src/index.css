@@ -56,3 +56,59 @@ h1,h2,h3,h4 { font-family: 'Cinzel', Georgia, serif; }
 ::-webkit-scrollbar { width:5px; }
 ::-webkit-scrollbar-track { background:#F0EEE8; }
 ::-webkit-scrollbar-thumb { background:#C58837;border-radius:3px; }
+
+/* Custom toggle switch styling - Uiverse.io by WhiteNervosa (Extra Compact & Aligned) */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 28px;
+  height: 16px;
+  vertical-align: middle;
+}
+
+.switch input[type="checkbox"] {
+  display: none;
+}
+
+.switch .slider {
+  background-color: #ffffff2b;
+  border-radius: 100px;
+  padding: 1px;
+  cursor: pointer;
+  transition: box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1) 0s;
+  position: relative;
+  display: block;
+  width: 28px;
+  height: 16px;
+  box-shadow: rgba(0, 0, 0, 0.62) 0px 0px 2px inset,
+              rgba(0, 0, 0, 0.21) 0px 0px 0px 10px inset,
+              #22cc3f 0px 0px 0px 0px inset,
+              rgba(224, 224, 224, 0.45) 0px 1px 0px 0px;
+}
+
+.switch .slider::after {
+  content: "";
+  display: flex;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  background-color: #e3e3e3;
+  border-radius: 200px;
+  position: absolute;
+  box-shadow: transparent 0px 0px 0px 1px, rgba(0, 0, 0, 0.3) 0px 2px 2px;
+  transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1) 0s, background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1) 0s;
+  will-change: left, background-color;
+}
+
+.switch input[type="checkbox"]:checked + .slider {
+  box-shadow: rgba(0, 0, 0, 0.62) 0px 0px 2px inset,
+              rgba(0, 0, 0, 0) 0px 0px 0px 0px inset,
+              #22cc3f 0px 0px 0px 10px inset,
+              rgba(224, 224, 224, 0.45) 0px 1px 0px 0px;
+}
+
+.switch input[type="checkbox"]:checked + .slider::after {
+  left: 14px;
+}
+

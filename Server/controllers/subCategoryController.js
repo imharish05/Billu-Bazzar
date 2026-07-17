@@ -119,4 +119,20 @@ const remove = async (req, res) => {
   }
 };
 
-module.exports = { getAll, create, update, remove };
+const reorder = async (req, res) => {
+  try {
+    const { items } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, message: 'items array required' });
+    }
+    await Promise.all(
+      items.map(({ id, sortOrder }) => SubCategory.update({ sortOrder }, { where: { id } }))
+    );
+    res.json({ success: true });
+  } catch (err) {
+    return handleDBError(err, res, 'sub-category');
+  }
+};
+
+module.exports = { getAll, create, update, remove, reorder };
+

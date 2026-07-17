@@ -296,3 +296,37 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--color-gold); ou
 .disable-hover * {
   pointer-events: none !important;
 }
+
+/* ── Price Range Dual-Handle Slider ───────────────────────────────────────── */
+.price-range-input {
+  pointer-events: none;
+}
+.price-range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  pointer-events: all;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #C58837;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1.5px #C58837, 0 2px 6px rgba(197,136,55,0.35);
+  cursor: pointer;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.price-range-input::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 0 3px rgba(197,136,55,0.25), 0 2px 6px rgba(197,136,55,0.35);
+  transform: scale(1.1);
+}
+.price-range-input:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgba(197,136,55,0.3);
+}
+.price-range-input::-moz-range-thumb {
+  pointer-events: all;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #C58837;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1.5px #C58837;
+  cursor: pointer;
+}

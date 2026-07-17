@@ -127,7 +127,7 @@ const ContactPage = () => {
               </div>
 
               {/* Working Hours */}
-              <div className="flex gap-4">
+              {/* <div className="flex gap-4">
                 <div className="w-10 h-10 border border-brand-light flex items-center justify-center flex-shrink-0 text-brand-gold">
                   <Clock size={18} />
                 </div>
@@ -136,7 +136,7 @@ const ContactPage = () => {
                   <p className="text-brand-grey text-sm">Monday – Saturday: 10:00 AM – 8:00 PM IST</p>
                   <p className="text-brand-grey text-sm">Sunday: Closed</p>
                 </div>
-              </div>
+              </div> */}
             </div>
 
             {/* Premium Note */}

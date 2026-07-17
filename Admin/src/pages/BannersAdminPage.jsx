@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Edit2, Trash2, X, ToggleLeft, ToggleRight, Upload, AlertCircle, RefreshCw } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
+import Switch from '../components/Switch';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -285,9 +286,13 @@ const BannersAdminPage = () => {
                 <p className="font-medium text-sm mb-1 line-clamp-1">{banner.title}</p>
                 <p className="text-xs text-brand-grey line-clamp-1">{banner.subtitle}</p>
                 <div className="flex items-center justify-between mt-3">
-                  <button onClick={() => handleToggle(banner)} className="text-brand-grey hover:text-brand-gold transition-colors focus-visible:outline-brand-gold" id={`toggle-banner-${banner.id}`}>
-                    {banner.isActive ? <ToggleRight size={22} className="text-brand-gold" /> : <ToggleLeft size={22} />}
-                  </button>
+                  <div className="flex items-center">
+                    <Switch
+                      checked={banner.isActive}
+                      onChange={() => handleToggle(banner)}
+                      id={`toggle-banner-${banner.id}`}
+                    />
+                  </div>
                   <div className="flex gap-2">
                     <button onClick={() => openModal(banner)} className="p-1.5 text-brand-grey hover:text-brand-gold focus-visible:outline-brand-gold" id={`edit-banner-${banner.id}`}><Edit2 size={14} /></button>
                     <button onClick={() => handleDelete(banner.id)} className="p-1.5 text-brand-grey hover:text-red-400 focus-visible:outline-brand-gold" id={`del-banner-${banner.id}`}><Trash2 size={14} /></button>
@@ -418,8 +423,8 @@ const BannersAdminPage = () => {
                     <input id="ban-badge" type="text" value={form.badgeText} onChange={e => setForm(p => ({ ...p, badgeText: e.target.value }))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
                   </div>
                   <div className="flex items-end pb-2">
-                    <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input type="checkbox" checked={form.isActive} onChange={e => setForm(p => ({ ...p, isActive: e.target.checked }))} className="accent-brand-gold" id="ban-active" />
+                    <label className="flex items-center gap-2 text-sm cursor-pointer select-none" htmlFor="ban-active">
+                      <Switch checked={form.isActive} onChange={e => setForm(p => ({ ...p, isActive: e.target.checked }))} id="ban-active" />
                       Active
                     </label>
                   </div>

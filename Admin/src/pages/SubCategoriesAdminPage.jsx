@@ -1,7 +1,22 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit2, Trash2, X, Upload } from 'lucide-react';
+import { Plus, Edit2, Trash2, X } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import AdminLayout from '../components/AdminLayout';
+import Switch from '../components/Switch';
+import SortableRow from '../components/SortableRow';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -21,30 +36,47 @@ const SubCategoriesAdminPage = () => {
 
   const fileInputRef = useRef(null);
 
-  const loadData = async () => {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      
-      // Fetch top level Categories
       const categoriesRes = await api.get('/categories?all=true');
-      const parents = categoriesRes.data.categories || [];
-      setParentCategories(parents);
-
-      // Fetch SubCategories from individual endpoint
+      setParentCategories(categoriesRes.data.categories || []);
       const subRes = await api.get('/subcategories?all=true');
-      const subs = subRes.data.subCategories || [];
-      setSubCategories(subs);
+      setSubCategories(subRes.data.subCategories || []);
     } catch (err) {
       console.error(err);
       toast.error('Failed to load categories data.');
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadData();
   }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = subCategories.findIndex(s => s.id === active.id);
+    const newIndex = subCategories.findIndex(s => s.id === over.id);
+    const reordered = arrayMove(subCategories, oldIndex, newIndex);
+
+    setSubCategories(reordered);
+
+    try {
+      await api.patch('/subcategories/reorder', {
+        items: reordered.map((s, idx) => ({ id: s.id, sortOrder: idx })),
+      });
+      toast.success('Order saved!');
+    } catch (err) {
+      toast.error('Failed to save order');
+      loadData();
+    }
+  };
 
   const openModal = (sub = null) => {
     setEditing(sub);
@@ -54,12 +86,12 @@ const SubCategoriesAdminPage = () => {
       slug: sub.slug || '',
       isActive: sub.isActive
     } : {
-      categoryId: parentCategories[0]?.id ? String(parentCategories[0].id) : '',
+      categoryId: '',
       name: '',
       slug: '',
       isActive: true
     });
-    setImagePreview(sub?.image || null);
+    setImagePreview(null);
     setImageFile(null);
     setUploadError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -87,10 +119,7 @@ const SubCategoriesAdminPage = () => {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!form.categoryId) {
-      setUploadError('Please select a category');
-      return;
-    }
+    if (!form.categoryId) { setUploadError('Please select a category'); return; }
     setSaving(true);
     setUploadError(null);
 
@@ -102,9 +131,7 @@ const SubCategoriesAdminPage = () => {
       fd.append('categoryId', form.categoryId);
 
       const file = imageFile || fileInputRef.current?.files?.[0];
-      if (file) {
-        fd.append('image', file);
-      }
+      if (file) fd.append('image', file);
 
       if (editing) {
         await api.put(`/subcategories/${editing.id}`, fd);
@@ -129,9 +156,7 @@ const SubCategoriesAdminPage = () => {
       toast.success(deleteRes.data.message || 'Sub-category deleted successfully.');
       loadData();
     } catch (err) {
-      const errMsg = err.response?.data?.message || err.message || 'Failed to delete sub-category';
-      toast.error(errMsg);
-      console.error(err);
+      toast.error(err.response?.data?.message || err.message || 'Failed to delete sub-category');
     }
   };
 
@@ -144,10 +169,7 @@ const SubCategoriesAdminPage = () => {
         </p>
         <div className="flex justify-end gap-2 mt-2">
           <button
-            onClick={() => {
-              toast.dismiss(t.id);
-              executeDelete(id);
-            }}
+            onClick={() => { toast.dismiss(t.id); executeDelete(id); }}
             className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold uppercase tracking-wider transition-colors rounded shadow-sm"
           >
             Yes, Delete
@@ -160,11 +182,7 @@ const SubCategoriesAdminPage = () => {
           </button>
         </div>
       </div>
-    ), {
-      duration: 10000,
-      position: 'top-center',
-      style: { minWidth: '350px' }
-    });
+    ), { duration: 10000, position: 'top-center', style: { minWidth: '350px' } });
   };
 
   const getParentName = (categoryId) => {
@@ -175,7 +193,7 @@ const SubCategoriesAdminPage = () => {
   return (
     <AdminLayout title="Sub-categories">
       <div className="flex justify-between items-center mb-6">
-        <p className="text-sm text-brand-grey">{subCategories.length} sub-categories</p>
+        <p className="text-sm text-brand-grey">{subCategories.length} sub-categories · drag rows to reorder</p>
         <button onClick={() => openModal()} className="btn-primary flex items-center gap-2" id="add-subcat-btn" disabled={parentCategories.length === 0}>
           <Plus size={16} /> Add Sub-category
         </button>
@@ -202,6 +220,7 @@ const SubCategoriesAdminPage = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-brand-light bg-brand-light/20 text-brand-grey text-xs font-semibold uppercase tracking-wider">
+                  <th className="pl-3 pr-1 py-3 w-8"></th>
                   <th className="px-5 py-3 w-16">NO</th>
                   <th className="px-5 py-3 w-24">Image</th>
                   <th className="px-5 py-3">Category Name</th>
@@ -210,46 +229,56 @@ const SubCategoriesAdminPage = () => {
                   <th className="px-5 py-3 w-28 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-brand-light text-sm">
-                {subCategories.map((sub, idx) => (
-                  <tr key={sub.id} className="hover:bg-brand-light/10 transition-colors">
-                    <td className="px-5 py-4 font-medium text-brand-grey">{idx + 1}</td>
-                    <td className="px-5 py-4">
-                      <div className="w-10 h-10 rounded bg-brand-light overflow-hidden border border-brand-light flex items-center justify-center">
-                        {sub.image ? (
-                          <img src={sub.image} alt={sub.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-brand-grey text-[10px] font-bold uppercase">{sub.name.substring(0, 2)}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-5 py-4 font-medium text-brand-text">
-                      {getParentName(sub.categoryId)}
-                    </td>
-                    <td className="px-5 py-4">
-                      <p className="font-semibold text-brand-text">{sub.name}</p>
-                      <p className="text-xs text-brand-grey">/{sub.slug}</p>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${
-                        sub.isActive ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50 text-gray-500 border border-gray-200'
-                      }`}>
-                        {sub.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <div className="flex justify-end gap-1.5">
-                        <button onClick={() => openModal(sub)} className="p-2 text-brand-grey hover:text-brand-gold hover:bg-brand-light/30 rounded transition-colors" id={`edit-sub-${sub.id}`} title="Edit">
-                          <Edit2 size={14} />
-                        </button>
-                        <button onClick={() => handleDelete(sub.id)} className="p-2 text-brand-grey hover:text-red-500 hover:bg-red-50 rounded transition-colors" id={`del-sub-${sub.id}`} title="Delete">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+                modifiers={[restrictToVerticalAxis]}
+              >
+                <SortableContext
+                  items={subCategories.map(s => s.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <tbody className="divide-y divide-brand-light text-sm">
+                    {subCategories.map((sub, idx) => (
+                      <SortableRow key={sub.id} id={sub.id}>
+                        <td className="px-5 py-4 font-medium text-brand-grey">{idx + 1}</td>
+                        <td className="px-5 py-4">
+                          <div className="w-10 h-10 rounded bg-brand-light overflow-hidden border border-brand-light flex items-center justify-center">
+                            {sub.image ? (
+                              <img src={sub.image} alt={sub.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-brand-grey text-[10px] font-bold uppercase">{sub.name.substring(0, 2)}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 font-medium text-brand-text">{getParentName(sub.categoryId)}</td>
+                        <td className="px-5 py-4">
+                          <p className="font-semibold text-brand-text">{sub.name}</p>
+                          <p className="text-xs text-brand-grey">/{sub.slug}</p>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${
+                            sub.isActive ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50 text-gray-500 border border-gray-200'
+                          }`}>
+                            {sub.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <div className="flex justify-end gap-1.5">
+                            <button onClick={() => openModal(sub)} className="p-2 text-brand-grey hover:text-brand-gold hover:bg-brand-light/30 rounded transition-colors" id={`edit-sub-${sub.id}`} title="Edit">
+                              <Edit2 size={14} />
+                            </button>
+                            <button onClick={() => handleDelete(sub.id)} className="p-2 text-brand-grey hover:text-red-500 hover:bg-red-50 rounded transition-colors" id={`del-sub-${sub.id}`} title="Delete">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </SortableRow>
+                    ))}
+                  </tbody>
+                </SortableContext>
+              </DndContext>
             </table>
           </div>
         )}
@@ -267,7 +296,7 @@ const SubCategoriesAdminPage = () => {
                 {uploadError && (
                   <div className="text-xs text-red-500 bg-red-50 border border-red-200 p-3 rounded">{uploadError}</div>
                 )}
-                
+
                 {/* Parent Category Selector */}
                 <div>
                   <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="sub-parent">Category *</label>
@@ -289,47 +318,9 @@ const SubCategoriesAdminPage = () => {
                   <input id="sub-slug" type="text" value={form.slug} onChange={e => setForm(p => ({ ...p, slug: e.target.value }))} className="w-full border border-brand-light bg-neutral-50 px-3 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors" placeholder="lehenga-sets" />
                 </div>
 
-                {/* Subcategory Image upload zone */}
-                <div>
-                  <label className="block text-xs font-medium text-brand-grey mb-1.5">Sub-category Image</label>
-                  <div
-                    className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${
-                      isDragging
-                        ? 'border-brand-gold bg-brand-gold/5'
-                        : 'border-brand-light hover:border-brand-gold'
-                    }`}
-                    onClick={() => fileInputRef.current?.click()}
-                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                    onDragLeave={() => setIsDragging(false)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setIsDragging(false);
-                      const file = e.dataTransfer.files?.[0];
-                      if (file && file.type.startsWith('image/')) {
-                        processFile(file);
-                      }
-                    }}
-                  >
-                    {imagePreview ? (
-                      <div className="relative">
-                        <img src={imagePreview} alt="Preview" className="max-h-36 mx-auto object-contain rounded" />
-                        <button type="button" onClick={(e) => { e.stopPropagation(); setImagePreview(null); setImageFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} className="absolute top-1 right-1 bg-white/80 p-1 rounded-full hover:bg-white border border-brand-light shadow-sm transition-colors">
-                          <X size={12} className="text-brand-text" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="py-4">
-                        <Upload size={24} className="mx-auto text-brand-grey mb-1.5" />
-                        <p className="text-xs text-brand-grey font-medium">Drag & drop image here, or click to upload</p>
-                        <p className="text-[10px] text-brand-grey/60 mt-0.5">JPEG, PNG, WebP — max 10MB</p>
-                      </div>
-                    )}
-                  </div>
-                  <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileSelect} />
-                </div>
 
                 <div className="flex items-center gap-2 pt-1">
-                  <input type="checkbox" checked={form.isActive} onChange={e => setForm(p => ({ ...p, isActive: e.target.checked }))} className="accent-brand-gold w-4 h-4 cursor-pointer" id="sub-active" />
+                  <Switch checked={form.isActive} onChange={e => setForm(p => ({ ...p, isActive: e.target.checked }))} id="sub-active" />
                   <label className="text-xs font-semibold text-brand-text cursor-pointer select-none" htmlFor="sub-active">Active (Visible in store)</label>
                 </div>
 

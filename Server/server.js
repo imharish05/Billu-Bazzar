@@ -70,6 +70,39 @@ const start = async () => {
     const { syncAllExisting } = require('./services/searchSyncService');
     await syncAllExisting();
 
+    // 2.6 Fix any empty or null product slugs in the database
+    try {
+      const { Op } = require('sequelize');
+      const { Product } = require('./models');
+      const productsWithEmptySlugs = await Product.findAll({
+        where: {
+          [Op.or]: [
+            { slug: '' },
+            { slug: { [Op.is]: null } }
+          ]
+        }
+      });
+      for (const p of productsWithEmptySlugs) {
+        const generatedSlug = p.name
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '');
+        
+        let finalSlug = generatedSlug;
+        let count = 1;
+        while (await Product.findOne({ where: { slug: finalSlug } })) {
+          finalSlug = `${generatedSlug}-${count}`;
+          count++;
+        }
+        
+        await p.update({ slug: finalSlug });
+        console.log(`✅ Fixed empty slug for product "${p.name}" -> "${finalSlug}"`);
+      }
+    } catch (slugErr) {
+      console.log('⚠️ Failed to sync empty product slugs:', slugErr.message);
+    }
+
     // 3. Run seeders if tables are empty
     await seedAll();
 

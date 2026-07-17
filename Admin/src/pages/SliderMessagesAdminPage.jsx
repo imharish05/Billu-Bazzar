@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X, Edit2, Trash2, MessageSquare, Sparkles, ToggleLeft, ToggleRight } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
+import Switch from '../components/Switch';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -123,18 +124,13 @@ const SliderMessagesAdminPage = () => {
                     <td className="px-5 py-4 font-mono text-brand-gold font-bold">{msg.position}</td>
                     <td className="px-5 py-4 font-medium text-brand-text max-w-md truncate">{msg.message}</td>
                     <td className="px-5 py-4">
-                      <button
-                        onClick={() => handleToggleActive(msg)}
-                        className="focus:outline-none transition-colors"
-                        aria-label="Toggle active status"
-                        id={`toggle-status-${msg.id}`}
-                      >
-                        {msg.isActive ? (
-                          <ToggleRight size={24} className="text-brand-gold" />
-                        ) : (
-                          <ToggleLeft size={24} className="text-brand-grey" />
-                        )}
-                      </button>
+                      <div className="flex items-center">
+                        <Switch
+                          checked={msg.isActive}
+                          onChange={() => handleToggleActive(msg)}
+                          id={`toggle-status-${msg.id}`}
+                        />
+                      </div>
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
@@ -219,12 +215,11 @@ const SliderMessagesAdminPage = () => {
                     />
                   </div>
                   <div className="flex flex-col justify-end pb-2">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm text-brand-text select-none">
-                      <input
-                        type="checkbox"
+                    <label className="flex items-center gap-2 cursor-pointer text-sm text-brand-text select-none" htmlFor="sm-active">
+                      <Switch
+                        id="sm-active"
                         checked={form.isActive}
                         onChange={e => setForm(p => ({ ...p, isActive: e.target.checked }))}
-                        className="rounded border-brand-light text-brand-gold focus:ring-brand-gold h-4 w-4"
                       />
                       <span>Active Message</span>
                     </label>

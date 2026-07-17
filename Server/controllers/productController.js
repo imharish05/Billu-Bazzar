@@ -118,7 +118,7 @@ const processProductData = (req) => {
 
 const getAll = async (req, res) => {
   try {
-    const { page = 1, limit = 20, category, search, minPrice, maxPrice, sort = 'createdAt', order = 'DESC', featured, newArrival, bestSeller, vendorId } = req.query;
+    const { page = 1, limit = 20, category, search, minPrice, maxPrice, sort = 'createdAt', order = 'DESC', featured, newArrival, bestSeller, vendorId, minDiscount, maxDiscount } = req.query;
     const where = { isActive: true };
     if (category) {
       if (isNaN(category)) {
@@ -153,6 +153,26 @@ const getAll = async (req, res) => {
     if (newArrival === 'true') where.isNewArrival = true;
     if (bestSeller === 'true') where.isBestSeller = true;
     if (vendorId) where.vendorId = parseInt(vendorId, 10);
+
+    if (minDiscount || maxDiscount) {
+      where[Op.and] = where[Op.and] || [];
+      where[Op.and].push({
+        comparePrice: { [Op.gt]: Product.sequelize.col('price') }
+      });
+
+      const discountFormula = Product.sequelize.literal('ROUND(((comparePrice - price) / comparePrice) * 100)');
+
+      if (minDiscount) {
+        where[Op.and].push(
+          Product.sequelize.where(discountFormula, { [Op.gte]: parseInt(minDiscount, 10) })
+        );
+      }
+      if (maxDiscount) {
+        where[Op.and].push(
+          Product.sequelize.where(discountFormula, { [Op.lte]: parseInt(maxDiscount, 10) })
+        );
+      }
+    }
 
     const { count, rows } = await Product.findAndCountAll({
       where, limit: parseInt(limit), offset: (parseInt(page) - 1) * parseInt(limit),
@@ -288,4 +308,20 @@ const search = async (req, res) => {
   }
 };
 
-module.exports = { getAll, getOne, create, update, remove, getFeatured, search };
+const getPriceRange = async (req, res) => {
+  try {
+    const { sequelize } = require('../models');
+    const [[result]] = await sequelize.query(
+      'SELECT COALESCE(MIN(price), 0) AS minPrice, COALESCE(MAX(price), 50000) AS maxPrice FROM Products WHERE isActive = 1'
+    );
+    res.json({
+      success: true,
+      minPrice: Number(result.minPrice),
+      maxPrice: Number(result.maxPrice),
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+module.exports = { getAll, getOne, create, update, remove, getFeatured, search, getPriceRange };

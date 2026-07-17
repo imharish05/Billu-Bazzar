@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { ToggleLeft, ToggleRight, X, Save, Plus, Edit2, Trash2, Upload, Copy, RefreshCw } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
+import Switch from '../components/Switch';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -226,13 +227,13 @@ const AffiliatesAdminPage = () => {
                     <td className="px-5 py-4 text-brand-grey">{Number(a.totalClicks || 0).toLocaleString('en-IN')}</td>
                     <td className="px-5 py-4 font-medium text-brand-text">{a.totalOrders || 0}</td>
                     <td className="px-5 py-4">
-                      <button onClick={() => handleToggleActive(a)} className="focus-visible:outline-brand-gold" id={`toggle-aff-${a.id}`} aria-label="Toggle active">
-                        {a.isActive ? (
-                          <ToggleRight size={24} className="text-brand-gold" />
-                        ) : (
-                          <ToggleLeft size={24} className="text-brand-grey" />
-                        )}
-                      </button>
+                      <div className="flex items-center">
+                        <Switch
+                          checked={a.isActive}
+                          onChange={() => handleToggleActive(a)}
+                          id={`toggle-aff-${a.id}`}
+                        />
+                      </div>
                     </td>
                     <td className="px-5 py-4 text-right">
                       <div className="flex items-center gap-2">
