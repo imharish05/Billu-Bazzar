@@ -21,7 +21,7 @@ const ReturnsPage = () => {
             <span className="text-brand-text">Returns & Refunds</span>
           </nav>
           <h1 className="font-playfair text-h2 font-bold text-brand-text">Returns & Refunds</h1>
-          <p className="text-brand-grey text-sm mt-1">Our comprehensive 14-day hassle-free return policy.</p>
+          <p className="text-brand-grey text-sm mt-1">Our 24-hour return policy for damaged, incorrect, or mismatched orders.</p>
         </div>
       </div>
 
@@ -36,57 +36,61 @@ const ReturnsPage = () => {
             className="space-y-6"
           >
             <span className="text-xs font-semibold text-brand-gold tracking-widest uppercase block">Our Guarantee</span>
-            <h2 className="font-playfair text-3xl font-bold text-brand-text">Complete Peace of Mind</h2>
+            <h2 className="font-playfair text-3xl font-bold text-brand-text">Returns & Refunds Policy</h2>
             <p className="text-brand-grey text-sm md:text-base leading-relaxed">
-              We stand behind the quality of every product we curate. If you are not completely satisfied with your purchase, we offer a 14-day returns policy for most items. Our concierge team will arrange a reverse pickup from your address at no additional shipping cost.
+              We are committed to delivering products of the highest standard. However, if your order is damaged, incorrect, or deviates significantly from its description, we support returns within a strict 24-hour window from delivery. Below are the specific eligibility requirements, exclusions, and processing steps for returns and refunds.
             </p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 border-y border-brand-light py-8 my-10 text-center md:text-left">
             <div className="space-y-2">
               <RefreshCcw className="text-brand-gold w-8 h-8 mx-auto md:mx-0" />
-              <h4 className="font-playfair text-sm font-semibold text-brand-text">14-Day Window</h4>
-              <p className="text-brand-grey text-xs">Initiate a return within 14 days of order delivery.</p>
+              <h4 className="font-playfair text-sm font-semibold text-brand-text">24-Hour Window</h4>
+              <p className="text-brand-grey text-xs">Initiate a return request within 24 hours of successful delivery.</p>
             </div>
             <div className="space-y-2">
               <CheckCircle2 className="text-brand-gold w-8 h-8 mx-auto md:mx-0" />
-              <h4 className="font-playfair text-sm font-semibold text-brand-text">Free Pickups</h4>
-              <p className="text-brand-grey text-xs">Reverse courier collection arranged right at your doorstep.</p>
+              <h4 className="font-playfair text-sm font-semibold text-brand-text">Eligible Issues</h4>
+              <p className="text-brand-grey text-xs">Valid for products that are damaged, incorrect, or mismatched.</p>
             </div>
             <div className="space-y-2">
               <FileText className="text-brand-gold w-8 h-8 mx-auto md:mx-0" />
-              <h4 className="font-playfair text-sm font-semibold text-brand-text">Easy Steps</h4>
-              <p className="text-brand-grey text-xs">Request a return directly from your Account dashboard.</p>
+              <h4 className="font-playfair text-sm font-semibold text-brand-text">Pickup Service</h4>
+              <p className="text-brand-grey text-xs">Reverse collection is arranged directly by us at no shipping cost.</p>
             </div>
             <div className="space-y-2">
               <HelpCircle className="text-brand-gold w-8 h-8 mx-auto md:mx-0" />
-              <h4 className="font-playfair text-sm font-semibold text-brand-text">Fast Refunds</h4>
-              <p className="text-brand-grey text-xs">Credits processed within 3 days of warehouse inspection.</p>
+              <h4 className="font-playfair text-sm font-semibold text-brand-text">5-7 Day Refunds</h4>
+              <p className="text-brand-grey text-xs">Refunds are credited back to the source account after inspection.</p>
             </div>
           </div>
 
           <div className="space-y-8">
             <section className="space-y-3">
-              <h3 className="font-playfair text-xl font-semibold text-brand-text">1. Return Guidelines</h3>
+              <h3 className="font-playfair text-xl font-semibold text-brand-text">1. Return Eligibility & Window</h3>
               <p className="text-brand-grey text-xs md:text-sm leading-relaxed">
-                To qualify for a refund, the returned item must be in its original, unused condition, with all branding tags, security loops, and user manuals intact. 
-                - **Apparel**: Must be unworn, unwashed, and free of cosmetics or scent.
-                - **Electronics**: Must be in the original box with security seals unbroken.
-                - **Beauty**: Skincare and makeup are non-returnable once the protective outer plastic seal is opened due to hygiene standards.
+                We offer a strict 24-hour return window from the date and time of successful delivery. Returns are accepted only if the product received is physically damaged or defective at the time of arrival, if a completely wrong product has been delivered, or if the product is significantly different from its description on our website. Customers must submit their return requests, accompanied by necessary proof (such as unboxing videos or images), within this 24-hour period.
               </p>
             </section>
 
             <section className="space-y-3">
-              <h3 className="font-playfair text-xl font-semibold text-brand-text">2. How to Request a Return</h3>
+              <h3 className="font-playfair text-xl font-semibold text-brand-text">2. Exclusions & Non-Returnable Items</h3>
               <p className="text-brand-grey text-xs md:text-sm leading-relaxed font-light">
-                Log into your account, visit "My Orders", select the specific order, and click "Return". Choose the items and select a reason. A return shipping label and pickup schedule will be sent to you automatically. If you purchased as a guest, please reach out via email or call us directly.
+                Products are ineligible for return under any of the following conditions: if the product has been used, altered, or if the original Billu Bazaar security seal is broken; if the original packaging, brand tags, instruction manuals, or accessories are missing; or if the item belongs to a non-returnable category for hygiene reasons, which includes perfumes, innerwear, and personal care products. Additionally, any products explicitly designated as 'Non-Returnable' on their respective product details page cannot be returned.
               </p>
             </section>
 
             <section className="space-y-3">
-              <h3 className="font-playfair text-xl font-semibold text-brand-text">3. Refund Processing</h3>
+              <h3 className="font-playfair text-xl font-semibold text-brand-text">3. Return Pickup & Logistics</h3>
               <p className="text-brand-grey text-xs md:text-sm leading-relaxed">
-                Once we receive your return at our warehouse, it will undergo a strict quality check. Upon approval, we will process your refund immediately. Cash on Delivery (COD) orders will be refunded via bank transfer (you will be asked for account details), while prepaid orders will be refunded back to the source account (card, net banking, or UPI).
+                Once your return request is validated and approved, our logistics team will coordinate the return shipment. Return pickup will be arranged and handled directly by Billu Bazaar's courier partners. Customers do not need to ship items independently. Please ensure the product is packed securely in its original packaging along with all documentation for the courier representative.
+              </p>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="font-playfair text-xl font-semibold text-brand-text">4. Refund Processing & Timelines</h3>
+              <p className="text-brand-grey text-xs md:text-sm leading-relaxed">
+                After the returned product is successfully received at our warehouse, it will undergo a comprehensive quality check and verification. Upon successful inspection, your refund will be processed within 5 to 7 business days. The refunded amount will be credited back to your original payment method (such as UPI, credit/debit card, or digital wallet). Cash on Delivery orders will be refunded via bank transfer to account details provided by the customer during the return workflow.
               </p>
             </section>
           </div>

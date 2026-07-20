@@ -44,8 +44,7 @@ const CheckoutPage = () => {
   const [newPassword, setNewPassword] = useState('');
   const [showNewPw, setShowNewPw] = useState(false);
 
-  // Address type tab
-  const [addressType, setAddressType] = useState('Home');
+
 
   // Checkout state
   const [step, setStep] = useState(1);
@@ -290,24 +289,7 @@ const CheckoutPage = () => {
                     <h2 className="font-playfair text-xl font-semibold mb-1">Billing Address</h2>
                     <p className="text-xs text-neutral-400 mb-5">All fields marked * are required</p>
 
-                    {/* Address type tabs */}
-                    <div className="flex gap-2 mb-5">
-                      {['Home', 'Work', 'Other'].map(type => (
-                        <button
-                          key={type}
-                          onClick={() => setAddressType(type)}
-                          className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium border transition-all ${
-                            addressType === type
-                              ? 'bg-brand-gold text-white border-brand-gold'
-                              : 'border-neutral-200 text-neutral-600 hover:border-brand-gold/50 bg-white'
-                          }`}
-                          id={`addr-type-${type.toLowerCase()}`}
-                        >
-                          <span>{type === 'Home' ? '🏠' : type === 'Work' ? '💼' : '📍'}</span>
-                          {type}
-                        </button>
-                      ))}
-                    </div>
+
 
                     <div className="grid sm:grid-cols-2 gap-4">
                       {/* Full Name */}

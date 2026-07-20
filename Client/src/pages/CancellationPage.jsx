@@ -38,7 +38,7 @@ const CancellationPage = () => {
             <span className="text-xs font-semibold text-brand-gold tracking-widest uppercase block">Order Control</span>
             <h2 className="font-playfair text-3xl font-bold text-brand-text">Flexible Order Management</h2>
             <p className="text-brand-grey text-sm md:text-base leading-relaxed">
-              We understand that plans can change. Whether you made an accidental purchase or selected an incorrect size/model, we offer direct cancellation workflows before order dispatch. Below are the terms, steps, and timelines to cancel an active order.
+              We are committed to providing a transparent and seamless order management experience. While we strive to process and dispatch all orders as quickly as possible, we understand that plans can change. Below is our formal policy outlining the conditions, procedures, and timelines governing order cancellations.
             </p>
           </motion.div>
 
@@ -46,45 +46,52 @@ const CancellationPage = () => {
             <div className="flex gap-4">
               <CheckCircle className="text-brand-gold w-6 h-6 flex-shrink-0" />
               <div>
-                <h4 className="font-playfair text-sm font-semibold text-brand-text mb-1">Pre-Dispatch</h4>
-                <p className="text-brand-grey text-xs">Cancellations are 100% free before order is handed to the courier.</p>
+                <h4 className="font-playfair text-sm font-semibold text-brand-text mb-1">Same-Day Window</h4>
+                <p className="text-brand-grey text-xs">Orders can be cancelled free of charge only on the same day they are placed.</p>
               </div>
             </div>
             <div className="flex gap-4">
               <XCircle className="text-brand-gold w-6 h-6 flex-shrink-0" />
               <div>
-                <h4 className="font-playfair text-sm font-semibold text-brand-text mb-1">Post-Dispatch</h4>
-                <p className="text-brand-grey text-xs">Orders in transit cannot be cancelled; please refuse delivery or return.</p>
+                <h4 className="font-playfair text-sm font-semibold text-brand-text mb-1">Packed or Dispatched</h4>
+                <p className="text-brand-grey text-xs">Once the order is packed or dispatched, cancellation is not strictly permitted.</p>
               </div>
             </div>
             <div className="flex gap-4">
               <RefreshCw className="text-brand-gold w-6 h-6 flex-shrink-0" />
               <div>
-                <h4 className="font-playfair text-sm font-semibold text-brand-text mb-1">Refund Process</h4>
-                <p className="text-brand-grey text-xs">Credits refunded to source within 5-7 bank working days.</p>
+                <h4 className="font-playfair text-sm font-semibold text-brand-text mb-1">Support & Review</h4>
+                <p className="text-brand-grey text-xs">Submit requests with a valid reason through the website or support desk.</p>
               </div>
             </div>
           </div>
 
           <div className="space-y-8">
             <section className="space-y-3">
-              <h3 className="font-playfair text-xl font-semibold text-brand-text">1. Standard Cancellations</h3>
+              <h3 className="font-playfair text-xl font-semibold text-brand-text">1. Same-Day Cancellation Window</h3>
               <p className="text-brand-grey text-xs md:text-sm leading-relaxed">
-                You can cancel any in-stock product order by visiting your Account orders page before the status changes to "Shipped". If you purchased as a guest, please contact our concierge helpline instantly with your order ID to request a manual cancellation.
+                Orders may only be cancelled on the same day they are placed, entirely free of charge. Once an order progresses to the packing stage or has been dispatched to our courier services, cancellations are strictly prohibited. In such scenarios, customers may refuse delivery at their doorstep or request a standard return post-delivery in accordance with our return guidelines.
               </p>
             </section>
 
             <section className="space-y-3">
-              <h3 className="font-playfair text-xl font-semibold text-brand-text">2. Exceptions & Made-to-Order Items</h3>
-              <p className="text-brand-grey text-xs md:text-sm leading-relaxed">
-                Custom sizing adjustments, personalized jewelry engraving, or bespoke items cannot be cancelled once manufacturing has commenced (normally 12 hours after order confirmation). Additionally, instant digital codes or e-gift vouchers are non-cancellable and non-refundable.
+              <h3 className="font-playfair text-xl font-semibold text-brand-text">2. Submission & Validation Process</h3>
+              <p className="text-brand-grey text-xs md:text-sm leading-relaxed font-light">
+                To cancel an order, customers must raise a request directly through their account dashboard on our website or contact our support team within the cancellation window. All requests must contain a valid, clear reason for cancellation. If the reason provided is determined to be invalid, the cancellation request will be formally rejected, and the order will proceed to shipment.
               </p>
             </section>
 
             <section className="space-y-3">
               <h3 className="font-playfair text-xl font-semibold text-brand-text">3. Cancellations by Billu Bazaar</h3>
               <p className="text-brand-grey text-xs md:text-sm leading-relaxed">
-                Occasionally, an item might fail our strict quality check or become out-of-stock. If we are forced to cancel your order (or part of it), we will notify you immediately via email/SMS, and initiate a full, immediate refund to your original payment method.
+                In the rare event that Billu Bazaar must cancel an order due to stock unavailability, quality control failures, or any other internal operational constraint, a full refund will be automatically issued back to the original payment method. The refunded amount will typically reflect in your account within 5 to 7 business days, depending on your bank's processing cycles.
+              </p>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="font-playfair text-xl font-semibold text-brand-text">4. Promotional & Sale Orders</h3>
+              <p className="text-brand-grey text-xs md:text-sm leading-relaxed">
+                Orders placed during seasonal sales, promotional events, or flash campaigns are subject to accelerated processing. As a result, these transactions may feature a significantly shorter cancellation window or may not be eligible for cancellation at all. We encourage you to review your order details thoroughly before finalizing your purchase during promotional events.
               </p>
             </section>
           </div>
