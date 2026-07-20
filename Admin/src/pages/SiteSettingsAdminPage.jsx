@@ -18,9 +18,9 @@ const SiteSettingsAdminPage = () => {
   
   // Settings Form State
   const [settings, setSettings] = useState({
-    hero: { subtitle: '', title: '', description: '' },
+    hero: { subtitle: '', titleMain: '', titleGold: '', description: '' },
     story: {
-      subtitle: '', title: '', description1: '', description2: '',
+      subtitle: '', titleMain: '', titleSub: '', description1: '', description2: '',
       feature1Title: '', feature1Desc: '', feature2Title: '', feature2Desc: '',
       qualityOathTitle: '', qualityOathDesc: '', imageUrl: ''
     },
@@ -43,6 +43,7 @@ const SiteSettingsAdminPage = () => {
   const [marqueeInput, setMarqueeInput] = useState('');
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
 
   // Fetch Site Settings from backend
@@ -68,13 +69,32 @@ const SiteSettingsAdminPage = () => {
     loadSettings();
   }, []);
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
+  const handleImageChange = (eOrFile) => {
+    const file = eOrFile instanceof File ? eOrFile : eOrFile.target?.files?.[0];
     if (file) {
       setImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => setImagePreview(reader.result);
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setIsDragging(true);
+    } else if (e.type === "dragleave") {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleImageChange(e.dataTransfer.files[0]);
     }
   };
 
@@ -187,18 +207,33 @@ const SiteSettingsAdminPage = () => {
                         placeholder="Est. 2019"
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-brand-grey mb-1.5">Hero Title</label>
-                      <input
-                        type="text"
-                        value={settings.hero.title}
-                        onChange={(e) => setSettings({
-                          ...settings,
-                          hero: { ...settings.hero, title: e.target.value }
-                        })}
-                        className="w-full border border-brand-light px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-brand-gold transition-colors"
-                        placeholder="Your Premium Lifestyle Destination"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-brand-grey mb-1.5">Hero Title (Main Text - White)</label>
+                        <input
+                          type="text"
+                          value={settings.hero.titleMain}
+                          onChange={(e) => setSettings({
+                            ...settings,
+                            hero: { ...settings.hero, titleMain: e.target.value }
+                          })}
+                          className="w-full border border-brand-light px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-brand-gold transition-colors"
+                          placeholder="Your Premium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-brand-grey mb-1.5">Hero Title (Gold Highlighted Text)</label>
+                        <input
+                          type="text"
+                          value={settings.hero.titleGold}
+                          onChange={(e) => setSettings({
+                            ...settings,
+                            hero: { ...settings.hero, titleGold: e.target.value }
+                          })}
+                          className="w-full border border-brand-light px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-brand-gold transition-colors"
+                          placeholder="Lifestyle Destination"
+                        />
+                      </div>
                     </div>
                     <div className="md:col-span-2">
                       <label className="block text-xs font-semibold text-brand-grey mb-1.5">Hero Description</label>
@@ -232,17 +267,33 @@ const SiteSettingsAdminPage = () => {
                         className="w-full border border-brand-light px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-brand-gold transition-colors"
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-brand-grey mb-1.5">Story Title</label>
-                      <input
-                        type="text"
-                        value={settings.story.title}
-                        onChange={(e) => setSettings({
-                          ...settings,
-                          story: { ...settings.story, title: e.target.value }
-                        })}
-                        className="w-full border border-brand-light px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-brand-gold transition-colors"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-brand-grey mb-1.5">Story Title (Line 1 - Main)</label>
+                        <input
+                          type="text"
+                          value={settings.story.titleMain}
+                          onChange={(e) => setSettings({
+                            ...settings,
+                            story: { ...settings.story, titleMain: e.target.value }
+                          })}
+                          className="w-full border border-brand-light px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-brand-gold transition-colors"
+                          placeholder="Curation For The"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-brand-grey mb-1.5">Story Title (Line 2 - Sub)</label>
+                        <input
+                          type="text"
+                          value={settings.story.titleSub}
+                          onChange={(e) => setSettings({
+                            ...settings,
+                            story: { ...settings.story, titleSub: e.target.value }
+                          })}
+                          className="w-full border border-brand-light px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-brand-gold transition-colors"
+                          placeholder="Modern Connoisseur"
+                        />
+                      </div>
                     </div>
                     
                     <div className="md:col-span-2">
@@ -328,7 +379,15 @@ const SiteSettingsAdminPage = () => {
                         <label className="block text-xs font-semibold text-brand-grey">Story Banner Image</label>
                         <div
                           onClick={() => fileInputRef.current?.click()}
-                          className="border-2 border-dashed border-brand-light hover:border-brand-gold hover:bg-amber-50/10 cursor-pointer rounded-xl p-6 transition-all flex flex-col items-center justify-center text-center h-48"
+                          onDragEnter={handleDrag}
+                          onDragOver={handleDrag}
+                          onDragLeave={handleDrag}
+                          onDrop={handleDrop}
+                          className={`border-2 border-dashed rounded-xl p-6 transition-all flex flex-col items-center justify-center text-center h-48 cursor-pointer ${
+                            isDragging
+                              ? 'border-brand-gold bg-amber-50/20 scale-98'
+                              : 'border-brand-light hover:border-brand-gold hover:bg-amber-50/10'
+                          }`}
                         >
                           <Upload className="w-8 h-8 text-brand-grey mb-2" />
                           <span className="text-xs font-medium text-brand-text">Upload Image</span>
@@ -514,6 +573,22 @@ const SiteSettingsAdminPage = () => {
                     ))}
                   </div>
                 </div>
+
+                {/* Marquee Word Scroller */}
+                <div className="bg-white rounded-xl border border-brand-light shadow-sm p-6">
+                  <h3 className="text-base font-playfair font-bold text-brand-text mb-4 border-b border-brand-light pb-2">Marquee Infinite Word Scroller</h3>
+                  <div>
+                    <label className="block text-xs font-semibold text-brand-grey mb-1.5">Marquee Words (Comma separated)</label>
+                    <input
+                      type="text"
+                      value={marqueeInput}
+                      onChange={(e) => setMarqueeInput(e.target.value)}
+                      className="w-full border border-brand-light px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-brand-gold"
+                      placeholder="ELECTRONICS, APPAREL, HOME, BEAUTY, SPORTS"
+                    />
+                    <p className="text-[10px] text-brand-grey mt-1.5">Separate words using commas. They will automatically be capitalized and scrolling on the client page.</p>
+                  </div>
+                </div>
               </motion.div>
             )}
 
@@ -610,22 +685,6 @@ const SiteSettingsAdminPage = () => {
                         className="w-full border border-brand-light px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-brand-gold"
                       />
                     </div>
-                  </div>
-                </div>
-
-                {/* Marquee Word Scroller */}
-                <div className="bg-white rounded-xl border border-brand-light shadow-sm p-6">
-                  <h3 className="text-base font-playfair font-bold text-brand-text mb-4 border-b border-brand-light pb-2">Marquee Infinite Word Scroller</h3>
-                  <div>
-                    <label className="block text-xs font-semibold text-brand-grey mb-1.5">Marquee Words (Comma separated)</label>
-                    <input
-                      type="text"
-                      value={marqueeInput}
-                      onChange={(e) => setMarqueeInput(e.target.value)}
-                      className="w-full border border-brand-light px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-brand-gold"
-                      placeholder="ELECTRONICS, APPAREL, HOME, BEAUTY, SPORTS"
-                    />
-                    <p className="text-[10px] text-brand-grey mt-1.5">Separate words using commas. They will automatically be capitalized and scrolling on the client page.</p>
                   </div>
                 </div>
               </motion.div>

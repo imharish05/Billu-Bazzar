@@ -68,30 +68,37 @@ const PrivacyPage = () => {
 
           <div className="space-y-8">
             <section className="space-y-3">
-              <h3 className="font-playfair text-xl font-semibold text-brand-text">1. Information We Collect</h3>
+              <h3 className="font-playfair text-xl font-semibold text-brand-text">1. What We Collect</h3>
               <p className="text-brand-grey text-xs md:text-sm leading-relaxed">
-                When you create an account, purchase products, or contact our customer concierge, we collect specific details to complete your requests. This includes your name, delivery address, email, phone number, and preferences. We do not store credit or debit card numbers on our servers.
+                Name, email, phone number, shipping address, payment details, browsing behavior on our website.
               </p>
             </section>
 
             <section className="space-y-3">
-              <h3 className="font-playfair text-xl font-semibold text-brand-text">2. How We Use Your Data</h3>
+              <h3 className="font-playfair text-xl font-semibold text-brand-text">2. How We Use It</h3>
               <p className="text-brand-grey text-xs md:text-sm leading-relaxed font-light">
-                Your data is primarily used to process orders, verify billing transactions, arrange courier delivery, and customize your experience on our platform. We may also use your purchase history to suggest tailored collections or products from our Electronics, Apparel, or Home categories.
+                To process orders, send order updates, improve shopping experience, and for marketing (only if customer opts in).
               </p>
             </section>
 
             <section className="space-y-3">
-              <h3 className="font-playfair text-xl font-semibold text-brand-text">3. Cookies and Analytics</h3>
+              <h3 className="font-playfair text-xl font-semibold text-brand-text">3. Data Sharing</h3>
               <p className="text-brand-grey text-xs md:text-sm leading-relaxed">
-                We use cookies to maintain your shopping cart, store session IDs, and analyze anonymous web traffic. Cookies allow us to understand which departments (such as Smart Home, Footwear, or Skincare) receive the most interest, helping us continuously optimize our navigation layout and load speeds.
+                We do not sell your personal data. We share only with payment gateways and courier partners strictly for order fulfilment.
               </p>
             </section>
 
             <section className="space-y-3">
-              <h3 className="font-playfair text-xl font-semibold text-brand-text">4. Third-Party Disclosures</h3>
+              <h3 className="font-playfair text-xl font-semibold text-brand-text">4. Data Storage</h3>
               <p className="text-brand-grey text-xs md:text-sm leading-relaxed">
-                We do not sell, rent, or lease your personal information to third parties. We share data solely with verified processing partners (such as courier networks, payment gateways, and backend services) required to fulfill your orders. All partners are contractually bound to maintain strict confidentiality.
+                Customer data is stored securely. Indian customers’ data stored in our server.
+              </p>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="font-playfair text-xl font-semibold text-brand-text">5. Customer Rights</h3>
+              <p className="text-brand-grey text-xs md:text-sm leading-relaxed">
+                You can request to access, update, or delete your data by contacting our support team anytime.
               </p>
             </section>
           </div>

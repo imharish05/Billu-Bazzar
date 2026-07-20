@@ -4,12 +4,14 @@ const { SiteSetting } = require('../models');
 const defaultAboutSettings = {
   hero: {
     subtitle: 'Est. 2019',
-    title: 'Your Premium\nLifestyle Destination',
+    titleMain: 'Your Premium',
+    titleGold: 'Lifestyle Destination',
     description: 'Bringing you a meticulously curated selection of cutting-edge electronics, fashion apparel, home styling, beauty, and outdoor sports.',
   },
   story: {
     subtitle: 'Our Legacy',
-    title: 'Curation For The\nModern Connoisseur',
+    titleMain: 'Curation For The',
+    titleSub: 'Modern Connoisseur',
     description1: 'Billu Bazaar was established in 2019 with a singular, clear objective: to redefine how you shop for life\'s essentials. We believed that shopping for premium tech shouldn\'t feel separate from buying designer apparel or selecting elegant home furnishings. By bringing these diverse categories together, we created a unified, luxury-tier marketplace.',
     description2: 'Today, our catalog is divided into six pillars: Electronics & Gadgets, Apparel & Fashion, Home & Living, Beauty & Personal Care, Sports & Outdoors, and Toys, Hobbies & Media. We verify and partner directly with top manufacturers and authorized brands, filtering out the noise to bring you only products that pass our strict design and quality audits.',
     feature1Title: 'Authentic Sourcing',

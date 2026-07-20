@@ -114,34 +114,15 @@ const AboutPage = () => {
     fetchData();
   }, []);
 
-  const renderTitle = (titleStr) => {
-    if (!titleStr) return null;
-    const parts = titleStr.split('\n');
-    if (parts.length > 1) {
-      return (
-        <>
-          {parts[0]} <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-gold via-yellow-400 to-brand-gold">
-            {parts.slice(1).join(' ')}
-          </span>
-        </>
-      );
-    }
-    return titleStr;
-  };
-
-  const renderStoryTitle = (titleStr) => {
-    if (!titleStr) return null;
-    const parts = titleStr.split('\n');
-    if (parts.length > 1) {
-      return (
-        <>
-          {parts[0]} <br />
-          {parts.slice(1).join(' ')}
-        </>
-      );
-    }
-    return titleStr;
+  const renderFormattedText = (text) => {
+    if (!text) return null;
+    const parts = text.split('**');
+    return parts.map((part, idx) => {
+      if (idx % 2 === 1) {
+        return <strong key={idx} className="font-semibold text-brand-text">{part}</strong>;
+      }
+      return part;
+    });
   };
 
   const values = (data.values || []).map((val, idx) => ({
@@ -183,7 +164,10 @@ const AboutPage = () => {
           >
             <span className="text-xs font-semibold tracking-widest text-brand-gold uppercase block">{data.hero.subtitle}</span>
             <h1 className="font-playfair text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-white max-w-4xl leading-tight">
-              {renderTitle(data.hero.title)}
+              {data.hero.titleMain} <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-gold via-yellow-400 to-brand-gold">
+                {data.hero.titleGold}
+              </span>
             </h1>
             <p className="text-white/70 max-w-2xl mx-auto text-sm md:text-base font-light leading-relaxed">
               {data.hero.description}
@@ -215,16 +199,17 @@ const AboutPage = () => {
           >
             <span className="text-xs font-semibold tracking-widest text-brand-gold uppercase block">{data.story.subtitle}</span>
             <h2 className="font-playfair text-3xl md:text-4xl lg:text-5xl font-bold text-brand-text leading-tight">
-              {renderStoryTitle(data.story.title)}
+              {data.story.titleMain} <br />
+              {data.story.titleSub}
             </h2>
             <div className="h-[2px] w-20 bg-brand-gold" />
             
             <p className="text-brand-grey text-sm md:text-base leading-relaxed">
-              {data.story.description1}
+              {renderFormattedText(data.story.description1)}
             </p>
             
             <p className="text-brand-grey text-sm md:text-base leading-relaxed">
-              {data.story.description2}
+              {renderFormattedText(data.story.description2)}
             </p>
 
             <div className="pt-4 grid grid-cols-2 gap-6 border-t border-brand-light">
