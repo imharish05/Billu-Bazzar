@@ -120,7 +120,7 @@ const AboutPage = () => {
             className="space-y-4"
           >
             <span className="text-xs font-semibold tracking-widest text-brand-gold uppercase block">Est. 2019</span>
-            <h1 className="font-playfair text-display text-white max-w-4xl leading-tight">
+            <h1 className="font-playfair text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-white max-w-4xl leading-tight">
               Your Premium <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-gold via-yellow-400 to-brand-gold">
                 Lifestyle Destination
@@ -143,7 +143,7 @@ const AboutPage = () => {
       </section>
 
       {/* Brand Story Section */}
-      <section className="py-20 md:py-28 max-w-site mx-auto px-6 md:px-8">
+      <section className="py-12 md:py-20 max-w-site mx-auto px-6 md:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           
           {/* Left: Text Contents of the Company */}
@@ -155,7 +155,7 @@ const AboutPage = () => {
             className="lg:col-span-7 space-y-6"
           >
             <span className="text-xs font-semibold tracking-widest text-brand-gold uppercase block">Our Legacy</span>
-            <h2 className="font-playfair text-h1 text-brand-text leading-tight">
+            <h2 className="font-playfair text-3xl md:text-4xl lg:text-5xl font-bold text-brand-text leading-tight">
               Curation For The <br />
               Modern Connoisseur
             </h2>
@@ -198,17 +198,17 @@ const AboutPage = () => {
               <img 
                 src="/about-story-general.png" 
                 alt="Premium multi-category lifestyle curation showroom display" 
-                className="w-full h-[450px] object-cover filter contrast-[1.03] transition-transform duration-700 group-hover:scale-105"
+                className="w-full h-[280px] sm:h-[350px] md:h-[450px] object-cover filter contrast-[1.03] transition-transform duration-700 group-hover:scale-105"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            </div>
-            
-            {/* Floating badge */}
-            <div className="absolute -bottom-6 -left-6 bg-white border border-brand-light p-5 shadow-xl max-w-[200px] hidden sm:block">
-              <span className="text-xs text-brand-gold font-semibold uppercase block mb-1">Our Quality Oath</span>
-              <p className="text-[10px] text-brand-grey leading-normal">
-                Every gadget, garment, and home accent is hand-inspected for quality before shipping.
-              </p>
+              
+              {/* Floating badge inside image */}
+              <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm border border-brand-light p-4 shadow-xl max-w-[180px] z-10 rounded-sm">
+                <span className="text-[10px] text-brand-gold font-semibold uppercase block mb-1">Our Quality Oath</span>
+                <p className="text-[9px] text-brand-grey leading-normal">
+                  Every gadget, garment, and home accent is hand-inspected for quality before shipping.
+                </p>
+              </div>
             </div>
           </motion.div>
 
@@ -216,7 +216,7 @@ const AboutPage = () => {
       </section>
 
       {/* Stats Counter Section (with Wavy pattern) */}
-      <section className="relative bg-brand-text text-white py-24 md:py-32 my-12 overflow-hidden">
+      <section className="relative bg-brand-text text-white py-12 md:py-20 my-8 overflow-hidden">
         
         {/* Wave Top */}
         <div className="absolute top-0 left-0 w-full overflow-hidden leading-none select-none pointer-events-none">
@@ -233,14 +233,14 @@ const AboutPage = () => {
           
           <div className="text-center max-w-2xl mx-auto mb-16 space-y-3">
             <span className="text-xs font-semibold tracking-widest text-brand-gold uppercase block">By The Numbers</span>
-            <h3 className="font-playfair text-h2 text-white">Our Growing Footprint</h3>
+            <h3 className="font-playfair text-3xl md:text-4xl font-bold text-white">Our Growing Footprint</h3>
             <p className="text-white/60 text-xs md:text-sm leading-relaxed">
               From high-end electronics to designer outerwear and sports gear, our numbers reflect our commitment to excellence.
             </p>
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8 lg:gap-12">
             {stats.map((item, index) => (
               <motion.div
                 key={index}
@@ -303,17 +303,17 @@ const AboutPage = () => {
       </section>
 
       {/* Core Values Section (Premium Cards) */}
-      <section className="py-20 md:py-28 max-w-site mx-auto px-6 md:px-8">
+      <section className="py-12 md:py-20 max-w-site mx-auto px-6 md:px-8">
         <div className="text-center max-w-2xl mx-auto mb-16 space-y-3">
           <span className="text-xs font-semibold tracking-widest text-brand-gold uppercase block">Our Philosophy</span>
-          <h2 className="font-playfair text-h1 text-brand-text">Pillars of Excellence</h2>
+          <h2 className="font-playfair text-3xl md:text-4xl lg:text-5xl font-bold text-brand-text">Pillars of Excellence</h2>
           <div className="h-[2px] w-20 bg-brand-gold mx-auto" />
           <p className="text-brand-grey text-sm max-w-lg mx-auto">
             Our foundations are built on sourcing authentic products, providing seamless digital solutions, and earning long-term customer loyalty.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
           {values.map((val, idx) => (
             <motion.div
               key={idx}
@@ -352,7 +352,7 @@ const AboutPage = () => {
       </section>
 
       {/* Private Concierge CTA Section */}
-      <section className="bg-brand-muted/50 border-t border-b border-brand-light py-16 text-center">
+      <section className="bg-brand-muted/50 border-t border-b border-brand-light py-12 md:py-16 text-center">
         <div className="max-w-xl mx-auto px-6 space-y-6">
           <span className="text-xs font-semibold tracking-widest text-brand-gold uppercase block">Need Assistance?</span>
           <h3 className="font-playfair text-2xl font-bold text-brand-text">

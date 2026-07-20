@@ -164,7 +164,7 @@ const ProductDetailsPage = () => {
       </div>
 
       {/* Product Layout */}
-      <div className="max-w-site mx-auto px-6 md:px-8 pb-16">
+      <div className="max-w-site mx-auto px-6 md:px-8">
         <div className="grid md:grid-cols-2 gap-8 lg:gap-16">
           {/* Images */}
           <div className="flex flex-col flex-1">
@@ -260,7 +260,7 @@ const ProductDetailsPage = () => {
             </h1>
 
             {/* Rating */}
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <div className="flex">
                 {[1,2,3,4,5].map(s => (
                   <Star key={s} size={16} className={s <= Math.round(product.rating || 4) ? 'fill-brand-gold text-brand-gold' : 'fill-brand-light text-brand-light'} />
@@ -272,17 +272,17 @@ const ProductDetailsPage = () => {
 
             {/* Price — React Bits price reveal pattern (inline motion) */}
             <motion.div
-              className="flex items-baseline gap-4"
+              className="flex flex-wrap items-baseline gap-x-3.5 gap-y-1"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <span className="font-playfair text-4xl font-bold text-brand-text">{fmt(product.price)}</span>
+              <span className="font-playfair text-2xl sm:text-3xl md:text-4xl font-bold text-brand-text whitespace-nowrap">{fmt(product.price)}</span>
               {product.comparePrice && (
-                <span className="text-xl text-brand-grey line-through">{fmt(product.comparePrice)}</span>
+                <span className="text-base sm:text-lg md:text-xl text-brand-grey line-through whitespace-nowrap">{fmt(product.comparePrice)}</span>
               )}
               {discount && (
-                <span className="text-brand-gold font-semibold text-sm">Save {discount}%</span>
+                <span className="text-brand-gold font-semibold text-xs sm:text-sm bg-brand-gold/10 px-2.5 py-0.5 rounded-sm whitespace-nowrap">Save {discount}%</span>
               )}
             </motion.div>
 
@@ -353,10 +353,14 @@ const ProductDetailsPage = () => {
               )}
               <button
                 onClick={() => dispatch(toggleItem(product))}
-                className={`border border-neutral-950 hover:bg-neutral-950 hover:text-white text-neutral-950 font-semibold text-sm tracking-wider uppercase py-4 w-full flex items-center justify-center gap-2 transition-all duration-200 ${isWishlisted ? 'border-red-300 text-red-400 hover:border-red-400 hover:text-red-500 hover:bg-transparent' : ''}`}
+                className={`border font-semibold text-sm tracking-wider uppercase py-4 w-full flex items-center justify-center gap-2 transition-all duration-200 ${
+                  isWishlisted 
+                    ? 'border-red-400 text-red-500 bg-red-50/50 hover:bg-red-50 hover:text-red-600 hover:border-red-500' 
+                    : 'border-neutral-950 text-neutral-950 hover:bg-neutral-950 hover:text-white bg-transparent'
+                }`}
                 id="pdp-wishlist"
               >
-                <Heart size={18} className={isWishlisted ? 'fill-current' : ''} />
+                <Heart size={18} className={isWishlisted ? 'fill-current text-red-500' : ''} />
                 {isWishlisted ? 'Wishlisted' : 'Wishlist'}
               </button>
 
@@ -508,9 +512,9 @@ const ProductDetailsPage = () => {
 
       {/* Related Creations */}
       {relatedProducts.length > 0 && (
-        <div className="border-t border-brand-light pt-16 mt-16 max-w-site mx-auto px-6 md:px-8">
-          <h2 className="font-playfair text-2xl font-bold text-brand-text mb-8">Related Creations</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+        <div className="border-t border-brand-light pt-16 max-w-site mx-auto px-6 md:px-8">
+          <h2 className="font-playfair text-2xl font-bold text-brand-text">Related Creations</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 py-10">
             {relatedProducts.map((p, idx) => (
               <ProductCard key={p.id} product={p} index={idx} />
             ))}

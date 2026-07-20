@@ -5,13 +5,13 @@ import Logo from './Logo';
 const Footer = () => (
   <footer className="bg-brand-text text-white" role="contentinfo">
     {/* Newsletter Banner */}
-    <div className="border-b border-white/10">
+    {/* <div className="border-b border-white/10">
       <div className="max-w-site mx-auto px-6 md:px-8 py-12 flex flex-col md:flex-row items-center justify-between gap-6">
         <div>
           <h2 className="font-playfair text-2xl font-semibold text-white mb-1">Join the Billu Bazaar Circle</h2>
           <p className="text-white/60 text-sm">Early access, exclusive offers, and style inspiration in your inbox.</p>
         </div>
-        {/* <form className="flex gap-0 w-full md:w-auto" onSubmit={e => e.preventDefault()} aria-label="Newsletter signup">
+        <form className="flex gap-0 w-full md:w-auto" onSubmit={e => e.preventDefault()} aria-label="Newsletter signup">
           <input
             type="email"
             placeholder="Your email address"
@@ -21,12 +21,12 @@ const Footer = () => (
           <button type="submit" className="px-6 py-3 bg-brand-gold text-white font-semibold text-sm hover:bg-yellow-600 transition-colors focus-visible:outline-white" id="newsletter-submit">
             Subscribe
           </button>
-        </form> */}
+        </form>
       </div>
-    </div>
+    </div> */}
 
     {/* Main Footer Grid */}
-    <div className="max-w-site mx-auto px-6 md:px-8 py-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
+    <div className="max-w-site mx-auto px-6 md:px-8 py-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
       {/* Brand */}
       <div>
         <Logo size="lg" className="mb-4" />

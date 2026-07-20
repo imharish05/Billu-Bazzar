@@ -43,6 +43,7 @@ app.use('/api/customers',  require('./routes/customerRoutes'));
 app.use('/api/marketing-messages', require('./routes/marketingMessageRoutes'));
 app.use('/api/affiliates',  require('./routes/affiliateRoutes'));
 app.use('/api/search',      require('./routes/searchRoutes'));
+app.use('/api/coupons',     require('./routes/couponRoutes'));
 
 // ── Health Check ──────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));

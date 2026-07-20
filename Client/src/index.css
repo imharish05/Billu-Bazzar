@@ -264,19 +264,11 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--color-gold); ou
    overflow-hidden. min-height lets the box grow to fit whatever text a
    banner has; the background <img> still fills it fully via object-cover. */
 .hero-banner-section {
-  min-height: 560px;
+  aspect-ratio: 16 / 9;
+  min-height: auto;
+  height: auto;
 }
-@media (min-width: 640px) {
-  .hero-banner-section {
-    min-height: 600px;
-  }
-}
-@media (min-width: 768px) {
-  .hero-banner-section {
-    min-height: 620px;
-  }
-}
-@media (min-width: 1024px) {
+@media (min-width: 1024px) and (orientation: landscape) {
   .hero-banner-section {
     aspect-ratio: auto;
     height: 100vh;
@@ -288,6 +280,29 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--color-gold); ou
     box-shadow: none !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .hero-banner-section .max-w-xl {
+    padding: 0.75rem !important;
+  }
+  .hero-banner-section h1 {
+    font-size: 1.15rem !important;
+    margin-bottom: 0.35rem !important;
+  }
+  .hero-banner-section p {
+    font-size: 0.75rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  .hero-banner-section .btn-primary-hero {
+    padding: 6px 16px !important;
+    font-size: 11px !important;
+  }
+  .hero-banner-section span.bg-brand-gold {
+    margin-bottom: 0.35rem !important;
+    padding: 2px 6px !important;
+    font-size: 8px !important;
   }
 }
 
@@ -329,4 +344,31 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--color-gold); ou
   border: 2px solid #fff;
   box-shadow: 0 0 0 1.5px #C58837;
   cursor: pointer;
+}
+
+/* ── Promotional Card Overlays (Exclusive Deals / Home Promos) ────────────── */
+@media (max-width: 1023px) {
+  .promo-card-overlay {
+    padding: 1rem !important;
+  }
+  .promo-card-overlay h3 {
+    font-size: 1.15rem !important;
+    margin-bottom: 0.3rem !important;
+    line-height: 1.25 !important;
+  }
+  .promo-card-overlay p {
+    font-size: 0.72rem !important;
+    margin-bottom: 0.45rem !important;
+    line-height: 1.3 !important;
+  }
+  .promo-card-overlay span {
+    font-size: 8px !important;
+    padding: 2px 6px !important;
+    margin-bottom: 0.35rem !important;
+  }
+  .promo-card-overlay .group\/btn {
+    padding: 5px 12px !important;
+    font-size: 9px !important;
+    letter-spacing: 0.05em !important;
+  }
 }

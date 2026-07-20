@@ -69,19 +69,27 @@ const QuickViewModal = () => {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="glass-modal rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row"
+              className="glass-modal rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row relative"
               onClick={e => e.stopPropagation()}
               role="dialog"
               aria-label={`Quick view: ${product.name}`}
               aria-modal="true"
             >
+              {/* Absolute Close Button at Top-Right of Modal */}
+              <button
+                onClick={() => dispatch(closeQuickView())}
+                className="absolute top-4 right-4 z-50 p-2 bg-black/40 hover:bg-black/60 text-white hover:text-brand-gold transition-colors rounded-full focus-visible:outline-brand-gold shadow-sm"
+                aria-label="Close quick view"
+              >
+                <X size={16} strokeWidth={2} />
+              </button>
+
               {/* Image */}
-              <div className="md:w-1/2 relative bg-brand-light overflow-hidden" style={{ minHeight: 300 }}>
+              <div className="w-full md:w-1/2 h-48 sm:h-64 md:h-auto flex-shrink-0 relative bg-brand-light overflow-hidden">
                 <img
                   src={product.images?.[0] || 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=600'}
                   alt={product.name}
                   className="w-full h-full object-cover"
-                  style={{ minHeight: 300 }}
                 />
                 {discount && (
                   <span className="absolute top-4 left-4 bg-brand-gold text-white text-xs font-bold px-3 py-1 rounded-full">
@@ -91,26 +99,18 @@ const QuickViewModal = () => {
               </div>
 
               {/* Details */}
-              <div className="md:w-1/2 flex flex-col p-6 md:p-8 overflow-y-auto">
-                <button
-                  onClick={() => dispatch(closeQuickView())}
-                  className="self-end p-2 -mr-2 -mt-2 hover:text-brand-gold transition-colors rounded-full focus-visible:outline-brand-gold"
-                  aria-label="Close quick view"
-                >
-                  <X size={20} strokeWidth={1.5} />
-                </button>
-
+              <div className="flex-1 min-h-0 flex flex-col p-5 md:p-8 overflow-y-auto">
                 {product.category && (
-                  <p className="text-xs text-brand-gold font-medium tracking-widest uppercase mb-2">
+                  <p className="text-xs text-brand-gold font-medium tracking-widest uppercase mb-1.5 md:mb-2">
                     {product.category?.name || 'Collection'}
                   </p>
                 )}
-                <h3 className="font-playfair text-2xl font-semibold text-brand-text leading-tight mb-3">
+                <h3 className="font-playfair text-xl md:text-2xl font-semibold text-brand-text leading-tight mb-2 md:mb-3">
                   {product.name}
                 </h3>
 
                 {/* Rating */}
-                <div className="flex items-center gap-2 mb-4">
+                <div className="flex items-center gap-2 mb-3 md:mb-4">
                   <div className="flex">
                     {[1,2,3,4,5].map(s => (
                       <Star key={s} size={14} className={s <= Math.round(product.rating) ? 'fill-brand-gold text-brand-gold' : 'text-brand-light'} />
@@ -120,14 +120,17 @@ const QuickViewModal = () => {
                 </div>
 
                 {/* Price */}
-                <div className="flex items-baseline gap-3 mb-4">
-                  <span className="font-playfair text-3xl font-bold text-brand-text">{fmt(product.price)}</span>
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3 md:mb-4">
+                  <span className="font-playfair text-xl sm:text-2xl md:text-3xl font-bold text-brand-text whitespace-nowrap">{fmt(product.price)}</span>
                   {product.comparePrice && (
-                    <span className="text-brand-grey text-lg line-through">{fmt(product.comparePrice)}</span>
+                    <span className="text-brand-grey text-sm md:text-base line-through whitespace-nowrap">{fmt(product.comparePrice)}</span>
+                  )}
+                  {discount > 0 && (
+                    <span className="text-brand-gold font-semibold text-[10px] md:text-xs bg-brand-gold/10 px-2 py-0.5 rounded-sm whitespace-nowrap">Save {discount}%</span>
                   )}
                 </div>
 
-                <p className="text-sm text-brand-grey leading-relaxed mb-6 line-clamp-4">
+                <p className="text-sm text-brand-grey leading-relaxed mb-5 md:mb-6 line-clamp-2 md:line-clamp-4">
                   {product.shortDescription || product.description}
                 </p>
 
@@ -137,7 +140,7 @@ const QuickViewModal = () => {
                     <div className="flex gap-3">
                       <button
                         onClick={handleAddToCart}
-                        className="bg-brand-gold hover:bg-[#a8712a] text-white text-xs font-semibold tracking-widest uppercase py-3.5 flex-1 flex items-center justify-center gap-1.5 transition-all duration-200 shadow-sm"
+                        className="bg-brand-gold hover:bg-[#a8712a] text-white text-xs font-semibold tracking-widest uppercase py-3 flex-1 flex items-center justify-center gap-1.5 transition-all duration-200 shadow-sm"
                         id={`quickview-add-cart-${product.id}`}
                       >
                         <ShoppingBag size={14} />
@@ -145,7 +148,7 @@ const QuickViewModal = () => {
                       </button>
                       <button
                         onClick={handleBuyNow}
-                        className="bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-semibold tracking-widest uppercase py-3.5 flex-1 flex items-center justify-center gap-1.5 transition-all duration-200 shadow-sm"
+                        className="bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-semibold tracking-widest uppercase py-3 flex-1 flex items-center justify-center gap-1.5 transition-all duration-200 shadow-sm"
                         id={`quickview-buy-now-${product.id}`}
                       >
                         Buy Now
@@ -154,7 +157,7 @@ const QuickViewModal = () => {
                   ) : (
                     <button
                       onClick={handleNotifyMe}
-                      className="bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-semibold tracking-widest uppercase py-3.5 w-full flex items-center justify-center gap-1.5 transition-all duration-200 shadow-sm"
+                      className="bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-semibold tracking-widest uppercase py-3 w-full flex items-center justify-center gap-1.5 transition-all duration-200 shadow-sm"
                       id={`quickview-notify-${product.id}`}
                     >
                       Notify Me
@@ -163,7 +166,7 @@ const QuickViewModal = () => {
                   <Link
                     to={`/products/${product.slug}`}
                     onClick={() => dispatch(closeQuickView())}
-                    className="border border-neutral-950 hover:bg-neutral-950 hover:text-white text-neutral-950 text-xs font-semibold tracking-widest uppercase py-3.5 w-full flex items-center justify-center gap-1.5 transition-all duration-200 mt-1"
+                    className="border border-neutral-950 hover:bg-neutral-950 hover:text-white text-neutral-950 text-xs font-semibold tracking-widest uppercase py-3 w-full flex items-center justify-center gap-1.5 transition-all duration-200 mt-1"
                     id={`quickview-view-full-${product.id}`}
                   >
                     <Eye size={14} />

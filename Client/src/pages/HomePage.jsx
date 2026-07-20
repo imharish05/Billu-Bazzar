@@ -444,7 +444,7 @@ const HomePage = () => {
 
       {/* ── SECTION 3: Countdown / Deal of the Month Banner ────────────── */}
       {countdownBanner && !isExpired && (
-        <section className="bg-brand-text py-12 md:py-16 overflow-hidden" aria-label="Deal of the month countdown">
+        <section className="bg-brand-text py-10 overflow-hidden" aria-label="Deal of the month countdown">
           <div className="max-w-site mx-auto px-6 md:px-8 flex flex-col md:flex-row items-center justify-between gap-8">
             <div className="text-center md:text-left">
               {countdownBanner.badgeText && (
@@ -474,7 +474,7 @@ const HomePage = () => {
             </div>
 
             {/* Product Preview */}
-            <div className="relative w-56 h-64 flex-shrink-0 hidden md:block">
+            <div className="relative w-56 h-64 flex-shrink-0 hidden lg:block">
               <img
                 src={countdownBanner.image}
                 alt={countdownBanner.title}
@@ -502,7 +502,7 @@ const HomePage = () => {
       )}
 
       {/* ── SECTION 4: Bestsellers & New Arrivals Carousel ──────────────── */}
-      <section className="py-16 md:py-18 bg-white" aria-label="Bestsellers and New Arrivals">
+      <section className="py-10 bg-white" aria-label="Bestsellers and New Arrivals">
         <div className="max-w-site mx-auto px-6 md:px-8">
           <ScrollReveal>
             <div className="text-center mb-12">
@@ -533,7 +533,7 @@ const HomePage = () => {
 
           {/* Product grid / Carousel */}
           {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
               {[...Array(4)].map((_, i) => (
                 <div key={i} className="bg-white shadow-sm skeleton-card">
                   <div className="skeleton aspect-[3/4]" />
@@ -590,7 +590,7 @@ const HomePage = () => {
           )}
 
           {/* Centered VIEW ALL button at the bottom */}
-          <div className="flex justify-center mt-10">
+          <div className="flex justify-center mt-5">
             <Link
               to={mainTab === 'bestsellers' ? '/products?bestSeller=true' : '/products?newArrival=true'}
               className="px-10 py-3 border border-neutral-800 text-neutral-800 hover:bg-neutral-900 hover:text-white hover:border-neutral-900 transition-all font-inter text-xs font-semibold uppercase tracking-widest"
@@ -604,7 +604,7 @@ const HomePage = () => {
 
       {/* ── SECTION 6: Curated Collection Editorial Banner ──────────────── */}
       {promoBanner && (
-        <section className="py-16 md:py-18 bg-brand-light" aria-label="Curated collection">
+        <section className="py-10 bg-brand-light" aria-label="Curated collection">
           <div className="max-w-site mx-auto px-6 md:px-8">
             <div className="grid md:grid-cols-2 gap-0 shadow-lg overflow-hidden">
               <div className="relative aspect-[4/5] md:aspect-auto">
@@ -645,7 +645,7 @@ const HomePage = () => {
 
       {/* ── PARALLAX SECTION A: The Art of Curated Living ── */}
       <section 
-        className="relative min-h-[50vh] md:min-h-[60vh] flex items-center bg-black overflow-hidden bg-cover bg-center bg-scroll md:bg-fixed py-16"
+        className="relative min-h-[50vh] md:min-h-[60vh] flex items-center bg-black overflow-hidden bg-cover bg-center bg-scroll md:bg-fixed py-10"
         style={{ backgroundImage: `url('/home-luxury-lifestyle.png')` }}
       >
         <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
@@ -671,7 +671,7 @@ const HomePage = () => {
 
       {/* ── SECTION 8: Dual Promo Tiles / Exclusive Collection Banner ───── */}
       {exclusiveBanners.length === 1 && (
-        <section className="py-16 md:py-18 bg-white" aria-label="Promotional offers">
+        <section className="py-10 bg-white" aria-label="Promotional offers">
           <div className="max-w-site mx-auto px-6 md:px-8 flex justify-center">
             <ScrollReveal className="relative overflow-hidden w-full max-w-5xl aspect-[16/9] sm:aspect-[2.4/1] md:aspect-[3/1] group">
               <img
@@ -681,7 +681,7 @@ const HomePage = () => {
                 loading="lazy"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-              <div className="absolute inset-0 flex flex-col justify-end p-8 md:p-12">
+              <div className="absolute inset-0 flex flex-col justify-end p-8 md:p-12 promo-card-overlay">
                 {exclusiveBanners[0].badgeText && (
                   <span className="bg-brand-gold text-white text-sm font-bold px-3 py-1 self-start mb-3">
                     {exclusiveBanners[0].badgeText}
@@ -711,7 +711,7 @@ const HomePage = () => {
       )}
 
       {exclusiveBanners.length === 2 && (
-        <section className="py-16 md:py-18 bg-white" aria-label="Promotional offers">
+        <section className="py-10 bg-white" aria-label="Promotional offers">
           <div className="max-w-site mx-auto px-6 md:px-8">
             <div className="grid md:grid-cols-2 gap-6">
               {exclusiveBanners.map((banner, idx) => (
@@ -723,7 +723,7 @@ const HomePage = () => {
                     loading="lazy"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-                  <div className="absolute inset-0 flex flex-col justify-end p-8">
+                  <div className="absolute inset-0 flex flex-col justify-end p-8 promo-card-overlay">
                     {banner.badgeText && (
                       <span className="bg-brand-gold text-white text-sm font-bold px-3 py-1 self-start mb-3">
                         {banner.badgeText}
@@ -755,7 +755,7 @@ const HomePage = () => {
       )}
 
       {exclusiveBanners.length >= 3 && (
-        <section className="py-16 md:py-18 bg-white overflow-hidden" aria-label="Promotional offers">
+        <section className="py-10 bg-white overflow-hidden" aria-label="Promotional offers">
           <div className="max-w-site mx-auto px-6 md:px-8">
             <ScrollReveal className="relative group/carousel">
               <div className="flex items-center justify-between mb-8">
@@ -809,7 +809,7 @@ const HomePage = () => {
                         loading="lazy"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-                      <div className="absolute inset-0 flex flex-col justify-end p-8">
+                      <div className="absolute inset-0 flex flex-col justify-end p-8 promo-card-overlay">
                         {banner.badgeText && (
                           <span className="bg-brand-gold text-white text-sm font-bold px-3 py-1 self-start mb-3">
                             {banner.badgeText}
@@ -858,7 +858,7 @@ const HomePage = () => {
 
       {/* ── SECTION 9: Influencer Showcase ──────────────────────────────── */}
       {dbInfluencers.length > 0 && (
-        <section className="py-16 md:py-18 bg-brand-bg border-t border-brand-light" aria-label="Style influencers">
+        <section className="py-10 bg-brand-bg border-t border-brand-light" aria-label="Style influencers">
           <div className="max-w-site mx-auto px-6 md:px-8">
             <ScrollReveal>
               <SectionHeader eyebrow="As Seen On" title="Style Diaries" subtitle="Drag or scroll to explore our favorite curators wearing Billu Bazaar" />
@@ -949,7 +949,7 @@ const HomePage = () => {
 
       {/* ── PARALLAX SECTION B: Our Commitment to Conscious Luxury ── */}
       <section 
-        className="relative min-h-[50vh] md:min-h-[60vh] flex items-center justify-end bg-black overflow-hidden bg-cover bg-center bg-scroll md:bg-fixed py-16"
+        className="relative min-h-[50vh] md:min-h-[60vh] flex items-center justify-end bg-black overflow-hidden bg-cover bg-center bg-scroll md:bg-fixed py-10"
         style={{ backgroundImage: `url('/home-luxury-conscious.png')` }}
       >
         <div className="absolute inset-0 bg-gradient-to-l from-black/80 via-black/40 to-transparent" />
@@ -974,14 +974,14 @@ const HomePage = () => {
       </section>
 
       {/* ── SECTION 11: Best Sellers + Testimonials ─────────────────────── */}
-      <section className="py-16 md:py-18 bg-brand-light" aria-label="Best sellers and testimonials">
+      <section className="py-10 bg-brand-light" aria-label="Best sellers and testimonials">
         <div className="max-w-site mx-auto px-6 md:px-8">
           <ScrollReveal>
             <SectionHeader eyebrow="Customer Favourites" title="Most Loved Pieces" />
           </ScrollReveal>
 
           {/* Featured items — top 5 */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6 mb-20">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 lg:gap-6 mb-5">
             {(featured.length
               ? featured.slice(0, 5)
               : products.filter(p => p.isFeatured).slice(0, 5).length
@@ -995,9 +995,9 @@ const HomePage = () => {
       </section>
 
       {/* ── SECTION 12: Trust Badges Row ────────────────────────────────── */}
-      <section className="py-16 bg-[#FDFDFB] border-t border-neutral-100" aria-label="Trust and security badges">
+      <section className="py-10 bg-[#FDFDFB] border-t border-neutral-100" aria-label="Trust and security badges">
         <div className="max-w-site mx-auto px-6 md:px-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
             {/* Card 1: Shipping */}
             <ScrollReveal className="h-full">
               <div className="bg-white border border-neutral-200/60 rounded-xl p-6 flex items-center gap-4 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 h-full">

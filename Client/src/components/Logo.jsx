@@ -4,7 +4,7 @@
  */
 const Logo = ({ size = 'md', className = '', showText = false, fullHeight = false }) => {
   const imageSizes = {
-    sm: 'h-16 w-16',
+    sm: 'h-12 w-12',
     md: 'h-20 w-20',
     lg: 'h-32 w-32',
   };

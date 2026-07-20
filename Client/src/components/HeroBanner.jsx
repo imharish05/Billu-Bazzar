@@ -170,7 +170,7 @@ const HeroBanner = () => {
 
       {/* Content Overlay */}
       {hasTextContent && (
-        <div className="relative z-10 max-w-site mx-auto px-6 md:px-16 w-full py-10 md:py-0 lg:pt-36">
+        <div className="relative z-10 max-w-site mx-auto px-6 md:px-16 w-full py-6 md:py-0 lg:pt-36">
           <AnimatePresence mode="wait">
             <motion.div
               key={banner.id || current}
@@ -178,7 +178,7 @@ const HeroBanner = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.4 }}
-              className="max-w-xl p-5 sm:p-8"
+              className="max-w-xl p-4 sm:p-8"
             >
               {banner.badgeText && banner.badgeText.trim() && (
                 <motion.span

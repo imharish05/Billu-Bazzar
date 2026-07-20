@@ -39,7 +39,7 @@ const ProductCard = ({ product, index = 0 }) => {
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.07 }}
-      className="relative bg-white flex flex-col shadow-sm hover:shadow-md transition-all duration-300"
+      className="relative bg-white flex flex-col border border-neutral-200/60 shadow-sm hover:shadow-md transition-all duration-300"
       aria-label={product.name}
     >
       {/* Image */}
@@ -90,19 +90,19 @@ const ProductCard = ({ product, index = 0 }) => {
         <div className="absolute bottom-0 left-0 right-0 bg-black/90 flex translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out z-10">
           <button
             onClick={(e) => { e.preventDefault(); dispatch(openQuickView(product)); }}
-            className="flex-1 flex items-center justify-center gap-2 py-3 text-white text-xs font-medium hover:bg-white/10 transition-colors border-r border-white/20 focus-visible:outline-white"
+            className="flex-1 flex items-center justify-center gap-1.5 lg:gap-2 py-3 text-white text-xs font-medium hover:bg-white/10 transition-colors border-r border-white/20 focus-visible:outline-white"
             aria-label={`Quick view ${product.name}`}
             id={`qv-${product.id}`}
           >
-            <Eye size={14} /> Quick View
+            <Eye size={14} /> <span className="hidden lg:inline">Quick View</span>
           </button>
           <button
             onClick={handleAddToCart}
-            className="flex-1 flex items-center justify-center gap-2 py-3 text-white text-xs font-medium hover:bg-white/10 transition-colors focus-visible:outline-white"
+            className="flex-1 flex items-center justify-center gap-1.5 lg:gap-2 py-3 text-white text-xs font-medium hover:bg-white/10 transition-colors focus-visible:outline-white"
             aria-label={`Add ${product.name} to cart`}
             id={`add-cart-${product.id}`}
           >
-            <ShoppingBag size={14} /> Add to Cart
+            <ShoppingBag size={14} /> <span className="hidden lg:inline">Add to Cart</span>
           </button>
         </div>
       </Link>
@@ -125,10 +125,10 @@ const ProductCard = ({ product, index = 0 }) => {
           ))}
           {product.reviewCount > 0 && <span className="text-[11px] text-brand-grey ml-1">({product.reviewCount})</span>}
         </div>
-        <div className="flex items-center gap-2 mt-auto">
-          <span className="font-semibold text-brand-text">{fmt(product.price)}</span>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-auto">
+          <span className="font-semibold text-brand-text whitespace-nowrap">{fmt(product.price)}</span>
           {product.comparePrice && Number(product.comparePrice) > Number(product.price) && (
-            <span className="text-brand-grey text-sm line-through">{fmt(product.comparePrice)}</span>
+            <span className="text-brand-grey text-sm line-through whitespace-nowrap">{fmt(product.comparePrice)}</span>
           )}
         </div>
       </div>

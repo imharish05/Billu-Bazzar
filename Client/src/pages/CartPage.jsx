@@ -6,6 +6,8 @@ import { Trash2, ShoppingBag, ChevronRight, Tag } from 'lucide-react';
 import { removeLocal, addLocal, clearLocal, openCart } from '../redux/slices/cartSlice';
 import Footer from '../components/Footer';
 import { formatPrice } from '../utils/currency';
+import api from '../services/api';
+import { toast } from 'react-hot-toast';
 
 const FREE_SHIP = 1499;
 
@@ -13,21 +15,121 @@ const CartPage = () => {
   const dispatch = useDispatch();
   const { items, subtotal } = useSelector(s => s.cart);
   const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
+  const { isAuthenticated, customer } = useSelector(s => s.auth || {});
+
   const [couponCode, setCouponCode] = useState('');
   const [couponApplied, setCouponApplied] = useState(null);
+  const [availableCoupons, setAvailableCoupons] = useState([]);
+  const [giftWrap, setGiftWrap] = useState(false);
+  const [giftMessage, setGiftMessage] = useState('');
+  const [redeemPoints, setRedeemPoints] = useState(false);
 
   const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
 
+  const getCouponDiscount = (coupon, totalVal) => {
+    if (!coupon) return 0;
+    if (totalVal < Number(coupon.minOrderValue || 0)) return 0;
+    
+    // Check usage limits and dates on frontend
+    if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) return 0;
+    const now = new Date();
+    if (coupon.validFrom && new Date(coupon.validFrom) > now) return 0;
+    if (coupon.validUntil && new Date(coupon.validUntil) < now) return 0;
+
+    const value = Number(coupon.value || 0);
+    if (coupon.type === 'PERCENT') {
+      const maxD = Number(coupon.maxDiscount || Infinity);
+      return Math.min((totalVal * value) / 100, maxD);
+    }
+    if (coupon.type === 'FLAT') {
+      return Math.min(value, totalVal);
+    }
+    return 0;
+  };
+
   const shipping = subtotal >= FREE_SHIP ? 0 : 99;
-  const discount = couponApplied ? subtotal * 0.2 : 0;
-  const total = subtotal - discount + shipping;
+  const couponDiscountVal = couponApplied ? getCouponDiscount(couponApplied, subtotal) : 0;
+  const loyaltyDiscountVal = redeemPoints && customer ? Math.min(Number(customer.loyaltyPoints) * 0.1, subtotal * 0.2) : 0;
+  const giftWrapVal = giftWrap ? 99 : 0;
+  
+  const total = subtotal - couponDiscountVal - loyaltyDiscountVal + giftWrapVal + shipping;
   const progressPct = Math.min((subtotal / FREE_SHIP) * 100, 100);
 
-  useEffect(() => { document.title = 'Your Cart — Billu Bazaar'; }, []);
+  useEffect(() => { 
+    document.title = 'Your Cart — Billu Bazaar'; 
+  }, []);
 
-  const applyCoupon = () => {
-    if (couponCode.trim().toLowerCase() === 'welcome20') {
-      setCouponApplied('WELCOME20');
+  // Fetch active coupons
+  useEffect(() => {
+    const fetchCoupons = async () => {
+      try {
+        const res = await api.get('/coupons');
+        if (res.data?.success) {
+          const active = (res.data.coupons || []).filter(c => c.isActive);
+          setAvailableCoupons(active);
+        }
+      } catch (err) {
+        console.error('Failed to load coupons:', err);
+      }
+    };
+    fetchCoupons();
+  }, []);
+
+  // Auto-apply best available coupon when subtotal or available coupons change
+  useEffect(() => {
+    if (availableCoupons.length === 0 || subtotal <= 0) return;
+
+    let bestCoupon = null;
+    let maxDiscountVal = 0;
+
+    availableCoupons.forEach(coupon => {
+      const disc = getCouponDiscount(coupon, subtotal);
+      if (disc > maxDiscountVal) {
+        maxDiscountVal = disc;
+        bestCoupon = coupon;
+      }
+    });
+
+    if (bestCoupon) {
+      setCouponApplied(bestCoupon);
+      setCouponCode(bestCoupon.code);
+    } else {
+      setCouponApplied(null);
+      setCouponCode('');
+    }
+  }, [availableCoupons, subtotal]);
+
+  const applyCoupon = async (codeToApply = couponCode) => {
+    const code = codeToApply.trim().toUpperCase();
+    if (!code) return;
+    
+    try {
+      const matched = availableCoupons.find(c => c.code === code);
+      if (matched) {
+        const disc = getCouponDiscount(matched, subtotal);
+        if (disc > 0) {
+          setCouponApplied(matched);
+          setCouponCode(matched.code);
+          toast.success(`Coupon ${matched.code} applied successfully!`);
+        } else {
+          if (subtotal < Number(matched.minOrderValue || 0)) {
+            toast.error(`Minimum order value of ₹${matched.minOrderValue} required for this coupon.`);
+          } else {
+            toast.error(`This coupon is not applicable.`);
+          }
+        }
+      } else {
+        const res = await api.post('/coupons/validate', { code, subtotal });
+        if (res.data?.success && res.data?.valid) {
+          setCouponApplied(res.data.coupon);
+          setCouponCode(res.data.coupon.code);
+          toast.success(`Coupon ${res.data.coupon.code} applied successfully!`);
+        } else {
+          toast.error(res.data?.message || 'Invalid coupon code');
+        }
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Invalid coupon code');
     }
   };
 
@@ -122,27 +224,78 @@ const CartPage = () => {
 
             <button
               onClick={() => dispatch(clearLocal())}
-              className="text-sm text-brand-grey hover:text-red-400 transition-colors flex items-center gap-2 focus-visible:outline-brand-gold"
+              className="text-sm text-brand-grey hover:text-red-400 transition-colors flex items-center gap-2 focus-visible:outline-brand-gold mt-4"
               id="clear-cart-btn"
             >
               <Trash2 size={14} /> Clear Cart
             </button>
+
+            {/* Gift wrapping option block */}
+            <div className="bg-white border border-brand-light p-6 shadow-sm space-y-4 mt-6">
+              <h3 className="font-playfair text-base font-semibold flex items-center gap-2 text-brand-text">
+                🎁 Premium Gift Services
+              </h3>
+              
+              <div className="flex flex-col gap-3">
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={giftWrap}
+                    onChange={(e) => {
+                      setGiftWrap(e.target.checked);
+                      if (!e.target.checked) setGiftMessage('');
+                    }}
+                    className="w-4 h-4 mt-0.5 accent-brand-gold rounded border-brand-light"
+                  />
+                  <div className="text-xs">
+                    <p className="font-medium text-brand-text">Add Premium Gift Wrapping (+{fmt(99)})</p>
+                    <p className="text-brand-grey mt-0.5">Meticulously wrapped in our signature gold foil box with a silk ribbon casing.</p>
+                  </div>
+                </label>
+
+                {giftWrap && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="space-y-2 pt-2"
+                  >
+                    <label className="block text-xs font-semibold text-brand-grey" htmlFor="gift-msg">
+                      Personalized Message (Complimentary)
+                    </label>
+                    <textarea
+                      id="gift-msg"
+                      rows={3}
+                      value={giftMessage}
+                      onChange={(e) => setGiftMessage(e.target.value)}
+                      placeholder="Write your special message here... (e.g. Happy Anniversary! With love, Priya)"
+                      className="w-full border border-brand-light p-3 text-xs focus:outline-none focus:border-brand-gold bg-transparent resize-none rounded-sm placeholder-brand-grey/40"
+                      maxLength={200}
+                    />
+                    <div className="text-right text-[10px] text-brand-grey">
+                      {200 - giftMessage.length} characters remaining
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Order Summary */}
           <div className="space-y-4">
-            <div className="bg-white shadow-sm p-6">
+            <div className="bg-white shadow-sm p-6 border border-brand-light">
               <h2 className="font-playfair text-xl font-semibold mb-5">Order Summary</h2>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between"><span className="text-brand-grey">Subtotal</span><span>{fmt(subtotal)}</span></div>
-                {discount > 0 && <div className="flex justify-between text-green-600"><span>Coupon Discount</span><span>−{fmt(discount)}</span></div>}
+                {couponDiscountVal > 0 && <div className="flex justify-between text-green-600"><span>Coupon Discount ({couponApplied?.code})</span><span>−{fmt(couponDiscountVal)}</span></div>}
+                {loyaltyDiscountVal > 0 && <div className="flex justify-between text-green-600"><span>Loyalty Discount</span><span>−{fmt(loyaltyDiscountVal)}</span></div>}
+                {giftWrap && <div className="flex justify-between text-brand-text"><span>Gift Wrapping</span><span>{fmt(99)}</span></div>}
                 <div className="flex justify-between"><span className="text-brand-grey">Shipping</span><span>{shipping === 0 ? <span className="text-green-600">Free</span> : fmt(shipping)}</span></div>
                 <div className="border-t border-brand-light pt-3 flex justify-between font-semibold text-base">
                   <span>Total</span><span className="text-brand-gold">{fmt(total)}</span>
                 </div>
               </div>
 
-              <Link to="/checkout" className="btn-primary w-full text-center block mt-6" id="cart-checkout">
+              <Link to="/checkout" state={{ giftWrap, giftMessage, redeemPoints }} className="btn-primary w-full text-center block mt-6" id="cart-checkout">
                 Proceed to Checkout
               </Link>
               <Link to="/products" className="btn-outline w-full text-center block mt-3" id="cart-continue">
@@ -150,29 +303,115 @@ const CartPage = () => {
               </Link>
             </div>
 
+            {/* Loyalty points block */}
+            {isAuthenticated && customer && (
+              <div className="bg-white shadow-sm p-6 border border-brand-light">
+                <h3 className="font-playfair text-base font-semibold flex items-center gap-2 mb-3">
+                  👑 Loyalty Reward Points
+                </h3>
+                <div className="text-xs text-brand-grey space-y-2">
+                  <p>You have <strong className="text-brand-text font-bold">{customer.loyaltyPoints || 0}</strong> points available.</p>
+                  {customer.loyaltyPoints > 0 ? (
+                    <div className="pt-2">
+                      <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={redeemPoints}
+                          onChange={(e) => setRedeemPoints(e.target.checked)}
+                          className="w-4 h-4 accent-brand-gold rounded border-brand-light"
+                        />
+                        <span className="text-xs text-brand-text font-medium">
+                          Redeem points for discount of <strong>{fmt(Math.min(customer.loyaltyPoints * 0.1, subtotal * 0.2))}</strong>
+                        </span>
+                      </label>
+                      <p className="text-[10px] text-brand-grey/80 mt-1">* 10 points = ₹1. Max redemption caps at 20% of subtotal.</p>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-brand-grey/80">Shop more to accumulate loyalty points and unlock exclusive rewards!</p>
+                  )}
+                </div>
+              </div>
+            )}
+            {!isAuthenticated && (
+              <div className="bg-white shadow-sm p-6 border border-brand-light text-center rounded-sm">
+                <p className="text-xs text-brand-grey">
+                  <Link to="/account" className="text-brand-gold font-medium underline hover:text-[#a8712a]">Sign in</Link> to view and redeem your Loyalty Points for extra discounts.
+                </p>
+              </div>
+            )}
+
             {/* Coupon */}
-            <div className="bg-white shadow-sm p-6">
-              <h3 className="font-medium text-sm flex items-center gap-2 mb-4"><Tag size={16} className="text-brand-gold" /> Apply Coupon</h3>
-              <div className="flex gap-0">
+            <div className="bg-white shadow-sm p-6 border border-brand-light">
+              <h3 className="font-playfair text-base font-semibold flex items-center gap-2 mb-4">
+                <Tag size={16} className="text-brand-gold" /> Available Coupons
+              </h3>
+              
+              {/* List of Coupons */}
+              {availableCoupons.length > 0 ? (
+                <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1 mb-4">
+                  {availableCoupons.map(coupon => {
+                    const discountAmt = getCouponDiscount(coupon, subtotal);
+                    const isApplicable = discountAmt > 0;
+                    const isSelected = couponApplied?.code === coupon.code;
+                    
+                    return (
+                      <div 
+                        key={coupon.id} 
+                        onClick={() => isApplicable && applyCoupon(coupon.code)}
+                        className={`p-3 border rounded-sm transition-all flex flex-col justify-between relative overflow-hidden ${
+                          isSelected 
+                            ? 'border-brand-gold bg-brand-light/20 cursor-default' 
+                            : isApplicable 
+                              ? 'border-brand-light hover:border-brand-gold/50 cursor-pointer bg-white' 
+                              : 'border-neutral-100 bg-neutral-50/50 opacity-60 cursor-not-allowed'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <span className="font-mono text-xs font-bold text-[#0F2942] bg-brand-light px-2.5 py-0.5 rounded-sm">
+                            {coupon.code}
+                          </span>
+                          <span className="text-[10px] text-brand-gold font-semibold uppercase">
+                            {coupon.type === 'PERCENT' ? `${coupon.value}% OFF` : `₹${coupon.value} OFF`}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-brand-grey mt-1.5 leading-relaxed">
+                          Min Order: ₹{coupon.minOrderValue || 0}
+                          {coupon.maxDiscount ? ` · Max Disc: ₹${coupon.maxDiscount}` : ''}
+                        </p>
+                        {isSelected && (
+                          <div className="absolute top-0 right-0 bg-brand-gold text-white text-[8px] font-bold px-2 py-0.5 rounded-bl-sm">
+                            Applied
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-brand-grey mb-4">No coupons available at the moment.</p>
+              )}
+
+              {/* Coupon input */}
+              <div className="flex gap-2">
                 <input
                   type="text"
                   value={couponCode}
                   onChange={e => setCouponCode(e.target.value.toUpperCase())}
                   placeholder="Enter coupon code"
-                  className="flex-1 border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold"
+                  className="flex-1 border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold uppercase font-mono"
                   aria-label="Coupon code"
                   id="coupon-input"
                 />
-                <button onClick={applyCoupon} className="bg-brand-text text-white px-4 py-2 text-sm font-medium hover:bg-gray-800 transition-colors focus-visible:outline-brand-gold" id="apply-coupon">
+                <button onClick={() => applyCoupon()} className="bg-neutral-950 text-white px-4 py-2 text-sm font-medium hover:bg-neutral-800 transition-colors focus-visible:outline-brand-gold" id="apply-coupon">
                   Apply
                 </button>
               </div>
-              {couponApplied && <p className="text-green-600 text-xs mt-2">✓ Coupon {couponApplied} applied — 20% off!</p>}
-              <div className="mt-3 space-y-1">
-                {['WELCOME20', 'LUXE15', 'BILLU10'].map(c => (
-                  <button key={c} onClick={() => setCouponCode(c)} className="text-xs text-brand-gold hover:underline mr-3 focus-visible:outline-brand-gold">{c}</button>
-                ))}
-              </div>
+              {couponApplied && (
+                <div className="mt-3 flex items-center justify-between bg-green-50/70 border border-green-200/60 p-2.5 rounded-sm">
+                  <p className="text-green-700 text-xs font-medium">✓ Coupon {couponApplied.code} applied!</p>
+                  <button onClick={() => { setCouponApplied(null); setCouponCode(''); }} className="text-green-700 hover:text-red-500 text-xs font-semibold underline">Remove</button>
+                </div>
+              )}
             </div>
           </div>
         </div>

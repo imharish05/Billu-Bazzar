@@ -28,13 +28,8 @@ const SubCategoriesAdminPage = () => {
   const [editing, setEditing] = useState(null);
 
   const [form, setForm] = useState({ categoryId: '', name: '', slug: '', isActive: true });
-  const [imagePreview, setImagePreview] = useState(null);
-  const [imageFile, setImageFile] = useState(null);
-  const [isDragging, setIsDragging] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadError, setUploadError] = useState(null);
-
-  const fileInputRef = useRef(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -91,10 +86,7 @@ const SubCategoriesAdminPage = () => {
       slug: '',
       isActive: true
     });
-    setImagePreview(null);
-    setImageFile(null);
     setUploadError(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
     setModalOpen(true);
   };
 
@@ -104,18 +96,7 @@ const SubCategoriesAdminPage = () => {
     setForm(p => ({ ...p, name: val, slug: slugVal }));
   };
 
-  const handleFileSelect = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    processFile(file);
-  };
 
-  const processFile = (file) => {
-    setImageFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setImagePreview(reader.result);
-    reader.readAsDataURL(file);
-  };
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -130,8 +111,7 @@ const SubCategoriesAdminPage = () => {
       fd.append('isActive', String(form.isActive));
       fd.append('categoryId', form.categoryId);
 
-      const file = imageFile || fileInputRef.current?.files?.[0];
-      if (file) fd.append('image', file);
+
 
       if (editing) {
         await api.put(`/subcategories/${editing.id}`, fd);
@@ -222,7 +202,7 @@ const SubCategoriesAdminPage = () => {
                 <tr className="border-b border-brand-light bg-brand-light/20 text-brand-grey text-xs font-semibold uppercase tracking-wider">
                   <th className="pl-3 pr-1 py-3 w-8"></th>
                   <th className="px-5 py-3 w-16">NO</th>
-                  <th className="px-5 py-3 w-24">Image</th>
+
                   <th className="px-5 py-3">Category Name</th>
                   <th className="px-5 py-3">Sub-category Name</th>
                   <th className="px-5 py-3 w-32">Status</th>
@@ -243,15 +223,7 @@ const SubCategoriesAdminPage = () => {
                     {subCategories.map((sub, idx) => (
                       <SortableRow key={sub.id} id={sub.id}>
                         <td className="px-5 py-4 font-medium text-brand-grey">{idx + 1}</td>
-                        <td className="px-5 py-4">
-                          <div className="w-10 h-10 rounded bg-brand-light overflow-hidden border border-brand-light flex items-center justify-center">
-                            {sub.image ? (
-                              <img src={sub.image} alt={sub.name} className="w-full h-full object-cover" />
-                            ) : (
-                              <span className="text-brand-grey text-[10px] font-bold uppercase">{sub.name.substring(0, 2)}</span>
-                            )}
-                          </div>
-                        </td>
+
                         <td className="px-5 py-4 font-medium text-brand-text">{getParentName(sub.categoryId)}</td>
                         <td className="px-5 py-4">
                           <p className="font-semibold text-brand-text">{sub.name}</p>

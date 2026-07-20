@@ -39,7 +39,7 @@ const ExclusiveCollection = () => {
 
   if (loading) {
     return (
-      <section className="py-16 md:py-18 bg-white" aria-label="Exclusive collection loading">
+      <section className="py-16 md:py-15 bg-white" aria-label="Exclusive collection loading">
         <div className="max-w-site mx-auto px-6 md:px-8">
           <div className="skeleton h-8 w-64 mb-8" />
           <div className="flex gap-4">

@@ -60,8 +60,8 @@ const remove = async (req, res) => {
   try {
     const coupon = await Coupon.findByPk(req.params.id);
     if (!coupon) return res.status(404).json({ success: false, message: 'Coupon not found' });
-    await coupon.update({ isActive: false });
-    res.json({ success: true, message: 'Coupon deactivated' });
+    await coupon.destroy();
+    res.json({ success: true, message: 'Coupon deleted successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

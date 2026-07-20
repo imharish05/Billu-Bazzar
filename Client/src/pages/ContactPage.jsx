@@ -63,19 +63,19 @@ const ContactPage = () => {
             <span className="mx-2">/</span>
             <span className="text-brand-text">Contact Us</span>
           </nav>
-          <h1 className="font-playfair text-h2 font-bold text-brand-text">Contact Us</h1>
+          <h1 className="font-playfair text-3xl md:text-4xl font-bold text-brand-text">Contact Us</h1>
           <p className="text-brand-grey text-sm mt-1">Get in touch with our luxury concierge desk.</p>
         </div>
       </div>
 
-      <div className="max-w-site mx-auto px-6 md:px-8 py-16">
+      <div className="max-w-site mx-auto px-6 md:px-8 py-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
           
           {/* Left Column: Contact info */}
           <div className="lg:col-span-5 space-y-8">
             <div>
               <span className="text-xs font-semibold text-brand-gold tracking-widest uppercase block mb-2">Our Boutique</span>
-              <h2 className="font-playfair text-3xl font-bold text-brand-text mb-4">Visit Billu Bazaar</h2>
+              <h2 className="font-playfair text-2xl md:text-3xl font-bold text-brand-text mb-4">Visit Billu Bazaar</h2>
               <p className="text-brand-grey text-sm leading-relaxed">
                 Step into a world where heritage meets luxury. Explore our curated collections of Indian bridal couture, fine jewelry, rare perfumes, and accessories in person at our flagship boutique.
               </p>
@@ -158,7 +158,7 @@ const ContactPage = () => {
           {/* Right Column: Contact form */}
           <div className="lg:col-span-7 bg-white border border-brand-light p-8 md:p-10 shadow-sm">
             <div>
-              <h3 className="font-playfair text-2xl font-semibold text-brand-text mb-2">Send Us a Message</h3>
+              <h3 className="font-playfair text-xl md:text-2xl font-semibold text-brand-text mb-2">Send Us a Message</h3>
               <p className="text-brand-grey text-sm mb-8">
                 Please complete the form below. Our customer experience team will respond to your inquiry within 24 business hours.
               </p>
@@ -283,11 +283,8 @@ const ContactPage = () => {
       </div>
 
       {/* Map Section */}
-      <div className="w-full px-4 pb-4 relative mt-8 border-t border-brand-light">
-        {/* <div className="absolute top-0 left-0 bg-neutral-950 text-white z-10 px-6 py-3 border-r border-b border-neutral-800">
-          <span className="text-xs font-semibold uppercase tracking-widest text-brand-gold">Flagship Location</span>
-        </div> */}
-        <div className="w-full h-[450px] overflow-hidden grayscale contrast-[1.08] hover:grayscale-0 transition-all duration-700 ease-in-out">
+      <div className="max-w-site mx-auto px-6 md:px-8 pb-10 mt-6">
+        <div className="w-full h-[300px] md:h-[450px] overflow-hidden grayscale contrast-[1.08] hover:grayscale-0 transition-all duration-700 ease-in-out border border-brand-light shadow-sm">
           <iframe
             title="Billu Bazaar Bandra West Location Map"
             src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3771.1895080060934!2d72.8335017!3d19.0554907!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be7c9115c4d6dfd%3A0xe543e2646dcb001f!2sLinking%20Rd%2C%20Bandra%20West%2C%20Mumbai%2C%20Maharashtra!5e0!3m2!1sen!2sin!4v1700000000000!5m2!1sen!2sin"
