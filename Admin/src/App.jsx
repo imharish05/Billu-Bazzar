@@ -16,6 +16,7 @@ import LoyaltyAdminPage from './pages/LoyaltyAdminPage';
 import PaymentsAdminPage from './pages/PaymentsAdminPage';
 import ReportsAdminPage from './pages/ReportsAdminPage';
 import SettingsAdminPage from './pages/SettingsAdminPage';
+import SiteSettingsAdminPage from './pages/SiteSettingsAdminPage';
 import SliderMessagesAdminPage from './pages/SliderMessagesAdminPage';
 import NotFoundAdminPage from './pages/NotFoundAdminPage';
 
@@ -50,6 +51,7 @@ const App = () => (
       <Route path="/payments"    element={<Protected><PaymentsAdminPage /></Protected>} />
       <Route path="/reports"     element={<Protected><ReportsAdminPage /></Protected>} />
       <Route path="/settings"    element={<Protected><SettingsAdminPage /></Protected>} />
+      <Route path="/site-settings" element={<Protected><SiteSettingsAdminPage /></Protected>} />
       <Route path="*"            element={<NotFoundAdminPage />} />
     </Routes>
   </>

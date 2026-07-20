@@ -33,6 +33,7 @@ const StockAlert    = require('./StockAlert');
 const MarketingMessage = require('./MarketingMessage');
 const SearchKeyword    = require('./SearchKeyword');
 const TrendingCache    = require('./TrendingCache');
+const SiteSetting      = require('./SiteSetting');
 
 // ── Associations ─────────────────────────────────────────────────────────────
 
@@ -137,5 +138,5 @@ module.exports = {
   Order, OrderItem,
   Wishlist, LoyaltyLedger,
   SupportTicket, Banner,
-  Review, StockAlert, MarketingMessage, SearchKeyword, TrendingCache,
+  Review, StockAlert, MarketingMessage, SearchKeyword, TrendingCache, SiteSetting,
 };

@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
   LayoutDashboard, Package, Tag, ShoppingBag, Users, Image, Ticket,
   Warehouse, UserCheck, BarChart3, Settings, LogOut, Menu, X,
-  Store, CreditCard, Gift, MessageSquare
+  Store, CreditCard, Gift, MessageSquare, Globe
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from './Logo';
@@ -60,6 +60,7 @@ const NAV_SECTIONS = [
   {
     heading: null,
     items: [
+      { to: '/site-settings', label: 'Site Settings', icon: Globe },
       { to: '/settings', label: 'Settings', icon: Settings },
     ],
   },

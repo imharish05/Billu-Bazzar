@@ -13,6 +13,8 @@ const storage = multer.diskStorage({
       subfolder = 'products';
     } else if (url.includes('/categories')) {
       subfolder = 'categories';
+    } else if (url.includes('/site-settings')) {
+      subfolder = 'settings';
     }
 
     const dest = path.join(__dirname, '..', 'uploads', subfolder);

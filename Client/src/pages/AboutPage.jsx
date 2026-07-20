@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useMotionValue, useTransform, animate, useInView } from 'framer-motion';
 import { Eye, Target, Compass, Award, Sparkles, Users, Instagram, Package, Heart, ChevronRight, ArrowRight } from 'lucide-react';
 import Footer from '../components/Footer';
+import api from '../services/api';
 
 // Count-Up Animation Component
 const Counter = ({ value }) => {
@@ -37,64 +38,125 @@ const Counter = ({ value }) => {
   );
 };
 
+const defaultAboutSettings = {
+  hero: {
+    subtitle: 'Est. 2019',
+    title: 'Your Premium\nLifestyle Destination',
+    description: 'Bringing you a meticulously curated selection of cutting-edge electronics, fashion apparel, home styling, beauty, and outdoor sports.',
+  },
+  story: {
+    subtitle: 'Our Legacy',
+    title: 'Curation For The\nModern Connoisseur',
+    description1: 'Billu Bazaar was established in 2019 with a singular, clear objective: to redefine how you shop for life\'s essentials. We believed that shopping for premium tech shouldn\'t feel separate from buying designer apparel or selecting elegant home furnishings. By bringing these diverse categories together, we created a unified, luxury-tier marketplace.',
+    description2: 'Today, our catalog is divided into six pillars: Electronics & Gadgets, Apparel & Fashion, Home & Living, Beauty & Personal Care, Sports & Outdoors, and Toys, Hobbies & Media. We verify and partner directly with top manufacturers and authorized brands, filtering out the noise to bring you only products that pass our strict design and quality audits.',
+    feature1Title: 'Authentic Sourcing',
+    feature1Desc: 'We guarantee 100% original products sourced directly from brands or authorized global distributors.',
+    feature2Title: 'Global Standard',
+    feature2Desc: 'Our products are selected based on strict criteria: build quality, performance, aesthetics, and user reviews.',
+    qualityOathTitle: 'Our Quality Oath',
+    qualityOathDesc: 'Every gadget, garment, and home accent is hand-inspected for quality before shipping.',
+    imageUrl: '/about-story-general.png',
+  },
+  stats: [
+    { value: '50000+', label: 'Happy Patrons', sub: 'Verified satisfied customers' },
+    { value: '200000+', label: 'Social Family', sub: 'Engaged lifestyle community' },
+    { value: '150000+', label: 'Orders Delivered', sub: 'Safely packed & shipped items' },
+    { value: '150+', label: 'Curated Brands', sub: 'Top-tier verified partners' },
+  ],
+  values: [
+    { title: 'Our Vision', accent: 'Modern Curation', description: 'To create a single, curated lifestyle ecosystem where cutting-edge electronics, designer fashion, premium home goods, and health essentials seamlessly converge into a single, high-end marketplace.' },
+    { title: 'Our Mission', accent: 'Authenticity & Trust', description: 'To source and deliver strictly authentic, certified products across all categories, ensuring our customers experience top-tier quality, transparent pricing, and concierge-level customer care.' },
+    { title: 'Our Goal', accent: 'Curated Excellence', description: 'To bridge the gap between verified global manufacturers and design-conscious shoppers, offering an unparalleled catalog of curated electronics, apparel, home decor, beauty, and hobbies.' },
+  ],
+  philosophy: {
+    subtitle: 'Our Philosophy',
+    title: 'Pillars of Excellence',
+    description: 'Our foundations are built on sourcing authentic products, providing seamless digital solutions, and earning long-term customer loyalty.',
+  },
+  concierge: {
+    subtitle: 'Need Assistance?',
+    title: 'We are Here to Help',
+    description: 'Whether you need product recommendations, order tracking help, or bulk procurement support across our catalog, our concierge team is always available.',
+  },
+  marqueeWords: ['ELECTRONICS', 'APPAREL', 'HOME', 'BEAUTY', 'SPORTS', 'TOYS', 'EXCLUSIVITY', 'QUALITY', 'CRAFTSMANSHIP']
+};
+
+const VALUE_ICONS = [
+  <Eye className="w-8 h-8 text-brand-gold" />,
+  <Target className="w-8 h-8 text-brand-gold" />,
+  <Compass className="w-8 h-8 text-brand-gold" />
+];
+
+const STAT_ICONS = [
+  <Users className="w-6 h-6 text-brand-gold" />,
+  <Instagram className="w-6 h-6 text-brand-gold" />,
+  <Package className="w-6 h-6 text-brand-gold" />,
+  <Award className="w-6 h-6 text-brand-gold" />
+];
+
 const AboutPage = () => {
+  const [data, setData] = useState(defaultAboutSettings);
+
   useEffect(() => {
     document.title = 'Our Story — Billu Bazaar';
     window.scrollTo(0, 0);
+
+    const fetchData = async () => {
+      try {
+        const res = await api.get('/site-settings/about');
+        if (res.data && res.data.success) {
+          setData(res.data.data);
+        }
+      } catch (err) {
+        console.error('Error fetching site settings for about page:', err);
+      }
+    };
+    fetchData();
   }, []);
 
-  const values = [
-    {
-      icon: <Eye className="w-8 h-8 text-brand-gold" />,
-      title: 'Our Vision',
-      description: 'To create a single, curated lifestyle ecosystem where cutting-edge electronics, designer fashion, premium home goods, and health essentials seamlessly converge into a single, high-end marketplace.',
-      accent: 'Modern Curation'
-    },
-    {
-      icon: <Target className="w-8 h-8 text-brand-gold" />,
-      title: 'Our Mission',
-      description: 'To source and deliver strictly authentic, certified products across all categories, ensuring our customers experience top-tier quality, transparent pricing, and concierge-level customer care.',
-      accent: 'Authenticity & Trust'
-    },
-    {
-      icon: <Compass className="w-8 h-8 text-brand-gold" />,
-      title: 'Our Goal',
-      description: 'To bridge the gap between verified global manufacturers and design-conscious shoppers, offering an unparalleled catalog of curated electronics, apparel, home decor, beauty, and hobbies.',
-      accent: 'Curated Excellence'
+  const renderTitle = (titleStr) => {
+    if (!titleStr) return null;
+    const parts = titleStr.split('\n');
+    if (parts.length > 1) {
+      return (
+        <>
+          {parts[0]} <br />
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-gold via-yellow-400 to-brand-gold">
+            {parts.slice(1).join(' ')}
+          </span>
+        </>
+      );
     }
-  ];
+    return titleStr;
+  };
 
-  const stats = [
-    {
-      icon: <Users className="w-6 h-6 text-brand-gold" />,
-      value: '50000+',
-      label: 'Happy Patrons',
-      sub: 'Verified satisfied customers'
-    },
-    {
-      icon: <Instagram className="w-6 h-6 text-brand-gold" />,
-      value: '200000+',
-      label: 'Social Family',
-      sub: 'Engaged lifestyle community'
-    },
-    {
-      icon: <Package className="w-6 h-6 text-brand-gold" />,
-      value: '150000+',
-      label: 'Orders Delivered',
-      sub: 'Safely packed & shipped items'
-    },
-    {
-      icon: <Award className="w-6 h-6 text-brand-gold" />,
-      value: '150+',
-      label: 'Curated Brands',
-      sub: 'Top-tier verified partners'
+  const renderStoryTitle = (titleStr) => {
+    if (!titleStr) return null;
+    const parts = titleStr.split('\n');
+    if (parts.length > 1) {
+      return (
+        <>
+          {parts[0]} <br />
+          {parts.slice(1).join(' ')}
+        </>
+      );
     }
-  ];
+    return titleStr;
+  };
 
-  const marqueeWords = [
-    'ELECTRONICS', 'APPAREL', 'HOME', 'BEAUTY', 
-    'SPORTS', 'TOYS', 'EXCLUSIVITY', 'QUALITY', 'CRAFTSMANSHIP'
-  ];
+  const values = (data.values || []).map((val, idx) => ({
+    ...val,
+    icon: VALUE_ICONS[idx] || <Sparkles className="w-8 h-8 text-brand-gold" />
+  }));
+
+  const stats = (data.stats || []).map((stat, idx) => ({
+    ...stat,
+    icon: STAT_ICONS[idx] || <Users className="w-6 h-6 text-brand-gold" />
+  }));
+
+  const marqueeWords = data.marqueeWords && data.marqueeWords.length > 0
+    ? data.marqueeWords
+    : defaultAboutSettings.marqueeWords;
 
   return (
     <main id="main-content" className="min-h-screen bg-brand-bg text-brand-text overflow-x-hidden">
@@ -119,15 +181,12 @@ const AboutPage = () => {
             transition={{ duration: 0.8 }}
             className="space-y-4"
           >
-            <span className="text-xs font-semibold tracking-widest text-brand-gold uppercase block">Est. 2019</span>
+            <span className="text-xs font-semibold tracking-widest text-brand-gold uppercase block">{data.hero.subtitle}</span>
             <h1 className="font-playfair text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-white max-w-4xl leading-tight">
-              Your Premium <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-gold via-yellow-400 to-brand-gold">
-                Lifestyle Destination
-              </span>
+              {renderTitle(data.hero.title)}
             </h1>
             <p className="text-white/70 max-w-2xl mx-auto text-sm md:text-base font-light leading-relaxed">
-              Bringing you a meticulously curated selection of cutting-edge electronics, fashion apparel, home styling, beauty, and outdoor sports.
+              {data.hero.description}
             </p>
           </motion.div>
 
@@ -154,32 +213,31 @@ const AboutPage = () => {
             transition={{ duration: 0.8 }}
             className="lg:col-span-7 space-y-6"
           >
-            <span className="text-xs font-semibold tracking-widest text-brand-gold uppercase block">Our Legacy</span>
+            <span className="text-xs font-semibold tracking-widest text-brand-gold uppercase block">{data.story.subtitle}</span>
             <h2 className="font-playfair text-3xl md:text-4xl lg:text-5xl font-bold text-brand-text leading-tight">
-              Curation For The <br />
-              Modern Connoisseur
+              {renderStoryTitle(data.story.title)}
             </h2>
             <div className="h-[2px] w-20 bg-brand-gold" />
             
             <p className="text-brand-grey text-sm md:text-base leading-relaxed">
-              Billu Bazaar was established in 2019 with a singular, clear objective: to redefine how you shop for life's essentials. We believed that shopping for premium tech shouldn't feel separate from buying designer apparel or selecting elegant home furnishings. By bringing these diverse categories together, we created a unified, luxury-tier marketplace.
+              {data.story.description1}
             </p>
             
             <p className="text-brand-grey text-sm md:text-base leading-relaxed">
-              Today, our catalog is divided into six pillars: **Electronics & Gadgets**, **Apparel & Fashion**, **Home & Living**, **Beauty & Personal Care**, **Sports & Outdoors**, and **Toys, Hobbies & Media**. We verify and partner directly with top manufacturers and authorized brands, filtering out the noise to bring you only products that pass our strict design and quality audits.
+              {data.story.description2}
             </p>
 
             <div className="pt-4 grid grid-cols-2 gap-6 border-t border-brand-light">
               <div>
-                <h4 className="font-playfair text-lg font-semibold text-brand-text mb-1">Authentic Sourcing</h4>
+                <h4 className="font-playfair text-lg font-semibold text-brand-text mb-1">{data.story.feature1Title}</h4>
                 <p className="text-xs text-brand-grey leading-relaxed">
-                  We guarantee 100% original products sourced directly from brands or authorized global distributors.
+                  {data.story.feature1Desc}
                 </p>
               </div>
               <div>
-                <h4 className="font-playfair text-lg font-semibold text-brand-text mb-1">Global Standard</h4>
+                <h4 className="font-playfair text-lg font-semibold text-brand-text mb-1">{data.story.feature2Title}</h4>
                 <p className="text-xs text-brand-grey leading-relaxed">
-                  Our products are selected based on strict criteria: build quality, performance, aesthetics, and user reviews.
+                  {data.story.feature2Desc}
                 </p>
               </div>
             </div>
@@ -196,7 +254,7 @@ const AboutPage = () => {
             <div className="absolute -inset-4 border border-brand-gold/20 translate-x-2 translate-y-2 pointer-events-none rounded-sm" />
             <div className="relative bg-neutral-100 border border-brand-light shadow-lg overflow-hidden group">
               <img 
-                src="/about-story-general.png" 
+                src={data.story.imageUrl || '/about-story-general.png'} 
                 alt="Premium multi-category lifestyle curation showroom display" 
                 className="w-full h-[280px] sm:h-[350px] md:h-[450px] object-cover filter contrast-[1.03] transition-transform duration-700 group-hover:scale-105"
               />
@@ -204,9 +262,9 @@ const AboutPage = () => {
               
               {/* Floating badge inside image */}
               <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm border border-brand-light p-4 shadow-xl max-w-[180px] z-10 rounded-sm">
-                <span className="text-[10px] text-brand-gold font-semibold uppercase block mb-1">Our Quality Oath</span>
+                <span className="text-[10px] text-brand-gold font-semibold uppercase block mb-1">{data.story.qualityOathTitle}</span>
                 <p className="text-[9px] text-brand-grey leading-normal">
-                  Every gadget, garment, and home accent is hand-inspected for quality before shipping.
+                  {data.story.qualityOathDesc}
                 </p>
               </div>
             </div>
@@ -305,11 +363,11 @@ const AboutPage = () => {
       {/* Core Values Section (Premium Cards) */}
       <section className="py-12 md:py-20 max-w-site mx-auto px-6 md:px-8">
         <div className="text-center max-w-2xl mx-auto mb-16 space-y-3">
-          <span className="text-xs font-semibold tracking-widest text-brand-gold uppercase block">Our Philosophy</span>
-          <h2 className="font-playfair text-3xl md:text-4xl lg:text-5xl font-bold text-brand-text">Pillars of Excellence</h2>
+          <span className="text-xs font-semibold tracking-widest text-brand-gold uppercase block">{data.philosophy.subtitle}</span>
+          <h2 className="font-playfair text-3xl md:text-4xl lg:text-5xl font-bold text-brand-text">{data.philosophy.title}</h2>
           <div className="h-[2px] w-20 bg-brand-gold mx-auto" />
           <p className="text-brand-grey text-sm max-w-lg mx-auto">
-            Our foundations are built on sourcing authentic products, providing seamless digital solutions, and earning long-term customer loyalty.
+            {data.philosophy.description}
           </p>
         </div>
 
@@ -354,12 +412,12 @@ const AboutPage = () => {
       {/* Private Concierge CTA Section */}
       <section className="bg-brand-muted/50 border-t border-b border-brand-light py-12 md:py-16 text-center">
         <div className="max-w-xl mx-auto px-6 space-y-6">
-          <span className="text-xs font-semibold tracking-widest text-brand-gold uppercase block">Need Assistance?</span>
+          <span className="text-xs font-semibold tracking-widest text-brand-gold uppercase block">{data.concierge.subtitle}</span>
           <h3 className="font-playfair text-2xl font-bold text-brand-text">
-            We are Here to Help
+            {data.concierge.title}
           </h3>
           <p className="text-brand-grey text-sm leading-relaxed">
-            Whether you need product recommendations, order tracking help, or bulk procurement support across our catalog, our concierge team is always available.
+            {data.concierge.description}
           </p>
           <div className="pt-2 flex flex-col sm:flex-row justify-center items-center gap-4">
             <Link 
