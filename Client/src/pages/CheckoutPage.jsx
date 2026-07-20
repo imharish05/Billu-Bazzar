@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,6 +9,7 @@ import { loginCustomer } from '../redux/slices/authSlice';
 import Footer from '../components/Footer';
 import { formatPrice } from '../utils/currency';
 import toast from 'react-hot-toast';
+import { validatePhoneNumber } from '../utils/validation';
 
 const STEPS = [
   { id: 1, label: 'Delivery', icon: MapPin },
@@ -91,6 +92,16 @@ const CheckoutPage = () => {
     if (!checked) setAddress({ ...billingAddress });
   };
 
+  // Guard: don't let an empty cart (e.g. from a page reload wiping in-memory
+  // guest state) sit on checkout and silently reach handlePlaceOrder.
+  useEffect(() => {
+    if (items.length === 0) {
+      toast.error('Your cart is empty. Add something before checking out.');
+      navigate('/cart');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length]);
+
   const shipping = subtotal >= 1499 ? 0 : 99;
   const tax = subtotal * 0.05;
   const total = subtotal + shipping + tax;
@@ -111,6 +122,11 @@ const CheckoutPage = () => {
   };
 
   const handlePlaceOrder = async () => {
+    if (items.length === 0) {
+      toast.error('Your cart is empty. Add something before checking out.');
+      navigate('/cart');
+      return;
+    }
     setPlacing(true);
     try {
       // 1. Sync the client's current cart list to the server database first (concurrency & tampering protection)
@@ -157,8 +173,9 @@ const CheckoutPage = () => {
         return false;
       }
     }
-    if (!/^\d{10}$/.test(billingAddress.phone.trim())) {
-      toast.error('Please enter a valid 10-digit mobile number');
+    const phoneValidation = validatePhoneNumber(billingAddress.phone);
+    if (!phoneValidation.isValid) {
+      toast.error(phoneValidation.message);
       return false;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(billingAddress.email.trim())) {
@@ -175,6 +192,11 @@ const CheckoutPage = () => {
           toast.error(`Please enter delivery ${f.label}`);
           return false;
         }
+      }
+      const delPhoneValidation = validatePhoneNumber(address.phone);
+      if (!delPhoneValidation.isValid) {
+        toast.error('Delivery Phone: ' + delPhoneValidation.message);
+        return false;
       }
     }
     if (createAccount && newPassword.length < 6) {

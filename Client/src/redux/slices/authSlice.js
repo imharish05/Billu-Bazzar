@@ -1,25 +1,45 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../services/api';
+import {
+  saveAccessToken,
+  saveRefreshToken,
+  getAccessToken,
+  clearTokens
+} from '../../utils/tokenStorage';
 
 export const loginCustomer = createAsyncThunk('auth/login', async (credentials, { rejectWithValue }) => {
   try {
     const res = await api.post('/auth/login', credentials);
-    localStorage.setItem('bb_token', res.data.token);
-    return res.data;
+    saveAccessToken(res.data.token);
+    saveRefreshToken(res.data.refreshToken);
+    // Fetch profile details from the new /getme endpoint using the updated access token
+    const profileRes = await api.get('/auth/getme');
+    return {
+      token: res.data.token,
+      refreshToken: res.data.refreshToken,
+      customer: profileRes.data.customer
+    };
   } catch (err) { return rejectWithValue(err.response?.data?.message || 'Login failed'); }
 });
 
 export const registerCustomer = createAsyncThunk('auth/register', async (data, { rejectWithValue }) => {
   try {
     const res = await api.post('/auth/register', data);
-    localStorage.setItem('bb_token', res.data.token);
-    return res.data;
+    saveAccessToken(res.data.token);
+    saveRefreshToken(res.data.refreshToken);
+    // Fetch profile details from the new /getme endpoint using the updated access token
+    const profileRes = await api.get('/auth/getme');
+    return {
+      token: res.data.token,
+      refreshToken: res.data.refreshToken,
+      customer: profileRes.data.customer
+    };
   } catch (err) { return rejectWithValue(err.response?.data?.message || 'Registration failed'); }
 });
 
 export const fetchProfile = createAsyncThunk('auth/profile', async (_, { rejectWithValue }) => {
   try {
-    const res = await api.get('/auth/profile');
+    const res = await api.get('/auth/getme');
     return res.data;
   } catch (err) { return rejectWithValue(err.response?.data?.message); }
 });
@@ -28,15 +48,21 @@ const authSlice = createSlice({
   name: 'auth',
   initialState: {
     customer: null,
-    token: localStorage.getItem('bb_token') || null,
+    token: getAccessToken() || null,
     loading: false,
     error: null,
-    isAuthenticated: !!localStorage.getItem('bb_token'),
+    isAuthenticated: !!getAccessToken(),
   },
   reducers: {
     logout: (state) => {
-      state.customer = null; state.token = null; state.isAuthenticated = false;
-      localStorage.removeItem('bb_token');
+      state.customer = null;
+      state.token = null;
+      state.isAuthenticated = false;
+      clearTokens();
+    },
+    updateAccessToken: (state, action) => {
+      state.token = action.payload;
+      state.isAuthenticated = !!action.payload;
     },
     clearError: (state) => { state.error = null; },
   },
@@ -50,5 +76,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout, clearError } = authSlice.actions;
+export const { logout, updateAccessToken, clearError } = authSlice.actions;
 export default authSlice.reducer;

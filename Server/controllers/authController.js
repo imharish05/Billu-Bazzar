@@ -1,14 +1,175 @@
 'use strict';
 const bcrypt = require('bcryptjs');
-const { signToken } = require('../config/jwt');
+const { signAccessToken, signRefreshToken, verifyAccessToken, verifyRefreshToken } = require('../config/jwt');
 const { Customer, AdminUser } = require('../models');
 const { v4: uuidv4 } = require('uuid');
+
+// ── Phone Number Validation Helper ───────────────────────────────────────────
+const validatePhoneNumber = (phone) => {
+  if (!phone) return { isValid: false, message: 'Phone number is required' };
+  
+  // Clean formatting characters
+  const clean = phone.trim().replace(/^\+/, '').replace(/[\s\-()]/g, '');
+  
+  if (!/^\d+$/.test(clean)) {
+    return { isValid: false, message: 'Phone number must contain only digits' };
+  }
+  
+  const isIndiaPrefix = clean.startsWith('91');
+  const isUaePrefix = clean.startsWith('971');
+  
+  // 1. India checks
+  if (isIndiaPrefix || (/^[6-9]/.test(clean) && clean.length >= 9 && clean.length <= 11)) {
+    if (isIndiaPrefix) {
+      const localPart = clean.slice(2);
+      if (localPart.length !== 10) {
+        return { 
+          isValid: false, 
+          message: 'India number with country code must be 12 digits (+91 followed by 10 digits)' 
+        };
+      }
+      if (!/^[6-9]/.test(localPart)) {
+        return { 
+          isValid: false, 
+          message: 'India mobile numbers must start with 6, 7, 8, or 9' 
+        };
+      }
+      return { isValid: true };
+    } else {
+      if (clean.length !== 10) {
+        return { 
+          isValid: false, 
+          message: 'India mobile number must be exactly 10 digits (excluding country code)' 
+        };
+      }
+      if (!/^[6-9]/.test(clean)) {
+        return { 
+          isValid: false, 
+          message: 'India mobile numbers must start with 6, 7, 8, or 9' 
+        };
+      }
+      return { isValid: true };
+    }
+  }
+  
+  // 2. UAE checks
+  if (isUaePrefix || /^0?5[024568]/.test(clean) || /^0?4/.test(clean)) {
+    if (isUaePrefix) {
+      const localPart = clean.slice(3); // Remove 971
+      
+      if (localPart.startsWith('5')) {
+        if (localPart.length !== 9) {
+          return {
+            isValid: false,
+            message: 'UAE mobile with country code must be 11 digits (+971 50/52/54/55/56/58 followed by 7 digits)'
+          };
+        }
+        if (!/^5[024568]/.test(localPart)) {
+          return {
+            isValid: false,
+            message: 'UAE mobile operator code must be 50, 52, 54, 55, 56, or 58'
+          };
+        }
+        return { isValid: true };
+      } else if (localPart.startsWith('4')) {
+        if (localPart.length !== 8) {
+          return {
+            isValid: false,
+            message: 'Dubai landline with country code must be 10 digits (+971 4 followed by 7 digits)'
+          };
+        }
+        return { isValid: true };
+      } else {
+        return {
+          isValid: false,
+          message: 'Invalid UAE number. Mobile must start with 5 (e.g. 50) and landline must start with 4'
+        };
+      }
+    } else {
+      // Local UAE format (without country code)
+      if (clean.startsWith('05') || clean.startsWith('5')) {
+        const hasLeadingZero = clean.startsWith('0');
+        const expectedLength = hasLeadingZero ? 10 : 9;
+        
+        if (clean.length !== expectedLength) {
+          return {
+            isValid: false,
+            message: hasLeadingZero 
+              ? 'UAE mobile number must be 10 digits when starting with 0 (e.g. 050 123 4567)'
+              : 'UAE mobile number must be 9 digits (excluding leading 0)'
+          };
+        }
+        
+        const operatorCode = hasLeadingZero ? clean.slice(1, 3) : clean.slice(0, 2);
+        const validCodes = ['50', '52', '54', '55', '56', '58'];
+        if (!validCodes.includes(operatorCode)) {
+          return {
+            isValid: false,
+            message: 'UAE mobile operator code must be 50, 52, 54, 55, 56, or 58'
+          };
+        }
+        return { isValid: true };
+      } else if (clean.startsWith('04') || clean.startsWith('4')) {
+        const hasLeadingZero = clean.startsWith('0');
+        const expectedLength = hasLeadingZero ? 9 : 8;
+        
+        if (clean.length !== expectedLength) {
+          return {
+            isValid: false,
+            message: hasLeadingZero
+              ? 'Dubai landline must be 9 digits when starting with 04 (e.g. 04 123 4567)'
+              : 'Dubai landline must be 8 digits (excluding leading 0)'
+          };
+        }
+        return { isValid: true };
+      }
+    }
+  }
+  
+  return {
+    isValid: false,
+    message: 'Please enter a valid India (+91) or UAE (+971) phone number'
+  };
+};
+
+
+const validateEmail = (email) => {
+  if (!email) return { isValid: false, message: 'Email address is required' };
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!emailRegex.test(email.trim())) {
+    return { isValid: false, message: 'Please enter a valid email address' };
+  }
+  return { isValid: true };
+};
+
+const validatePassword = (password) => {
+  if (!password) return { isValid: false, message: 'Password is required' };
+  if (password.length < 6) {
+    return { isValid: false, message: 'Password must be at least 6 characters long' };
+  }
+  return { isValid: true };
+};
 
 // ── Customer Auth ─────────────────────────────────────────────────────────────
 const register = async (req, res) => {
   try {
-    const { name, email, password, phone } = req.body;
-    if (!name || !email || !password) return res.status(400).json({ success: false, message: 'Name, email, and password are required' });
+    const { name, email, password, phone } = req.body || {};
+    if (!name || !email || !password || !phone) return res.status(400).json({ success: false, message: 'Name, email, password, and phone number are required' });
+
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      return res.status(400).json({ success: false, message: emailValidation.message });
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({ success: false, message: passwordValidation.message });
+    }
+
+    const phoneValidation = validatePhoneNumber(phone);
+    if (!phoneValidation.isValid) {
+      return res.status(400).json({ success: false, message: phoneValidation.message });
+    }
 
     const exists = await Customer.findOne({ where: { email } });
     if (exists) return res.status(409).json({ success: false, message: 'Email already registered' });
@@ -17,8 +178,9 @@ const register = async (req, res) => {
     const referralCode = uuidv4().slice(0, 8).toUpperCase();
     const customer = await Customer.create({ name, email, password: hashed, phone, referralCode });
 
-    const token = signToken({ id: customer.id, type: 'customer' });
-    res.status(201).json({ success: true, token, customer: { id: customer.id, name: customer.name, email: customer.email } });
+    const token = signAccessToken({ id: customer.id });
+    const refreshToken = signRefreshToken({ id: customer.id });
+    res.status(201).json({ success: true, token, refreshToken });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -26,14 +188,15 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
     const customer = await Customer.findOne({ where: { email } });
     if (!customer || !await bcrypt.compare(password, customer.password))
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     if (!customer.isActive) return res.status(403).json({ success: false, message: 'Account suspended' });
 
-    const token = signToken({ id: customer.id, type: 'customer' });
-    res.json({ success: true, token, customer: { id: customer.id, name: customer.name, email: customer.email, avatar: customer.avatar, loyaltyPoints: customer.loyaltyPoints } });
+    const token = signAccessToken({ id: customer.id });
+    const refreshToken = signRefreshToken({ id: customer.id });
+    res.json({ success: true, token, refreshToken });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -45,7 +208,13 @@ const getProfile = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    const { name, phone, address, whatsappOptIn } = req.body;
+    const { name, phone, address, whatsappOptIn } = req.body || {};
+    if (phone) {
+      const phoneValidation = validatePhoneNumber(phone);
+      if (!phoneValidation.isValid) {
+        return res.status(400).json({ success: false, message: phoneValidation.message });
+      }
+    }
     await req.customer.update({ name, phone, address, whatsappOptIn });
     res.json({ success: true, customer: req.customer });
   } catch (err) {
@@ -56,18 +225,78 @@ const updateProfile = async (req, res) => {
 // ── Admin Auth ────────────────────────────────────────────────────────────────
 const adminLogin = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
     const admin = await AdminUser.findOne({ where: { email }, include: [{ association: 'role' }] });
     if (!admin || !await bcrypt.compare(password, admin.password))
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     if (!admin.isActive) return res.status(403).json({ success: false, message: 'Account suspended' });
 
     await admin.update({ lastLogin: new Date() });
-    const token = signToken({ id: admin.id, type: 'admin', role: admin.role.name });
-    res.json({ success: true, token, admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role.name } });
+    const token = signAccessToken({ id: admin.id });
+    const refreshToken = signRefreshToken({ id: admin.id });
+    res.json({ success: true, token, refreshToken });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
-module.exports = { register, login, getProfile, updateProfile, adminLogin };
+const refresh = async (req, res) => {
+  try {
+    const { refreshToken } = req.body || {};
+    if (!refreshToken) {
+      return res.status(400).json({ success: false, message: 'Refresh token is required' });
+    }
+
+    const decoded = verifyRefreshToken(refreshToken);
+    const newAccessToken = signAccessToken({ id: decoded.id });
+    return res.json({ success: true, token: newAccessToken });
+  } catch (err) {
+    return res.status(401).json({ success: false, message: 'Invalid or expired refresh token' });
+  }
+};
+
+const getRefreshToken = async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, message: 'No access token provided' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const decoded = verifyAccessToken(token);
+    const newRefreshToken = signRefreshToken({ id: decoded.id });
+    return res.json({ success: true, refreshToken: newRefreshToken });
+  } catch (err) {
+    return res.status(401).json({ success: false, message: 'Invalid or expired access token' });
+  }
+};
+
+const getMe = async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, message: 'No token provided' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const decoded = verifyAccessToken(token);
+
+    // Try finding as Customer
+    const customer = await Customer.findByPk(decoded.id);
+    if (customer && customer.isActive) {
+      return res.json({ success: true, customer });
+    }
+
+    // Try finding as AdminUser
+    const admin = await AdminUser.findByPk(decoded.id, { include: [{ association: 'role' }] });
+    if (admin && admin.isActive) {
+      return res.json({ success: true, admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role?.name } });
+    }
+
+    return res.status(401).json({ success: false, message: 'User not found or inactive' });
+  } catch (err) {
+    return res.status(401).json({ success: false, message: 'Invalid or expired token' });
+  }
+};
+
+module.exports = { register, login, getProfile, updateProfile, adminLogin, refresh, getRefreshToken, getMe };

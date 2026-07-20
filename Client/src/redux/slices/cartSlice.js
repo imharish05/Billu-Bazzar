@@ -1,6 +1,33 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../services/api';
 
+// ── Guest cart persistence (localStorage) ────────────────────────────────────
+// Without this, a full page reload/navigation on /checkout wipes the in-memory
+// Redux cart back to [], which then lets an empty order slip through to the
+// server (see handlePlaceOrder guard in CheckoutPage + syncCart guard below).
+const CART_STORAGE_KEY = 'bb_guest_cart';
+
+const loadPersistedCart = () => {
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY);
+    if (!raw) return { items: [], subtotal: 0 };
+    const parsed = JSON.parse(raw);
+    const items = Array.isArray(parsed.items) ? parsed.items : [];
+    const subtotal = items.reduce((s, i) => s + i.priceAtAdd * i.quantity, 0);
+    return { items, subtotal };
+  } catch {
+    return { items: [], subtotal: 0 };
+  }
+};
+
+const persistCart = (items) => {
+  try {
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ items }));
+  } catch {
+    // localStorage unavailable (private mode, quota, etc.) — cart just won't survive a reload
+  }
+};
+
 export const fetchCart = createAsyncThunk('cart/fetch', async (_, { rejectWithValue }) => {
   try { const res = await api.get('/cart'); return res.data.cart; }
   catch (err) { return rejectWithValue(err.response?.data?.message); }
@@ -32,11 +59,13 @@ export const removeFromCart = createAsyncThunk('cart/remove', async (itemId, { r
 });
 
 // ── Local cart (guest — before auth) ─────────────────────────────────────────
+const persistedCart = loadPersistedCart();
+
 const cartSlice = createSlice({
   name: 'cart',
   initialState: {
-    items: [],
-    subtotal: 0,
+    items: persistedCart.items,
+    subtotal: persistedCart.subtotal,
     isOpen: false,   // cart drawer open state
     loading: false,
     error: null,
@@ -51,12 +80,14 @@ const cartSlice = createSlice({
       if (existing) { existing.quantity += action.payload.quantity || 1; }
       else state.items.push({ ...action.payload, quantity: action.payload.quantity || 1 });
       state.subtotal = state.items.reduce((s, i) => s + i.priceAtAdd * i.quantity, 0);
+      persistCart(state.items);
     },
     removeLocal: (state, action) => {
       state.items = state.items.filter(i => i.productId !== action.payload);
       state.subtotal = state.items.reduce((s, i) => s + i.priceAtAdd * i.quantity, 0);
+      persistCart(state.items);
     },
-    clearLocal: (state) => { state.items = []; state.subtotal = 0; },
+    clearLocal: (state) => { state.items = []; state.subtotal = 0; persistCart([]); },
   },
   extraReducers: (builder) => {
     builder
@@ -65,10 +96,12 @@ const cartSlice = createSlice({
         state.loading = false;
         state.items = action.payload?.items || [];
         state.subtotal = action.payload?.subtotal || 0;
+        persistCart(state.items);
       })
       .addCase(syncCart.fulfilled, (state, action) => {
         state.items = action.payload?.items || [];
         state.subtotal = action.payload?.subtotal || 0;
+        persistCart(state.items);
       })
       .addCase(fetchCart.rejected, (state, action) => { state.loading = false; state.error = action.payload; });
 

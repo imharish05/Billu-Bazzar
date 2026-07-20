@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { User, Package, Heart, Star, Gift, Headphones, LogOut, Lock, Mail, Eye, EyeOff } from 'lucide-react';
+import { User, Package, Heart, Star, Gift, Headphones, LogOut, Lock, Mail, Eye, EyeOff, Phone } from 'lucide-react';
 import Footer from '../../components/Footer';
 import { mockCustomer } from '../../data/mockAccountData';
 import { loginCustomer, registerCustomer, logout, clearError } from '../../redux/slices/authSlice';
 import toast from 'react-hot-toast';
+import { validatePhoneNumber, validateEmail, validatePassword } from '../../utils/validation';
 
 const NAV_ITEMS = [
   { to: '/account', label: 'Profile', icon: User, end: true },
@@ -27,25 +28,93 @@ const AccountLayout = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [errors, setErrors] = useState({});
 
   // Clear errors when toggling forms
   useEffect(() => {
     dispatch(clearError());
+    setErrors({});
+    setEmail('');
+    setPassword('');
+    setName('');
+    setPhone('');
   }, [isRegister, dispatch]);
+
+  const handleEmailChange = (val) => {
+    setEmail(val);
+    if (errors.email) {
+      const v = validateEmail(val);
+      setErrors(prev => ({ ...prev, email: v.isValid ? '' : v.message }));
+    }
+  };
+
+  const handlePasswordChange = (val) => {
+    setPassword(val);
+    if (errors.password) {
+      if (isRegister) {
+        const v = validatePassword(val);
+        setErrors(prev => ({ ...prev, password: v.isValid ? '' : v.message }));
+      } else {
+        setErrors(prev => ({ ...prev, password: val ? '' : 'Password is required.' }));
+      }
+    }
+  };
+
+  const handleNameChange = (val) => {
+    setName(val);
+    if (errors.name) {
+      setErrors(prev => ({ ...prev, name: val.trim() ? '' : 'Full name is required.' }));
+    }
+  };
+
+  const handlePhoneChange = (val) => {
+    setPhone(val);
+    if (errors.phone) {
+      const v = validatePhoneNumber(val);
+      setErrors(prev => ({ ...prev, phone: v.isValid ? '' : v.message }));
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) {
-      toast.error('Please fill in all fields.');
-      return;
+    const newErrors = {};
+
+    if (isRegister) {
+      if (!name.trim()) {
+        newErrors.name = 'Full name is required.';
+      }
+      const emailValidation = validateEmail(email);
+      if (!emailValidation.isValid) {
+        newErrors.email = emailValidation.message;
+      }
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.isValid) {
+        newErrors.password = passwordValidation.message;
+      }
+      const phoneValidation = validatePhoneNumber(phone);
+      if (!phoneValidation.isValid) {
+        newErrors.phone = phoneValidation.message;
+      }
+    } else {
+      const emailValidation = validateEmail(email);
+      if (!emailValidation.isValid) {
+        newErrors.email = emailValidation.message;
+      }
+      if (!password) {
+        newErrors.password = 'Password is required.';
+      }
     }
-    if (isRegister && !name.trim()) {
-      toast.error('Please enter your full name.');
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
+    setErrors({});
+
     if (isRegister) {
-      const result = await dispatch(registerCustomer({ name, email, password }));
+      const result = await dispatch(registerCustomer({ name, email, password, phone }));
       if (registerCustomer.fulfilled.match(result)) {
         toast.success(`Welcome to Billu Bazaar, ${result.payload.customer.name}!`);
       } else {
@@ -86,23 +155,41 @@ const AccountLayout = () => {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             {isRegister && (
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 mb-1.5" htmlFor="auth-name">Full Name</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-3.5 text-neutral-400"><User size={16} /></span>
-                  <input
-                    id="auth-name"
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Enter your name"
-                    className="w-full border border-neutral-200/80 rounded-lg pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-brand-gold bg-neutral-50/30 transition-colors"
-                  />
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1.5" htmlFor="auth-name">Full Name</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-3.5 text-neutral-400"><User size={16} /></span>
+                    <input
+                      id="auth-name"
+                      type="text"
+                      value={name}
+                      onChange={(e) => handleNameChange(e.target.value)}
+                      placeholder="Enter your name"
+                      className={`w-full border ${errors.name ? 'border-red-400 focus:border-red-500' : 'border-neutral-200/80 focus:border-brand-gold'} rounded-lg pl-10 pr-4 py-3 text-sm focus:outline-none bg-neutral-50/30 transition-colors`}
+                    />
+                  </div>
+                  {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
                 </div>
-              </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1.5" htmlFor="auth-phone">Phone Number</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-3.5 text-neutral-400"><Phone size={16} /></span>
+                    <input
+                      id="auth-phone"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => handlePhoneChange(e.target.value)}
+                      placeholder="e.g. +91 98765 43210 or +971 50 123 4567"
+                      className={`w-full border ${errors.phone ? 'border-red-400 focus:border-red-500' : 'border-neutral-200/80 focus:border-brand-gold'} rounded-lg pl-10 pr-4 py-3 text-sm focus:outline-none bg-neutral-50/30 transition-colors`}
+                    />
+                  </div>
+                  {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
+                </div>
+              </>
             )}
 
             <div>
@@ -112,13 +199,13 @@ const AccountLayout = () => {
                 <input
                   id="auth-email"
                   type="email"
-                  required
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => handleEmailChange(e.target.value)}
                   placeholder="yourname@domain.com"
-                  className="w-full border border-neutral-200/80 rounded-lg pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-brand-gold bg-neutral-50/30 transition-colors"
+                  className={`w-full border ${errors.email ? 'border-red-400 focus:border-red-500' : 'border-neutral-200/80 focus:border-brand-gold'} rounded-lg pl-10 pr-4 py-3 text-sm focus:outline-none bg-neutral-50/30 transition-colors`}
                 />
               </div>
+              {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
             </div>
 
             <div>
@@ -128,11 +215,10 @@ const AccountLayout = () => {
                 <input
                   id="auth-password"
                   type={showPassword ? 'text' : 'password'}
-                  required
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => handlePasswordChange(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full border border-neutral-200/80 rounded-lg pl-10 pr-10 py-3 text-sm focus:outline-none focus:border-brand-gold bg-neutral-50/30 transition-colors"
+                  className={`w-full border ${errors.password ? 'border-red-400 focus:border-red-500' : 'border-neutral-200/80 focus:border-brand-gold'} rounded-lg pl-10 pr-10 py-3 text-sm focus:outline-none bg-neutral-50/30 transition-colors`}
                 />
                 <button
                   type="button"
@@ -143,6 +229,7 @@ const AccountLayout = () => {
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
+              {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password}</p>}
             </div>
 
             {error && (
