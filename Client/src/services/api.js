@@ -10,8 +10,17 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('bb_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
+
+  let guestSessionId = localStorage.getItem('bb_guest_session_id');
+  if (!guestSessionId) {
+    guestSessionId = 'guest_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    localStorage.setItem('bb_guest_session_id', guestSessionId);
+  }
+  config.headers['x-session-id'] = guestSessionId;
+
   return config;
 }, (error) => Promise.reject(error));
+
 
 // ── Response interceptor — handle 401 ──────────────────────────────────────
 api.interceptors.response.use(

@@ -31,12 +31,47 @@ const start = async () => {
       console.log('⚠️ Manual alter note (already altered or table not synced yet):', alterErr.message);
     }
 
-    // Run manual database alters for Orders table to support OUT_FOR_DELIVERY status
+    // Run manual database alters for Orders table to support new OOS & Razorpay status flows
     try {
-      await sequelize.query("ALTER TABLE Orders MODIFY COLUMN status ENUM('PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'RETURNED', 'REFUNDED') DEFAULT 'PENDING'");
+      await sequelize.query("ALTER TABLE Orders MODIFY COLUMN status ENUM('PENDING_PAYMENT', 'PAID', 'PAYMENT_RECEIVED_STOCK_FAILED', 'PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'RETURNED', 'REFUNDED', 'EXPIRED') DEFAULT 'PENDING_PAYMENT'");
       console.log('✅ Orders table status column definition updated');
     } catch (alterErr) {
-      console.log('⚠️ Manual alter note (already altered or table not synced yet):', alterErr.message);
+      console.log('⚠️ Manual alter note (status already updated):', alterErr.message);
+    }
+
+    try {
+      await sequelize.query("ALTER TABLE Orders ADD COLUMN sessionId VARCHAR(100) NULL");
+      await sequelize.query("ALTER TABLE Orders ADD COLUMN razorpay_payment_id VARCHAR(100) NULL UNIQUE");
+      await sequelize.query("ALTER TABLE Orders ADD COLUMN razorpay_order_id VARCHAR(100) NULL UNIQUE");
+      await sequelize.query("ALTER TABLE Orders ADD COLUMN razorpay_signature VARCHAR(255) NULL");
+      await sequelize.query("ALTER TABLE Orders ADD COLUMN inventoryProcessed BOOLEAN NOT NULL DEFAULT FALSE");
+      console.log('✅ Orders table Razorpay columns added');
+    } catch (alterErr) {
+      console.log('⚠️ Manual alter note (Orders columns already exist):', alterErr.message);
+    }
+
+    // Run manual database alters for CartItems and OrderItems to support variantId snapshot
+    try {
+      await sequelize.query("ALTER TABLE CartItems ADD COLUMN variantId INT NULL");
+      console.log('✅ CartItems table variantId column added');
+    } catch (alterErr) {
+      console.log('⚠️ Manual alter note (CartItems columns already exist):', alterErr.message);
+    }
+
+    try {
+      await sequelize.query("ALTER TABLE OrderItems ADD COLUMN variantId INT NULL");
+      console.log('✅ OrderItems table variantId column added');
+    } catch (alterErr) {
+      console.log('⚠️ Manual alter note (OrderItems columns already exist):', alterErr.message);
+    }
+
+    // Run manual database alters for Carts table to allow guest checkout customerId relaxation
+    try {
+      await sequelize.query("ALTER TABLE Carts ADD COLUMN sessionId VARCHAR(100) NULL");
+      await sequelize.query("ALTER TABLE Carts MODIFY COLUMN customerId INT NULL");
+      console.log('✅ Carts table session columns updated');
+    } catch (alterErr) {
+      console.log('⚠️ Manual alter note (Carts columns already exist):', alterErr.message);
     }
 
     // Manual alter to add react-360-view materialized frame columns to existing Products tables
@@ -109,6 +144,7 @@ const start = async () => {
     // 3.5 Load background cron jobs
     require('./jobs/reminderJob');
     require('./jobs/searchJob');
+    require('./jobs/orderExpiryJob');
 
     // 4. Start server
     app.listen(PORT, () => {

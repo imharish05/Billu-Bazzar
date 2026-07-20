@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, MapPin, CreditCard, Package, ChevronRight, Eye, EyeOff } from 'lucide-react';
 import { placeOrder } from '../redux/slices/ordersSlice';
-import { clearLocal } from '../redux/slices/cartSlice';
+import { clearLocal, syncCart } from '../redux/slices/cartSlice';
 import { loginCustomer } from '../redux/slices/authSlice';
 import Footer from '../components/Footer';
 import { formatPrice } from '../utils/currency';
@@ -113,19 +113,29 @@ const CheckoutPage = () => {
   const handlePlaceOrder = async () => {
     setPlacing(true);
     try {
+      // 1. Sync the client's current cart list to the server database first (concurrency & tampering protection)
+      const itemsToSync = items.map(i => ({
+        productId: i.productId,
+        variantId: i.variantId || i.selectedVariant?.id || null,
+        quantity: i.quantity,
+        selectedVariant: i.selectedVariant || {}
+      }));
+      await dispatch(syncCart(itemsToSync)).unwrap();
+
+      // 2. Proceed with order placement using server-side cart database truth
       const referralCode = localStorage.getItem('bb_referral') || undefined;
       await dispatch(placeOrder({
-        items: items.map(i => ({ productId: i.productId, quantity: i.quantity, selectedVariant: i.selectedVariant })),
         shippingAddress: deliverySameAsBilling ? billingAddress : address,
         billingAddress: billingAddress,
         paymentMethod, referralCode,
       })).unwrap();
+
       localStorage.removeItem('bb_referral');
       dispatch(clearLocal());
       navigate('/order-confirmation');
     } catch (err) {
       console.error('Order failed:', err);
-      toast.error('Failed to place order. Please try again.');
+      toast.error(err || 'Failed to place order. Please try again.');
     } finally {
       setPlacing(false);
     }

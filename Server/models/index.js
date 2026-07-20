@@ -34,6 +34,8 @@ const MarketingMessage = require('./MarketingMessage');
 const SearchKeyword    = require('./SearchKeyword');
 const TrendingCache    = require('./TrendingCache');
 const SiteSetting      = require('./SiteSetting');
+const ProductVariant   = require('./ProductVariant');
+const InventoryMovementLog = require('./InventoryMovementLog');
 
 // ── Associations ─────────────────────────────────────────────────────────────
 
@@ -81,6 +83,11 @@ Cart.belongsTo(Coupon, { foreignKey: 'couponId', as: 'coupon' });
 Cart.hasMany(CartItem,     { foreignKey: 'cartId', as: 'items' });
 CartItem.belongsTo(Cart,   { foreignKey: 'cartId', as: 'cart' });
 CartItem.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+CartItem.belongsTo(ProductVariant, { foreignKey: 'variantId', as: 'variant' });
+ProductVariant.hasMany(CartItem, { foreignKey: 'variantId', as: 'cartItems' });
+
+Product.hasMany(ProductVariant, { foreignKey: 'productId', as: 'variants' });
+ProductVariant.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
 
 // Order ↔ Customer / Affiliate / Coupon
 Customer.hasMany(Order,  { foreignKey: 'customerId', as: 'orders' });
@@ -96,6 +103,12 @@ Coupon.hasMany(Order,    { foreignKey: 'couponId', as: 'orders' });
 Order.hasMany(OrderItem,     { foreignKey: 'orderId', as: 'items' });
 OrderItem.belongsTo(Order,   { foreignKey: 'orderId', as: 'order' });
 OrderItem.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+OrderItem.belongsTo(ProductVariant, { foreignKey: 'variantId', as: 'variant' });
+ProductVariant.hasMany(OrderItem, { foreignKey: 'variantId', as: 'orderItems' });
+
+InventoryMovementLog.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+InventoryMovementLog.belongsTo(ProductVariant, { foreignKey: 'variantId', as: 'variant' });
+InventoryMovementLog.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
 
 // Wishlist ↔ Customer / Product
 Customer.hasMany(Wishlist,    { foreignKey: 'customerId', as: 'wishlists' });
@@ -131,12 +144,12 @@ SupportTicket.belongsTo(Order,     { foreignKey: 'orderId', as: 'order' });
 module.exports = {
   sequelize,
   Role, AdminUser, Customer,
-  Category, SubCategory, SubSubCategory, Vendor, Product,
+  Category, SubCategory, SubSubCategory, Vendor, Product, ProductVariant,
   Warehouse, WarehouseStock,
   Cart, CartItem,
   Coupon, Affiliate,
   Order, OrderItem,
   Wishlist, LoyaltyLedger,
   SupportTicket, Banner,
-  Review, StockAlert, MarketingMessage, SearchKeyword, TrendingCache, SiteSetting,
+  Review, StockAlert, MarketingMessage, SearchKeyword, TrendingCache, SiteSetting, InventoryMovementLog,
 };

@@ -1,12 +1,13 @@
 'use strict';
 const router = require('express').Router();
-const { getCart, addToCart, updateCartItem, removeFromCart, clearCart } = require('../controllers/cartController');
-const { verifyCustomer } = require('../middleware/auth');
+const { getCart, addToCart, updateCartItem, removeFromCart, clearCart, syncCart } = require('../controllers/cartController');
+const { optionalCustomer } = require('../middleware/auth');
 
-router.get('/', verifyCustomer, getCart);
-router.post('/add', verifyCustomer, addToCart);
-router.put('/item/:itemId', verifyCustomer, updateCartItem);
-router.delete('/item/:itemId', verifyCustomer, removeFromCart);
-router.delete('/clear', verifyCustomer, clearCart);
+router.get('/', optionalCustomer, getCart);
+router.post('/add', optionalCustomer, addToCart);
+router.post('/sync', optionalCustomer, syncCart);
+router.put('/item/:itemId', optionalCustomer, updateCartItem);
+router.delete('/item/:itemId', optionalCustomer, removeFromCart);
+router.delete('/clear', optionalCustomer, clearCart);
 
 module.exports = router;

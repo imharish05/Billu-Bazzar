@@ -38,6 +38,9 @@ app.use('/api/subcategories', require('./routes/subCategoryRoutes'));
 app.use('/api/subsubcategories', require('./routes/subSubCategoryRoutes'));
 app.use('/api/orders',     require('./routes/orderRoutes'));
 app.use('/api/cart',       require('./routes/cartRoutes'));
+app.use('/api/stock-status', require('./routes/stockRoutes'));
+app.use('/api/payments',     require('./routes/paymentRoutes'));
+
 app.use('/api/banners',    require('./routes/bannerRoutes'));
 app.use('/api/customers',  require('./routes/customerRoutes'));
 app.use('/api/marketing-messages', require('./routes/marketingMessageRoutes'));

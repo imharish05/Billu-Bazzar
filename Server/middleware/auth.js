@@ -48,4 +48,22 @@ const verifyAdmin = async (req, res, next) => {
   }
 };
 
-module.exports = { verifyCustomer, verifyAdmin };
+const optionalCustomer = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const decoded = verifyToken(token);
+      const customer = await Customer.findByPk(decoded.id);
+      if (customer && customer.isActive) {
+        req.customer = customer;
+      }
+    }
+    next();
+  } catch (err) {
+    next();
+  }
+};
+
+module.exports = { verifyCustomer, verifyAdmin, optionalCustomer };
+
