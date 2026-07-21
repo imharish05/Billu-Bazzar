@@ -33,8 +33,9 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
+const baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL,
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
 });
@@ -76,7 +77,7 @@ api.interceptors.request.use(async (config) => {
 
         isRefreshing = true;
         try {
-          const res = await axios.post('/api/auth/refresh', { refreshToken });
+          const res = await axios.post(`${baseURL}/auth/refresh`, { refreshToken });
           const newAccessToken = res.data.token;
           
           saveAccessToken(newAccessToken);
@@ -101,7 +102,7 @@ api.interceptors.request.use(async (config) => {
       // Scenario 2: Refresh token is expired, but Access is valid -> renew refresh token using access token
       if (refreshToken && refreshExpired) {
         try {
-          const res = await axios.post('/api/auth/get-refresh-token', {}, {
+          const res = await axios.post(`${baseURL}/auth/get-refresh-token`, {}, {
             headers: { Authorization: `Bearer ${token}` }
           });
           const newRefreshToken = res.data.refreshToken;

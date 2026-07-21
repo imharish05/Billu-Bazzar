@@ -25,7 +25,8 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
-const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL || '/api', timeout: 15000 });
+const baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
+const api = axios.create({ baseURL, timeout: 15000 });
 
 api.interceptors.request.use((config) => {
   if (config.url === '/auth/refresh') {
@@ -72,7 +73,7 @@ api.interceptors.response.use(
       }
 
       try {
-        const res = await axios.post('/api/auth/refresh', { refreshToken });
+        const res = await axios.post(`${baseURL}/auth/refresh`, { refreshToken });
         const newToken = res.data.token;
 
         localStorage.setItem('bb_admin_token', newToken);

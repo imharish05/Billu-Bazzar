@@ -13,10 +13,12 @@ app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(morgan('dev'));
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
-app.use(cors({
-  origin: [process.env.CLIENT_URL, process.env.ADMIN_URL],
-  credentials: true,
-}));
+// app.use(cors({
+//   origin: [process.env.CLIENT_URL, process.env.ADMIN_URL],
+//   credentials: true,
+// }));
+
+app.use(cors())
 
 // ── Body Parsing ──────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
@@ -38,6 +40,7 @@ app.use('/api/warehouses', require('./routes/warehouseRoutes'));
 app.use('/api/categories', require('./routes/categoryRoutes'));
 app.use('/api/subcategories', require('./routes/subCategoryRoutes'));
 app.use('/api/subsubcategories', require('./routes/subSubCategoryRoutes'));
+app.use('/api/vendors',     require('./routes/vendorRoutes'));
 app.use('/api/orders',     require('./routes/orderRoutes'));
 app.use('/api/cart',       require('./routes/cartRoutes'));
 app.use('/api/stock-status', require('./routes/stockRoutes'));

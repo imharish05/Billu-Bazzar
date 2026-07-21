@@ -159,35 +159,7 @@ const WarehousesAdminPage = () => {
     }
   };
 
-  // Delete/Deactivate warehouse inside modal
-  const handleDeleteWarehouse = () => {
-    if (!editingWarehouse) return;
 
-    toast((t) => (
-      <div className="flex flex-col gap-2 p-1 text-xs">
-        <p className="font-semibold text-neutral-900">Delete <span className="text-brand-gold font-bold">{editingWarehouse.name}</span>?</p>
-        <p className="text-neutral-500">This will remove all stock configurations and inventory logs completely from the database.</p>
-        <div className="flex gap-2 justify-end mt-1">
-          <button
-            onClick={() => toast.dismiss(t.id)}
-            className="px-2.5 py-1.5 border border-neutral-300 text-neutral-700 hover:bg-neutral-50 text-[10px] font-semibold uppercase tracking-wider transition-all"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={async () => {
-              toast.dismiss(t.id);
-              await proceedDelete(editingWarehouse.id);
-              setModalOpen(false);
-            }}
-            className="px-2.5 py-1.5 bg-red-650 text-white hover:bg-red-750 text-[10px] font-semibold uppercase tracking-wider transition-all"
-          >
-            Confirm Delete
-          </button>
-        </div>
-      </div>
-    ), { duration: 10000 });
-  };
 
   // Delete/Deactivate warehouse direct from card
   const handleDeleteWarehouseDirect = (wh) => {
@@ -654,31 +626,20 @@ const WarehousesAdminPage = () => {
                   </div>
                 </div>
 
-                <div className="flex justify-between items-center pt-4 border-t border-brand-light">
-                  {editingWarehouse ? (
-                    <button
-                      type="button"
-                      onClick={handleDeleteWarehouse}
-                      className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 text-xs font-semibold uppercase tracking-wider transition-all"
-                    >
-                      Deactivate
-                    </button>
-                  ) : <div />}
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setModalOpen(false)}
-                      className="px-4 py-2 border border-neutral-300 text-neutral-700 hover:bg-neutral-50 text-xs font-semibold uppercase tracking-wider transition-all"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-neutral-950 text-white hover:bg-neutral-800 text-xs font-semibold uppercase tracking-wider transition-all"
-                    >
-                      Save Warehouse
-                    </button>
-                  </div>
+                <div className="flex justify-end gap-3 pt-4 border-t border-brand-light">
+                  <button
+                    type="button"
+                    onClick={() => setModalOpen(false)}
+                    className="px-4 py-2 border border-neutral-300 text-neutral-700 hover:bg-neutral-50 text-xs font-semibold uppercase tracking-wider transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-neutral-950 text-white hover:bg-neutral-800 text-xs font-semibold uppercase tracking-wider transition-all"
+                  >
+                    Save Warehouse
+                  </button>
                 </div>
               </form>
             </motion.div>
