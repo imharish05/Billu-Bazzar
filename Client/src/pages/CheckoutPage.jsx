@@ -292,7 +292,7 @@ const CheckoutPage = () => {
 
   return (
     <main id="main-content">
-      <div className="max-w-6xl mx-auto px-4 md:px-8 py-8 md:py-12">
+      <div className="max-w-site mx-auto px-4 md:px-8 py-8 md:py-12">
         <h1 className="font-playfair text-2xl md:text-3xl font-bold mb-2">Secure Checkout</h1>
 
         {/* Returning customer panel */}
@@ -385,9 +385,9 @@ const CheckoutPage = () => {
           ))}
         </div>
 
-        <div className="grid md:grid-cols-4 gap-8 md:gap-10">
+        <div className="grid lg:grid-cols-3 gap-8 md:gap-10">
           {/* Form area */}
-          <div className="md:col-span-3">
+          <div className="lg:col-span-2">
             <AnimatePresence mode="wait">
 
               {/* ── Step 1: Delivery ── */}
@@ -745,7 +745,7 @@ const CheckoutPage = () => {
           </div>
 
           {/* ── Order Summary Sidebar ── */}
-          <div className="bg-white border border-neutral-200 rounded-lg p-5 md:p-6 self-start sticky top-24">
+          <div className="lg:col-span-1 bg-white border border-neutral-200 rounded-lg p-5 md:p-6 self-start sticky top-24">
             <h2 className="font-playfair text-lg font-semibold mb-4">Order Summary</h2>
             <div className="space-y-2.5 text-sm">
               <div className="flex justify-between"><span className="text-brand-grey">Subtotal ({items.length} items)</span><span>{fmt(subtotal)}</span></div>

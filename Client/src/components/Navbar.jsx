@@ -506,16 +506,12 @@ const Navbar = () => {
   return (
     <>
       <header
-        className={`glass-nav fixed top-0 left-0 right-0 z-50 ${headerVisible ? 'translate-y-0' : '-translate-y-full'} ${scrolled ? 'shadow-md' : ''} ${
-          location.pathname === '/' && !scrolled ? 'is-transparent' : ''
-        }`}
+        className={`glass-nav fixed top-0 left-0 right-0 z-50 ${headerVisible ? 'translate-y-0' : '-translate-y-full'} ${scrolled ? 'shadow-md' : ''}`}
         role="banner"
       >
         {/* Announcement bar — slides up and hides on scroll, only nav stays */}
         <div
-          className={`bg-white text-neutral-950 font-inter tracking-widest uppercase text-[10px] sm:text-xs overflow-hidden relative h-9 flex items-center justify-center border-b border-neutral-200 transition-all duration-300 ease-in-out ${announcementHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'} ${
-            location.pathname === '/' && !scrolled ? 'lg:bg-neutral-950/20 lg:text-white lg:border-b-transparent' : ''
-          }`}
+          className={`bg-white text-neutral-950 font-inter tracking-widest uppercase text-[10px] sm:text-xs overflow-hidden relative h-9 flex items-center justify-center border-b border-neutral-200 transition-all duration-300 ease-in-out ${announcementHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
           style={{ marginTop: announcementHidden ? '-36px' : '0px' }}
         >
           {/* Mobile/Tablet marquee */}

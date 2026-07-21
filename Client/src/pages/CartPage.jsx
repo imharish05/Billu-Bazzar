@@ -53,7 +53,6 @@ const CartPage = () => {
   const giftWrapVal = giftWrap ? 99 : 0;
   
   const total = subtotal - couponDiscountVal - loyaltyDiscountVal + giftWrapVal + shipping;
-  const progressPct = Math.min((subtotal / FREE_SHIP) * 100, 100);
 
   useEffect(() => { 
     document.title = 'Your Cart — Billu Bazaar'; 
@@ -153,18 +152,7 @@ const CartPage = () => {
         <h1 className="font-playfair text-h2 font-bold mb-2">Shopping Cart</h1>
         <p className="text-brand-grey mb-8">{items.length} {items.length === 1 ? 'item' : 'items'}</p>
 
-        {/* Free shipping progress */}
-        <div className="bg-brand-light p-4 mb-8">
-          <div className="flex justify-between text-sm mb-2">
-            <span className="text-brand-grey">
-              {subtotal >= FREE_SHIP ? '🎉 You qualify for free shipping!' : `Add ${fmt(FREE_SHIP - subtotal)} more for free shipping`}
-            </span>
-            <span className="text-brand-gold font-medium">{Math.round(progressPct)}%</span>
-          </div>
-          <div className="h-2 bg-white rounded-full overflow-hidden" role="progressbar" aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100}>
-            <motion.div className="h-full bg-brand-gold rounded-full" animate={{ width: `${progressPct}%` }} transition={{ duration: 0.6 }} />
-          </div>
-        </div>
+
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Cart items */}

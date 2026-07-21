@@ -50,10 +50,10 @@ const processProductData = (req) => {
   if (data.subSubCategoryId !== undefined) data.subSubCategoryId = data.subSubCategoryId === '' || data.subSubCategoryId === 'null' ? null : parseInt(data.subSubCategoryId, 10);
   if (data.vendorId !== undefined) data.vendorId = data.vendorId === '' || data.vendorId === 'null' ? null : parseInt(data.vendorId, 10);
 
-  if (data.isFeatured !== undefined) data.isFeatured = data.isFeatured === 'true';
-  if (data.isNewArrival !== undefined) data.isNewArrival = data.isNewArrival === 'true';
-  if (data.isBestSeller !== undefined) data.isBestSeller = data.isBestSeller === 'true';
-  if (data.isActive !== undefined) data.isActive = data.isActive === 'true';
+  if (data.isFeatured !== undefined) data.isFeatured = data.isFeatured === 'true' || data.isFeatured === true;
+  if (data.isNewArrival !== undefined) data.isNewArrival = data.isNewArrival === 'true' || data.isNewArrival === true;
+  if (data.isBestSeller !== undefined) data.isBestSeller = data.isBestSeller === 'true' || data.isBestSeller === true;
+  if (data.isActive !== undefined) data.isActive = data.isActive === 'true' || data.isActive === true;
 
   // Handle uploaded images
   let existingImages = [];

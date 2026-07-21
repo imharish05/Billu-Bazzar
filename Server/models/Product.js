@@ -101,13 +101,30 @@ const Product = sequelize.define('Product', {
   },
 });
 
-Product.beforeValidate((product) => {
+Product.beforeValidate(async (product) => {
   if (product.name && (!product.slug || product.slug.trim() === '')) {
     product.slug = product.name
       .toLowerCase()
       .trim()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
+  }
+
+  if (product.slug) {
+    let finalSlug = product.slug;
+    let count = 1;
+    const { Op } = require('sequelize');
+    while (true) {
+      const whereClause = { slug: finalSlug };
+      if (product.id) {
+        whereClause.id = { [Op.ne]: product.id };
+      }
+      const existing = await Product.findOne({ where: whereClause });
+      if (!existing) break;
+      finalSlug = `${product.slug}-${count}`;
+      count++;
+    }
+    product.slug = finalSlug;
   }
 });
 

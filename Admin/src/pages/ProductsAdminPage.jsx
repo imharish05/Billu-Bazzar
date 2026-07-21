@@ -947,9 +947,19 @@ const ProductsAdminPage = () => {
   }, [search, dispatch]);
 
   const handleSave = async (form) => {
-    if (editing) await dispatch(updateProduct({ id: editing.id, data: form }));
-    else await dispatch(createProduct(form));
-    setModalOpen(false); setEditing(null);
+    try {
+      if (editing) {
+        await dispatch(updateProduct({ id: editing.id, data: form })).unwrap();
+        toast.success('Product updated successfully');
+      } else {
+        await dispatch(createProduct(form)).unwrap();
+        toast.success('Product created successfully');
+      }
+      setModalOpen(false);
+      setEditing(null);
+    } catch (err) {
+      toast.error(err || 'Failed to save product');
+    }
   };
 
   const executeDelete = async (id) => {
