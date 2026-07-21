@@ -413,9 +413,57 @@ const getPaymentSummary = async (req, res) => {
   }
 };
 
+// Verify payment signature after client-side Razorpay payment completes
+const verifyRazorpayPayment = async (req, res) => {
+  try {
+    const { orderId, razorpayPaymentId, razorpayOrderId, razorpaySignature } = req.body;
+
+    if (!orderId || !razorpayPaymentId || !razorpayOrderId || !razorpaySignature) {
+      return res.status(400).json({ success: false, message: 'Missing required payment verification fields' });
+    }
+
+    // Verify signature
+    const secret = process.env.RAZORPAY_KEY_SECRET;
+    if (!secret) {
+      return res.status(500).json({ success: false, message: 'Razorpay key secret is not configured' });
+    }
+
+    const body = razorpayOrderId + '|' + razorpayPaymentId;
+    const expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(body)
+      .digest('hex');
+
+    const isValid = expectedSignature === razorpaySignature;
+    if (!isValid) {
+      return res.status(400).json({ success: false, message: 'Invalid payment signature' });
+    }
+
+    // Fetch the order
+    const order = await Order.findOne({ where: { id: orderId } });
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    return await processConfirmedPayment({
+      orderQuery: { id: orderId },
+      gatewayPaymentId: razorpayPaymentId,
+      signature: razorpaySignature,
+      paymentAmount: parseFloat(order.totalAmount),
+      gatewayType: 'razorpay',
+      res
+    });
+  } catch (err) {
+    console.error('[verifyRazorpayPayment] Error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 module.exports = {
   initiatePayment,
   handleRazorpayWebhook,
   handleTelrWebhook,
-  getPaymentSummary
+  getPaymentSummary,
+  verifyRazorpayPayment
 };
+

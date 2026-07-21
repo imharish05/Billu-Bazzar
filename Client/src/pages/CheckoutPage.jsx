@@ -204,10 +204,29 @@ const CheckoutPage = () => {
             description: paymentData.description,
             order_id: paymentData.order_id,
             handler: async function (response) {
-              localStorage.removeItem('bb_referral');
-              dispatch(clearLocal());
-              navigate(`/order-confirmation?gateway=razorpay&orderId=${order.id}&status=success`);
+              setPlacing(true);
+              try {
+                const verifyRes = await api.post('/payments/verify', {
+                  orderId: order.id,
+                  razorpayPaymentId: response.razorpay_payment_id,
+                  razorpayOrderId: response.razorpay_order_id,
+                  razorpaySignature: response.razorpay_signature,
+                });
+                if (verifyRes.data?.success) {
+                  localStorage.removeItem('bb_referral');
+                  dispatch(clearLocal());
+                  navigate(`/order-confirmation?gateway=razorpay&orderId=${order.id}&status=success`);
+                } else {
+                  toast.error(verifyRes.data?.message || 'Payment verification failed.');
+                }
+              } catch (err) {
+                console.error('Payment verification failed:', err);
+                toast.error(err.response?.data?.message || 'Failed to verify payment with server.');
+              } finally {
+                setPlacing(false);
+              }
             },
+
             prefill: {
               name: billingAddress.fullName,
               email: billingAddress.email,
@@ -368,19 +387,21 @@ const CheckoutPage = () => {
         )}
 
         {/* Checkout steps */}
-        <div className="glass-step-pill flex items-center justify-center gap-0 mb-8 p-2 rounded-full max-w-md mx-auto" aria-label="Checkout progress">
+        <div className="glass-step-pill flex items-center justify-center gap-0 mb-8 p-1 px-2 sm:p-2 sm:px-5 rounded-full w-fit mx-auto" aria-label="Checkout progress">
           {STEPS.map((s, i) => (
             <div key={s.id} className="flex items-center">
               <button
                 onClick={() => step > s.id && setStep(s.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${step === s.id ? 'bg-brand-gold text-white' : step > s.id ? 'text-brand-gold cursor-pointer hover:bg-brand-light' : 'text-brand-grey cursor-default'}`}
+                className={`flex items-center gap-1 sm:gap-2 px-2 py-1.5 sm:px-4 sm:py-2 rounded-full text-[10px] sm:text-xs md:text-sm font-semibold tracking-wider uppercase transition-all ${step === s.id ? 'bg-brand-gold text-white' : step > s.id ? 'text-brand-gold cursor-pointer hover:bg-brand-light' : 'text-brand-grey cursor-default'}`}
                 aria-current={step === s.id ? 'step' : undefined}
                 id={`step-${s.id}`}
               >
-                {step > s.id ? <Check size={14} /> : <s.icon size={14} />}
-                {s.label}
+                {step > s.id ? <Check size={10} className="sm:w-3.5 sm:h-3.5" /> : <s.icon size={10} className="sm:w-3.5 sm:h-3.5" />}
+                <span>
+                  {s.label}
+                </span>
               </button>
-              {i < STEPS.length - 1 && <ChevronRight size={14} className="text-brand-grey mx-1" />}
+              {i < STEPS.length - 1 && <ChevronRight size={10} className="text-brand-grey mx-0.5 sm:mx-1 sm:w-3.5 sm:h-3.5" />}
             </div>
           ))}
         </div>
