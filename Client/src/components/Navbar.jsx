@@ -188,6 +188,7 @@ const Navbar = () => {
 
   useEffect(() => {
     let prevScrollY = window.scrollY;
+    let scrollAccumulator = 0;
     let ticking = false;
 
     const handleScroll = () => {
@@ -196,19 +197,18 @@ const Navbar = () => {
           const currentScrollY = window.scrollY;
           const delta = currentScrollY - prevScrollY;
 
-          // Smart sticky header behavior: hide on scroll down, show on scroll up.
-          // Old logic hid on any downward move past 100px but showed again on
-          // ANY upward move (even a 1px trackpad jitter), with no minimum
-          // delta on either side. Right around the 100px line that caused the
-          // header to flicker hide/show every frame — the visible "lag" —
-          // and let the header pop back to full height mid-transition, which
-          // is what produced the white gap above the hero banner when
-          // scrolling back up from the footer. A shared min-delta + always
-          // showing near the very top fixes both.
-          const MIN_DELTA = 6;
-          if (delta > MIN_DELTA && currentScrollY > 100) {
+          // Accumulate scroll distance. Reset accumulator if direction changes.
+          if ((delta > 0 && scrollAccumulator < 0) || (delta < 0 && scrollAccumulator > 0)) {
+            scrollAccumulator = 0;
+          }
+          scrollAccumulator += delta;
+
+          // Hide header if user scrolls down past a threshold (e.g. 30px) and page is scrolled past 100px.
+          // Show header if user scrolls up past a threshold (e.g. 30px) or is near the top of the page.
+          const THRESHOLD = 30;
+          if (scrollAccumulator > THRESHOLD && currentScrollY > 100) {
             setHeaderVisible(prev => prev !== false ? false : prev);
-          } else if ((delta < -MIN_DELTA) || currentScrollY <= 100) {
+          } else if (scrollAccumulator < -THRESHOLD || currentScrollY <= 100) {
             setHeaderVisible(prev => prev !== true ? true : prev);
           }
 
@@ -494,7 +494,7 @@ const Navbar = () => {
   return (
     <>
       <header
-        className={`bg-black fixed top-0 left-0 right-0 z-50 ${headerVisible ? 'translate-y-0' : '-translate-y-full'} ${scrolled ? 'shadow-md' : ''} ${
+        className={`glass-nav fixed top-0 left-0 right-0 z-50 ${headerVisible ? 'translate-y-0' : '-translate-y-full'} ${scrolled ? 'shadow-md' : ''} ${
           location.pathname === '/' && !scrolled ? 'is-transparent' : ''
         }`}
         role="banner"

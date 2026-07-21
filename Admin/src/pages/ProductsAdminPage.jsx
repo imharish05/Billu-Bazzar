@@ -167,6 +167,10 @@ const ProductModal = ({ product, onClose, onSave }) => {
     if (!val) return;
 
     const opt = variantOptions[optionIdx];
+    if (opt.values.length >= 1) {
+      toast.error(`Only one value is allowed for "${opt.key}".`);
+      return;
+    }
     if (opt.values.some(v => v.toLowerCase() === val.toLowerCase())) {
       toast.error(`Value "${val}" already exists under ${opt.key}`);
       return;
@@ -262,6 +266,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
   const [existingSpinImages, setExistingSpinImages] = useState(product ? [...(product.spin_images || [])] : []);
   const [isSpinDragging, setIsSpinDragging] = useState(false);
   const spinFileInputRef = useRef(null);
+  const [enable360, setEnable360] = useState(product && product.spin_images && product.spin_images.length > 0);
 
   const set = (k, v) => {
     setForm(p => {
@@ -277,11 +282,18 @@ const ProductModal = ({ product, onClose, onSave }) => {
     const files = eOrFiles.target ? eOrFiles.target.files : eOrFiles;
     if (!files || files.length === 0) return;
     
-    const filesArr = Array.from(files).filter(f => f.type.startsWith('image/')).map(file => {
-      file.preview = URL.createObjectURL(file);
-      return file;
+    const file = Array.from(files).find(f => f.type.startsWith('image/'));
+    if (!file) return;
+
+    file.preview = URL.createObjectURL(file);
+    
+    // Revoke old previews to avoid leaks
+    newImageFiles.forEach(f => {
+      if (f.preview) URL.revokeObjectURL(f.preview);
     });
-    setNewImageFiles(prev => [...prev, ...filesArr]);
+
+    setNewImageFiles([file]);
+    setExistingImages([]);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -380,15 +392,17 @@ const ProductModal = ({ product, onClose, onSave }) => {
     });
 
     fd.append('existingImages', JSON.stringify(existingImages));
-    fd.append('existingSpinImages', JSON.stringify(existingSpinImages));
+    fd.append('existingSpinImages', JSON.stringify(enable360 ? existingSpinImages : []));
 
     newImageFiles.forEach(file => {
       fd.append('images', file);
     });
 
-    newSpinImageFiles.forEach(file => {
-      fd.append('spin_images', file);
-    });
+    if (enable360) {
+      newSpinImageFiles.forEach(file => {
+        fd.append('spin_images', file);
+      });
+    }
 
     // Handle Variants Payload
     if (hasVariants && generatedVariants.length > 0) {
@@ -564,28 +578,30 @@ const ProductModal = ({ product, onClose, onSave }) => {
                       </div>
 
                       {/* Add new value to this key */}
-                      <div className="flex gap-2 max-w-sm">
-                        <input
-                          type="text"
-                          placeholder={`Add value to ${opt.key}...`}
-                          value={newOptionValue[optIdx] || ''}
-                          onChange={e => setNewOptionValue(prev => ({ ...prev, [optIdx]: e.target.value }))}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              addOptionValue(optIdx);
-                            }
-                          }}
-                          className="border border-brand-light px-2.5 py-1 text-xs focus:outline-none focus:border-brand-gold flex-1"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => addOptionValue(optIdx)}
-                          className="bg-neutral-900 text-white text-xs px-3 py-1 font-semibold uppercase tracking-wider"
-                        >
-                          Add Value
-                        </button>
-                      </div>
+                      {opt.values.length === 0 && (
+                        <div className="flex gap-2 max-w-sm">
+                          <input
+                            type="text"
+                            placeholder={`Add value to ${opt.key}...`}
+                            value={newOptionValue[optIdx] || ''}
+                            onChange={e => setNewOptionValue(prev => ({ ...prev, [optIdx]: e.target.value }))}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                addOptionValue(optIdx);
+                              }
+                            }}
+                            className="border border-brand-light px-2.5 py-1 text-xs focus:outline-none focus:border-brand-gold flex-1"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => addOptionValue(optIdx)}
+                            className="bg-neutral-900 text-white text-xs px-3 py-1 font-semibold uppercase tracking-wider"
+                          >
+                            Add Value
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
 
@@ -717,9 +733,9 @@ const ProductModal = ({ product, onClose, onSave }) => {
             )}
           </div>
 
-          {/* Product Gallery Images */}
+          {/* Product Image */}
           <div className="border-t border-brand-light pt-6">
-            <label className="block text-xs font-semibold text-brand-grey mb-1.5">Product Gallery Images</label>
+            <label className="block text-xs font-semibold text-brand-grey mb-1.5">Product Image</label>
             <div
               className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
                 isDragging
@@ -732,12 +748,11 @@ const ProductModal = ({ product, onClose, onSave }) => {
               onDrop={handleDrop}
             >
               <Upload size={28} className="mx-auto text-brand-grey mb-2" />
-              <p className="text-sm text-brand-grey font-medium">Drag & drop files here, or click to upload</p>
-              <p className="text-xs text-brand-grey mt-1">JPEG, PNG, WebP — max 50MB</p>
+              <p className="text-sm text-brand-grey font-medium">Drag & drop image here, or click to upload</p>
+              <p className="text-xs text-brand-grey mt-1">JPEG, PNG, WebP — single image, max 50MB</p>
               <input
                 ref={fileInputRef}
                 type="file"
-                multiple
                 accept="image/jpeg,image/png,image/webp"
                 className="hidden"
                 onChange={handleFileSelect}
@@ -782,102 +797,120 @@ const ProductModal = ({ product, onClose, onSave }) => {
             )}
           </div>
 
-          {/* 360 Spin Sequence */}
+          {/* 360 Spin View Toggle */}
           <div className="border-t border-brand-light pt-6">
-            <label className="block text-xs font-semibold text-brand-grey mb-1.5">360° Spin View Frames (Ordered Sequence)</label>
-            <div
-              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
-                isSpinDragging
-                  ? 'border-brand-gold bg-brand-gold/5'
-                  : 'border-brand-light hover:border-brand-gold'
-              }`}
-              onClick={() => spinFileInputRef.current?.click()}
-              onDragOver={(e) => { e.preventDefault(); setIsSpinDragging(true); }}
-              onDragLeave={() => setIsSpinDragging(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setIsSpinDragging(false);
-                if (e.dataTransfer.files) handleSpinFileSelect(e.dataTransfer.files);
-              }}
-            >
-              <Upload size={28} className="mx-auto text-brand-grey mb-2" />
-              <p className="text-sm text-brand-grey font-medium">Drag & drop 360° frames here, or click to upload</p>
+            <div className="flex items-center justify-between bg-neutral-50 p-4 border border-brand-light mb-4">
+              <div>
+                <p className="text-sm font-semibold text-neutral-900">360° Spin View</p>
+                <p className="text-xs text-brand-grey mt-0.5">Enable 360° interactive product spin sequence</p>
+              </div>
               <input
-                ref={spinFileInputRef}
-                type="file"
-                multiple
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={handleSpinFileSelect}
+                type="checkbox"
+                id="enable-360-toggle"
+                checked={enable360}
+                onChange={e => setEnable360(e.target.checked)}
+                className="w-4 h-4 text-brand-gold border-brand-light rounded focus:ring-brand-gold cursor-pointer"
               />
             </div>
 
-            {/* Spin Image Preview Grid */}
-            {(existingSpinImages.length > 0 || newSpinImageFiles.length > 0) && (
-              <div className="grid grid-cols-6 gap-3 mt-4">
-                {existingSpinImages.map((img, idx) => (
-                  <div key={`exist-spin-${idx}`} className="relative aspect-square border border-brand-light rounded-lg overflow-hidden bg-brand-light group">
-                    <img src={img} alt="Spin Frame" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); moveExistingSpinImage(idx, -1); }}
-                        disabled={idx === 0}
-                        className="bg-white/90 text-brand-text p-1 rounded-full hover:bg-white transition-colors shadow disabled:opacity-30 disabled:cursor-not-allowed"
-                      >
-                        <ChevronLeft size={12} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); removeExistingSpinImage(idx); }}
-                        className="bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors shadow"
-                      >
-                        <X size={12} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); moveExistingSpinImage(idx, 1); }}
-                        disabled={idx === existingSpinImages.length - 1}
-                        className="bg-white/90 text-brand-text p-1 rounded-full hover:bg-white transition-colors shadow disabled:opacity-30 disabled:cursor-not-allowed"
-                      >
-                        <ChevronRight size={12} />
-                      </button>
-                    </div>
-                    <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[8px] px-1 rounded">{idx + 1}</span>
+            {enable360 && (
+              <div className="space-y-4">
+                <label className="block text-xs font-semibold text-brand-grey">360° Spin View Frames (Ordered Sequence)</label>
+                <div
+                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+                    isSpinDragging
+                      ? 'border-brand-gold bg-brand-gold/5'
+                      : 'border-brand-light hover:border-brand-gold'
+                  }`}
+                  onClick={() => spinFileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setIsSpinDragging(true); }}
+                  onDragLeave={() => setIsSpinDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsSpinDragging(false);
+                    if (e.dataTransfer.files) handleSpinFileSelect(e.dataTransfer.files);
+                  }}
+                >
+                  <Upload size={28} className="mx-auto text-brand-grey mb-2" />
+                  <p className="text-sm text-brand-grey font-medium">Drag & drop 360° frames here, or click to upload</p>
+                  <input
+                    ref={spinFileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handleSpinFileSelect}
+                  />
+                </div>
+
+                {/* Spin Image Preview Grid */}
+                {(existingSpinImages.length > 0 || newSpinImageFiles.length > 0) && (
+                  <div className="grid grid-cols-6 gap-3 mt-4">
+                    {existingSpinImages.map((img, idx) => (
+                      <div key={`exist-spin-${idx}`} className="relative aspect-square border border-brand-light rounded-lg overflow-hidden bg-brand-light group">
+                        <img src={img} alt="Spin Frame" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); moveExistingSpinImage(idx, -1); }}
+                            disabled={idx === 0}
+                            className="bg-white/90 text-brand-text p-1 rounded-full hover:bg-white transition-colors shadow disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <ChevronLeft size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); removeExistingSpinImage(idx); }}
+                            className="bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors shadow"
+                          >
+                            <X size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); moveExistingSpinImage(idx, 1); }}
+                            disabled={idx === existingSpinImages.length - 1}
+                            className="bg-white/90 text-brand-text p-1 rounded-full hover:bg-white transition-colors shadow disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <ChevronRight size={12} />
+                          </button>
+                        </div>
+                        <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[8px] px-1 rounded">{idx + 1}</span>
+                      </div>
+                    ))}
+                    {newSpinImageFiles.map((file, idx) => (
+                      <div key={`new-spin-${idx}`} className="relative aspect-square border border-brand-light rounded-lg overflow-hidden bg-brand-light group">
+                        <img src={file.preview} alt="New Spin Frame" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); moveNewSpinFile(idx, -1); }}
+                            disabled={idx === 0}
+                            className="bg-white/90 text-brand-text p-1 rounded-full hover:bg-white transition-colors shadow disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <ChevronLeft size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); removeNewSpinFile(idx); }}
+                            className="bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors shadow"
+                          >
+                            <X size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); moveNewSpinFile(idx, 1); }}
+                            disabled={idx === newSpinImageFiles.length - 1}
+                            className="bg-white/90 text-brand-text p-1 rounded-full hover:bg-white transition-colors shadow disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <ChevronRight size={12} />
+                          </button>
+                        </div>
+                        <span className="absolute bottom-1 left-1 bg-brand-gold text-white text-[8px] font-bold px-1 rounded shadow">NEW</span>
+                        <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[8px] px-1 rounded">{existingSpinImages.length + idx + 1}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-                {newSpinImageFiles.map((file, idx) => (
-                  <div key={`new-spin-${idx}`} className="relative aspect-square border border-brand-light rounded-lg overflow-hidden bg-brand-light group">
-                    <img src={file.preview} alt="New Spin Frame" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); moveNewSpinFile(idx, -1); }}
-                        disabled={idx === 0}
-                        className="bg-white/90 text-brand-text p-1 rounded-full hover:bg-white transition-colors shadow disabled:opacity-30 disabled:cursor-not-allowed"
-                      >
-                        <ChevronLeft size={12} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); removeNewSpinFile(idx); }}
-                        className="bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors shadow"
-                      >
-                        <X size={12} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); moveNewSpinFile(idx, 1); }}
-                        disabled={idx === newSpinImageFiles.length - 1}
-                        className="bg-white/90 text-brand-text p-1 rounded-full hover:bg-white transition-colors shadow disabled:opacity-30 disabled:cursor-not-allowed"
-                      >
-                        <ChevronRight size={12} />
-                      </button>
-                    </div>
-                    <span className="absolute bottom-1 left-1 bg-brand-gold text-white text-[8px] font-bold px-1 rounded shadow">NEW</span>
-                    <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[8px] px-1 rounded">{existingSpinImages.length + idx + 1}</span>
-                  </div>
-                ))}
+                )}
               </div>
             )}
           </div>

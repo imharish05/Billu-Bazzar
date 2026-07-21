@@ -117,6 +117,39 @@ const ProductDetailsPage = () => {
     });
   }, [product, selectedAttributes, variantAttributeKeys]);
 
+  const rawImages = useMemo(() => {
+    if (!product) return [];
+    return Array.isArray(product.images) && product.images.length
+      ? product.images
+      : [product.images || getPlaceholderSvg(product.name || 'Product')];
+  }, [product]);
+
+  const baseImages = useMemo(() => {
+    if (!product) return [];
+    return rawImages.map(img => typeof img === 'string' && img.length > 2 ? img : getPlaceholderSvg(product.name || 'Product'));
+  }, [product, rawImages]);
+
+  const images = useMemo(() => {
+    if (!product) return [];
+    if (selectedVariant && selectedVariant.image) {
+      const varImg = selectedVariant.image;
+      if (!baseImages.includes(varImg)) {
+        return [varImg, ...baseImages];
+      } else {
+        const filtered = baseImages.filter(img => img !== varImg);
+        return [varImg, ...filtered];
+      }
+    }
+    return baseImages;
+  }, [product, baseImages, selectedVariant]);
+
+  // When selectedVariant changes, automatically select the first image
+  useEffect(() => {
+    if (selectedVariant && selectedVariant.image) {
+      setSelectedImage(0);
+    }
+  }, [selectedVariant]);
+
   useEffect(() => {
     if (slug) dispatch(fetchProduct(slug));
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -209,32 +242,7 @@ const ProductDetailsPage = () => {
     ? (attributes?.sizes || ['S', 'M', 'L', 'XL'])
     : [];
 
-  const rawImages = Array.isArray(product.images) && product.images.length
-    ? product.images
-    : [product.images || getPlaceholderSvg(product.name)];
-  
-  // Safe filtering in case DB returns string placeholders
-  const baseImages = rawImages.map(img => typeof img === 'string' && img.length > 2 ? img : getPlaceholderSvg(product.name));
 
-  const images = useMemo(() => {
-    if (selectedVariant && selectedVariant.image) {
-      const varImg = selectedVariant.image;
-      if (!baseImages.includes(varImg)) {
-        return [varImg, ...baseImages];
-      } else {
-        const filtered = baseImages.filter(img => img !== varImg);
-        return [varImg, ...filtered];
-      }
-    }
-    return baseImages;
-  }, [baseImages, selectedVariant]);
-
-  // When selectedVariant changes, automatically select the first image
-  useEffect(() => {
-    if (selectedVariant && selectedVariant.image) {
-      setSelectedImage(0);
-    }
-  }, [selectedVariant]);
 
   const handleNotifySubmit = (e) => {
     e.preventDefault();
