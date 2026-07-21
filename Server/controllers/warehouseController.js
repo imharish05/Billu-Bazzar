@@ -86,12 +86,31 @@ const update = async (req, res) => {
 };
 
 const remove = async (req, res) => {
+  const transaction = await Warehouse.sequelize.transaction();
   try {
     const warehouse = await Warehouse.findByPk(req.params.id);
-    if (!warehouse) return res.status(404).json({ success: false, message: 'Warehouse not found' });
-    await warehouse.update({ isActive: false });
-    res.json({ success: true, message: 'Warehouse deactivated' });
+    if (!warehouse) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: 'Warehouse not found' });
+    }
+
+    // Hard delete related stock and logs to prevent FK constraint failures
+    await WarehouseStock.destroy({ where: { warehouseId: warehouse.id }, transaction });
+    await InventoryMovementLog.destroy({
+      where: {
+        [Op.or]: [
+          { warehouseId: warehouse.id },
+          { toWarehouseId: warehouse.id }
+        ]
+      },
+      transaction
+    });
+
+    await warehouse.destroy({ transaction });
+    await transaction.commit();
+    res.json({ success: true, message: 'Warehouse deleted successfully from database' });
   } catch (err) {
+    await transaction.rollback();
     res.status(500).json({ success: false, message: err.message });
   }
 };

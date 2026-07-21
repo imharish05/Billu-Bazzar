@@ -56,7 +56,7 @@ const AffiliatesAdminPage = () => {
   }, []);
 
   const handleCopyLink = (code) => {
-    const origin = window.location.origin.replace(':5174', ':5173');
+    const origin = import.meta.env.VITE_CLIENT_URL || window.location.origin.replace(':5174', ':5173');
     const url = `${origin}/products?ref=${code}`;
     navigator.clipboard.writeText(url)
       .then(() => toast.success('Referral link copied to clipboard!'))

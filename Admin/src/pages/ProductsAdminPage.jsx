@@ -523,7 +523,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                 <p className="text-sm font-semibold text-neutral-900">Product Variants</p>
                 <p className="text-xs text-brand-grey mt-0.5">This product has variants like different sizes, colors, styles, or designs</p>
               </div>
-              <Switch checked={hasVariants} onChange={val => setHasVariants(val)} />
+              <Switch checked={hasVariants} onChange={e => setHasVariants(e.target.checked)} />
             </div>
 
             {hasVariants ? (
@@ -886,7 +886,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
           <div className="border-t border-brand-light pt-6 flex flex-wrap items-center gap-6">
             {[{k:'isFeatured',l:'Featured'},{k:'isNewArrival',l:'New Arrival'},{k:'isBestSeller',l:'Best Seller'},{k:'isActive',l:'Active'}].map(({k,l}) => (
               <label key={k} className="flex items-center gap-2 text-sm cursor-pointer select-none" htmlFor={`prod-${k}`}>
-                <Switch checked={!!form[k]} onChange={e => set(k, e)} id={`prod-${k}`} />
+                <Switch checked={!!form[k]} onChange={e => set(k, e.target.checked)} id={`prod-${k}`} />
                 {l}
               </label>
             ))}

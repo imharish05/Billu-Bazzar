@@ -5,6 +5,7 @@ export const loginAdmin = createAsyncThunk('auth/adminLogin', async (credentials
   try {
     const res = await api.post('/auth/admin/login', credentials);
     localStorage.setItem('bb_admin_token', res.data.token);
+    localStorage.setItem('bb_admin_refresh_token', res.data.refreshToken);
     return res.data;
   } catch (err) { return rejectWithValue(err.response?.data?.message || 'Login failed'); }
 });
@@ -21,6 +22,11 @@ const authSlice = createSlice({
     logout: (state) => {
       state.admin = null; state.token = null; state.isAuthenticated = false;
       localStorage.removeItem('bb_admin_token');
+      localStorage.removeItem('bb_admin_refresh_token');
+    },
+    updateAccessToken: (state, action) => {
+      state.token = action.payload;
+      state.isAuthenticated = !!action.payload;
     },
     clearError: (state) => { state.error = null; },
   },
@@ -34,5 +40,5 @@ const authSlice = createSlice({
       .addCase(loginAdmin.rejected, (state, action) => { state.loading = false; state.error = action.payload; });
   },
 });
-export const { logout, clearError } = authSlice.actions;
+export const { logout, updateAccessToken, clearError } = authSlice.actions;
 export default authSlice.reducer;

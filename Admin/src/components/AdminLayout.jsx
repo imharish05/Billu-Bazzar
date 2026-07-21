@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
   LayoutDashboard, Package, Tag, ShoppingBag, Users, Image, Ticket,
   Warehouse, UserCheck, BarChart3, Settings, LogOut, Menu, X,
-  Store, CreditCard, Gift, MessageSquare, Globe
+  Store, CreditCard, Gift, MessageSquare, Globe, Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from './Logo';
@@ -71,6 +71,18 @@ const AdminLayout = ({ children, title = '' }) => {
   const navigate = useNavigate();
   const { admin } = useSelector(s => s.auth);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState([
+    { id: 1, type: 'order', text: 'New order #1084 received', time: '5 mins ago', read: false },
+    { id: 2, type: 'stock', text: 'Low stock warning: Rose Gold Lehenga Set', time: '1 hour ago', read: false },
+    { id: 3, type: 'ticket', text: 'New support ticket: Refund request #304', time: '2 hours ago', read: true },
+  ]);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const markAllRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
 
   const handleLogout = () => { dispatch(logout()); navigate('/login'); };
 
@@ -180,9 +192,74 @@ const AdminLayout = ({ children, title = '' }) => {
             <h1 className="font-playfair text-lg font-semibold text-brand-text">{title}</h1>
           </div>
           <div className="flex items-center gap-3">
-            <a href="http://localhost:5173" target="_blank" rel="noopener noreferrer" className="text-xs text-brand-grey hover:text-brand-gold transition-colors focus-visible:outline-brand-gold">
+            <a href={import.meta.env.VITE_CLIENT_URL || 'http://localhost:5173'} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-grey hover:text-brand-gold transition-colors focus-visible:outline-brand-gold">
               View Store ↗
             </a>
+
+            {/* Notification Bell */}
+            <div className="relative">
+              <button
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                className="p-1.5 text-brand-grey hover:text-brand-gold transition-colors focus-visible:outline-brand-gold relative flex items-center"
+                aria-label="Notifications"
+                id="admin-notifications-bell"
+              >
+                <Bell size={18} strokeWidth={1.5} />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white animate-pulse" />
+                )}
+              </button>
+
+              <AnimatePresence>
+                {notificationsOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setNotificationsOpen(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 mt-2 w-80 bg-white border border-brand-light shadow-xl z-50 rounded-lg overflow-hidden"
+                    >
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-brand-light bg-neutral-50">
+                        <span className="text-xs font-bold text-neutral-900 uppercase tracking-wider">Notifications</span>
+                        {unreadCount > 0 && (
+                          <button
+                            onClick={markAllRead}
+                            className="text-[10px] font-semibold text-brand-gold hover:underline uppercase tracking-wider bg-transparent border-none cursor-pointer"
+                          >
+                            Mark all read
+                          </button>
+                        )}
+                      </div>
+                      <div className="max-h-64 overflow-y-auto divide-y divide-brand-light">
+                        {notifications.length === 0 ? (
+                          <div className="p-4 text-center text-xs text-brand-grey">No notifications</div>
+                        ) : (
+                          notifications.map(n => (
+                            <div
+                              key={n.id}
+                              className={`p-3 text-xs transition-colors hover:bg-neutral-50/50 flex gap-2 ${
+                                !n.read ? 'bg-amber-50/20' : ''
+                              }`}
+                            >
+                              <div className="flex-1">
+                                <p className={`text-neutral-800 text-left ${!n.read ? 'font-medium' : ''}`}>{n.text}</p>
+                                <p className="text-[10px] text-brand-grey text-left mt-0.5">{n.time}</p>
+                              </div>
+                              {!n.read && (
+                                <div className="w-1.5 h-1.5 bg-brand-gold rounded-full self-center" />
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+
             <div className="w-8 h-8 rounded-full bg-brand-gold flex items-center justify-center">
               <span className="text-white text-xs font-bold">{admin?.name?.[0] || 'A'}</span>
             </div>

@@ -1,8 +1,36 @@
 import axios from 'axios';
+import { logout, updateAccessToken } from '../redux/slices/authSlice';
 
-const api = axios.create({ baseURL: '/api', timeout: 15000 });
+let store;
+const getStore = async () => {
+  if (!store) {
+    const module = await import('../redux/store');
+    store = module.default;
+  }
+  return store;
+};
+
+// Queue for holding requests while refreshing access token
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL || '/api', timeout: 15000 });
 
 api.interceptors.request.use((config) => {
+  if (config.url === '/auth/refresh') {
+    return config;
+  }
   const token = localStorage.getItem('bb_admin_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
@@ -10,8 +38,66 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   r => r,
-  err => {
-    if (err.response?.status === 401) localStorage.removeItem('bb_admin_token');
+  async err => {
+    const originalRequest = err.config;
+
+    // Prevent loop if the request to refresh token itself fails
+    if (originalRequest.url === '/auth/refresh') {
+      return Promise.reject(err);
+    }
+
+    if (err.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        try {
+          const newToken = await new Promise((resolve, reject) => {
+            failedQueue.push({ resolve, reject });
+          });
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return api(originalRequest);
+        } catch (queueErr) {
+          return Promise.reject(queueErr);
+        }
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      const refreshToken = localStorage.getItem('bb_admin_refresh_token');
+      if (!refreshToken) {
+        localStorage.removeItem('bb_admin_token');
+        localStorage.removeItem('bb_admin_refresh_token');
+        const storeInstance = await getStore();
+        storeInstance.dispatch(logout());
+        return Promise.reject(err);
+      }
+
+      try {
+        const res = await axios.post('/api/auth/refresh', { refreshToken });
+        const newToken = res.data.token;
+
+        localStorage.setItem('bb_admin_token', newToken);
+        const storeInstance = await getStore();
+        storeInstance.dispatch(updateAccessToken(newToken));
+
+        api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        processQueue(null, newToken);
+        isRefreshing = false;
+        
+        return api(originalRequest);
+      } catch (refreshErr) {
+        processQueue(refreshErr, null);
+        isRefreshing = false;
+        
+        localStorage.removeItem('bb_admin_token');
+        localStorage.removeItem('bb_admin_refresh_token');
+        const storeInstance = await getStore();
+        storeInstance.dispatch(logout());
+        
+        return Promise.reject(refreshErr);
+      }
+    }
+
     return Promise.reject(err);
   }
 );

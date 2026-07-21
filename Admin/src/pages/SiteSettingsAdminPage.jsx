@@ -407,7 +407,7 @@ const SiteSettingsAdminPage = () => {
                           {imagePreview ? (
                             <>
                               <img
-                                src={imagePreview.startsWith('data:') ? imagePreview : `http://localhost:5000${imagePreview}`}
+                                src={imagePreview.startsWith('data:') ? imagePreview : `${import.meta.env.VITE_SERVER_URL || 'http://localhost:5000'}${imagePreview}`}
                                 alt="Story Banner Preview"
                                 className="w-full h-full object-cover"
                               />
