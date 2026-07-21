@@ -635,18 +635,18 @@ const Navbar = () => {
                   <button
                     type="button"
                     onClick={() => dispatch(setCurrency(currencyCode === 'INR' ? 'AED' : 'INR'))}
-                    className="flex items-center bg-neutral-900/90 hover:bg-neutral-800/80 border border-neutral-800 rounded-full p-[3px] relative cursor-pointer focus-visible:outline-brand-gold transition-all duration-300 shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)] h-[32px] w-[86px]"
+                    className="flex items-center bg-neutral-900/90 hover:bg-neutral-800/80 border border-neutral-800 rounded-full p-[3px] relative cursor-pointer focus-visible:outline-brand-gold transition-all duration-300 shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)] h-[32px] w-[86px] z-20 pointer-events-auto"
                     aria-label={`Switch currency from ${currencyCode}`}
                     id="nav-currency-toggle-desktop"
                   >
                     <motion.div
-                      className="absolute bg-gradient-to-r from-amber-500 via-brand-gold to-amber-600 rounded-full shadow-[0_2px_5px_rgba(217,119,6,0.3)]"
+                      className="absolute bg-gradient-to-r from-amber-500 via-brand-gold to-amber-600 rounded-full shadow-[0_2px_5px_rgba(217,119,6,0.3)] pointer-events-none"
                       animate={{ left: currencyCode === 'INR' ? '3px' : '43px' }}
                       style={{ width: '40px', height: '26px', top: '3px' }}
                       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                     />
-                    <span className={`relative z-10 text-[10px] font-bold tracking-widest w-[40px] text-center uppercase transition-all duration-300 ${currencyCode === 'INR' ? 'text-white scale-105' : 'text-white/50 hover:text-white scale-95 opacity-85'}`}>INR</span>
-                    <span className={`relative z-10 text-[10px] font-bold tracking-widest w-[40px] text-center uppercase transition-all duration-300 ${currencyCode === 'AED' ? 'text-white scale-105' : 'text-white/50 hover:text-white scale-95 opacity-85'}`}>AED</span>
+                    <span className={`relative z-10 text-[10px] font-bold tracking-widest w-[40px] text-center uppercase transition-all duration-300 pointer-events-none ${currencyCode === 'INR' ? 'text-white scale-105' : 'text-white/50 hover:text-white scale-95 opacity-85'}`}>INR</span>
+                    <span className={`relative z-10 text-[10px] font-bold tracking-widest w-[40px] text-center uppercase transition-all duration-300 pointer-events-none ${currencyCode === 'AED' ? 'text-white scale-105' : 'text-white/50 hover:text-white scale-95 opacity-85'}`}>AED</span>
                   </button>
                 </div>
                 <Link to="/account/wishlist" className="relative p-2 text-white hover:text-brand-gold transition-colors rounded-full focus-visible:outline-2 focus-visible:outline-brand-gold" aria-label={`Wishlist — ${wishlistCount} items`} id="nav-wishlist-btn">
@@ -833,12 +833,12 @@ const Navbar = () => {
                   <button
                     type="button"
                     onClick={() => dispatch(setCurrency(currencyCode === 'INR' ? 'AED' : 'INR'))}
-                    className="flex items-center bg-neutral-900/90 border border-neutral-800 rounded-full p-[2px] relative cursor-pointer focus-visible:outline-brand-gold shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)] h-[26px] w-[68px]"
+                    className="flex items-center bg-neutral-900/90 border border-neutral-800 rounded-full p-[2px] relative cursor-pointer focus-visible:outline-brand-gold shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)] h-[26px] w-[68px] z-20 pointer-events-auto"
                     aria-label={`Switch currency from ${currencyCode}`}
                     id="nav-currency-toggle-mobile"
                   >
                     <motion.div
-                      className="absolute bg-gradient-to-r from-amber-500 via-brand-gold to-amber-600 rounded-full shadow-[0_2px_4px_rgba(217,119,6,0.25)]"
+                      className="absolute bg-gradient-to-r from-amber-500 via-brand-gold to-amber-600 rounded-full shadow-[0_2px_4px_rgba(217,119,6,0.25)] pointer-events-none"
                       animate={{
                         left: currencyCode === 'INR' ? '2px' : '34px',
                       }}
@@ -849,10 +849,10 @@ const Navbar = () => {
                       }}
                       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                     />
-                    <span className={`relative z-10 text-[9px] font-bold tracking-widest w-[32px] text-center uppercase transition-all duration-300 ${currencyCode === 'INR' ? 'text-white scale-105' : 'text-white/50 hover:text-white scale-95 opacity-85'}`}>
+                    <span className={`relative z-10 text-[9px] font-bold tracking-widest w-[32px] text-center uppercase transition-all duration-300 pointer-events-none ${currencyCode === 'INR' ? 'text-white scale-105' : 'text-white/50 hover:text-white scale-95 opacity-85'}`}>
                       INR
                     </span>
-                    <span className={`relative z-10 text-[9px] font-bold tracking-widest w-[32px] text-center uppercase transition-all duration-300 ${currencyCode === 'AED' ? 'text-white scale-105' : 'text-white/50 hover:text-white scale-95 opacity-85'}`}>
+                    <span className={`relative z-10 text-[9px] font-bold tracking-widest w-[32px] text-center uppercase transition-all duration-300 pointer-events-none ${currencyCode === 'AED' ? 'text-white scale-105' : 'text-white/50 hover:text-white scale-95 opacity-85'}`}>
                       AED
                     </span>
                   </button>

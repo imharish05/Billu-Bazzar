@@ -108,7 +108,9 @@ const CartDrawer = () => {
                         {/* Quantity controls */}
                         <div className="flex items-center gap-2 mt-2">
                           <button
-                            onClick={() => dispatch(removeLocal(item.productId))}
+                            onClick={() => item.quantity <= 1 
+                              ? dispatch(removeLocal({ productId: item.productId, variantId: item.variantId })) 
+                              : dispatch(addLocal({ ...item, quantity: -1 }))}
                             className="w-7 h-7 border border-brand-light flex items-center justify-center hover:border-brand-gold hover:text-brand-gold transition-colors focus-visible:outline-brand-gold"
                             aria-label="Decrease quantity"
                           >
@@ -123,7 +125,7 @@ const CartDrawer = () => {
                             <Plus size={12} />
                           </button>
                           <button
-                            onClick={() => dispatch(removeLocal(item.productId))}
+                            onClick={() => dispatch(removeLocal({ productId: item.productId, variantId: item.variantId }))}
                             className="ml-auto text-brand-grey hover:text-red-400 transition-colors p-1 focus-visible:outline-brand-gold"
                             aria-label="Remove item"
                           >

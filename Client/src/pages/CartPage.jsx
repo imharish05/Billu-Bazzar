@@ -193,7 +193,7 @@ const CartPage = () => {
                         )}
                       </div>
                       <button
-                        onClick={() => dispatch(removeLocal(item.productId))}
+                        onClick={() => dispatch(removeLocal({ productId: item.productId, variantId: item.variantId }))}
                         className="text-brand-grey hover:text-red-400 transition-colors p-1 focus-visible:outline-brand-gold flex-shrink-0"
                         aria-label={`Remove ${item.name} from cart`}
                         id={`remove-${item.productId}`}
@@ -204,7 +204,7 @@ const CartPage = () => {
                     <div className="flex items-center justify-between mt-auto">
                       <div className="flex items-center border border-brand-light">
                         <button
-                          onClick={() => item.quantity <= 1 ? dispatch(removeLocal(item.productId)) : dispatch(addLocal({ ...item, quantity: -1 }))}
+                          onClick={() => item.quantity <= 1 ? dispatch(removeLocal({ productId: item.productId, variantId: item.variantId })) : dispatch(addLocal({ ...item, quantity: -1 }))}
                           className="w-9 h-9 flex items-center justify-center hover:bg-brand-light transition-colors focus-visible:outline-brand-gold"
                           aria-label="Decrease"
                         >−</button>

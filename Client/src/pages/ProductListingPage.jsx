@@ -353,7 +353,7 @@ const ProductListingPage = () => {
             {/* Brands Filter */}
             <div className="pt-6 border-t border-brand-light">
               <p className="font-playfair text-sm font-bold uppercase tracking-wider text-brand-text mb-4">Brands</p>
-              <div className="space-y-2.5 max-h-48 overflow-y-auto pr-2 scrollbar-thin">
+              <div className="space-y-2.5">
                 <label className="flex items-center gap-2.5 text-xs text-brand-grey cursor-pointer hover:text-brand-text select-none">
                   <input
                     type="radio"
@@ -481,7 +481,7 @@ const ProductListingPage = () => {
                 {/* Brand / Vendor */}
                 <div>
                   <p className="font-medium text-sm mb-3">Brands</p>
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-2 scrollbar-thin">
+                  <div className="space-y-2">
                     <label className="flex items-center gap-2 text-sm text-brand-grey cursor-pointer hover:text-brand-text">
                       <input
                         type="radio"

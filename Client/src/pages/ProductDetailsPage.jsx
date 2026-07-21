@@ -75,6 +75,48 @@ const ProductDetailsPage = () => {
       .slice(0, 4);
   }, [allProducts, product]);
 
+  const [selectedAttributes, setSelectedAttributes] = useState({});
+
+  const variantAttributeKeys = useMemo(() => {
+    if (!product || !product.variants || product.variants.length === 0) return [];
+    const keys = new Set();
+    product.variants.forEach(v => {
+      if (v.attributes) {
+        Object.keys(v.attributes).forEach(k => keys.add(k));
+      }
+    });
+    return Array.from(keys);
+  }, [product]);
+
+  const variantAttributeValues = useMemo(() => {
+    const valuesMap = {};
+    variantAttributeKeys.forEach(key => {
+      const valSet = new Set();
+      product.variants.forEach(v => {
+        if (v.attributes && v.attributes[key]) {
+          valSet.add(v.attributes[key]);
+        }
+      });
+      valuesMap[key] = Array.from(valSet);
+    });
+    return valuesMap;
+  }, [product, variantAttributeKeys]);
+
+  useEffect(() => {
+    if (product && product.variants && product.variants.length > 0) {
+      setSelectedAttributes(product.variants[0].attributes || {});
+    } else {
+      setSelectedAttributes({});
+    }
+  }, [product]);
+
+  const selectedVariant = useMemo(() => {
+    if (!product || !product.variants || product.variants.length === 0) return null;
+    return product.variants.find(v => {
+      return variantAttributeKeys.every(key => v.attributes[key] === selectedAttributes[key]);
+    });
+  }, [product, selectedAttributes, variantAttributeKeys]);
+
   useEffect(() => {
     if (slug) dispatch(fetchProduct(slug));
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -94,13 +136,35 @@ const ProductDetailsPage = () => {
 
   const handleAddToCart = () => {
     if (!product) return;
-    dispatch(addLocal({ productId: product.id, name: product.name, image: product.images?.[0], priceAtAdd: product.price, quantity, selectedVariant: { size: selectedSize, color: selectedColor } }));
+    const cartItem = {
+      productId: product.id,
+      name: product.name,
+      image: (selectedVariant && selectedVariant.image) || images[0],
+      priceAtAdd: displayPrice,
+      quantity,
+      variantId: selectedVariant ? selectedVariant.id : null,
+      selectedVariant: selectedVariant 
+        ? selectedVariant.attributes 
+        : (selectedSize ? { size: selectedSize } : {})
+    };
+    dispatch(addLocal(cartItem));
     dispatch(openCart());
   };
 
   const handleBuyNow = () => {
     if (!product) return;
-    dispatch(addLocal({ productId: product.id, name: product.name, image: product.images?.[0], priceAtAdd: product.price, quantity, selectedVariant: { size: selectedSize, color: selectedColor } }));
+    const cartItem = {
+      productId: product.id,
+      name: product.name,
+      image: (selectedVariant && selectedVariant.image) || images[0],
+      priceAtAdd: displayPrice,
+      quantity,
+      variantId: selectedVariant ? selectedVariant.id : null,
+      selectedVariant: selectedVariant 
+        ? selectedVariant.attributes 
+        : (selectedSize ? { size: selectedSize } : {})
+    };
+    dispatch(addLocal(cartItem));
     navigate('/checkout');
   };
 
@@ -125,17 +189,52 @@ const ProductDetailsPage = () => {
     );
   }
 
-  const discount = product.comparePrice
-    ? Math.round(((product.comparePrice - product.price) / product.comparePrice) * 100)
+  const displayPrice = selectedVariant && selectedVariant.price !== null
+    ? parseFloat(selectedVariant.price)
+    : parseFloat(product.price);
+
+  const displayComparePrice = selectedVariant && selectedVariant.mrp !== null
+    ? parseFloat(selectedVariant.mrp)
+    : (product.comparePrice ? parseFloat(product.comparePrice) : null);
+
+  const displayStock = selectedVariant
+    ? parseInt(selectedVariant.stock, 10)
+    : parseInt(product.stock, 10);
+
+  const discount = displayComparePrice && displayComparePrice > displayPrice
+    ? Math.round(((displayComparePrice - displayPrice) / displayComparePrice) * 100)
     : null;
 
-  const sizes = attributes?.sizes || ['S', 'M', 'L', 'XL'];
+  const sizes = !product.variants || product.variants.length === 0
+    ? (attributes?.sizes || ['S', 'M', 'L', 'XL'])
+    : [];
+
   const rawImages = Array.isArray(product.images) && product.images.length
     ? product.images
     : [product.images || getPlaceholderSvg(product.name)];
   
   // Safe filtering in case DB returns string placeholders
-  const images = rawImages.map(img => typeof img === 'string' && img.length > 2 ? img : getPlaceholderSvg(product.name));
+  const baseImages = rawImages.map(img => typeof img === 'string' && img.length > 2 ? img : getPlaceholderSvg(product.name));
+
+  const images = useMemo(() => {
+    if (selectedVariant && selectedVariant.image) {
+      const varImg = selectedVariant.image;
+      if (!baseImages.includes(varImg)) {
+        return [varImg, ...baseImages];
+      } else {
+        const filtered = baseImages.filter(img => img !== varImg);
+        return [varImg, ...filtered];
+      }
+    }
+    return baseImages;
+  }, [baseImages, selectedVariant]);
+
+  // When selectedVariant changes, automatically select the first image
+  useEffect(() => {
+    if (selectedVariant && selectedVariant.image) {
+      setSelectedImage(0);
+    }
+  }, [selectedVariant]);
 
   const handleNotifySubmit = (e) => {
     e.preventDefault();
@@ -273,13 +372,14 @@ const ProductDetailsPage = () => {
             {/* Price — React Bits price reveal pattern (inline motion) */}
             <motion.div
               className="flex flex-wrap items-baseline gap-x-3.5 gap-y-1"
+              key={displayPrice}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <span className="font-playfair text-2xl sm:text-3xl md:text-4xl font-bold text-brand-text whitespace-nowrap">{fmt(product.price)}</span>
-              {product.comparePrice && (
-                <span className="text-base sm:text-lg md:text-xl text-brand-grey line-through whitespace-nowrap">{fmt(product.comparePrice)}</span>
+              <span className="font-playfair text-2xl sm:text-3xl md:text-4xl font-bold text-brand-text whitespace-nowrap">{fmt(displayPrice)}</span>
+              {displayComparePrice && (
+                <span className="text-base sm:text-lg md:text-xl text-brand-grey line-through whitespace-nowrap">{fmt(displayComparePrice)}</span>
               )}
               {discount && (
                 <span className="text-brand-gold font-semibold text-xs sm:text-sm bg-brand-gold/10 px-2.5 py-0.5 rounded-sm whitespace-nowrap">Save {discount}%</span>
@@ -288,8 +388,33 @@ const ProductDetailsPage = () => {
 
             <p className="text-brand-grey text-sm leading-relaxed">{product.shortDescription}</p>
 
-            {/* Size selector */}
-            {sizes.length > 0 && (
+            {/* Dynamic Variant Attributes selectors */}
+            {product.variants && product.variants.length > 0 && variantAttributeKeys.map(key => {
+              const currentVal = selectedAttributes[key];
+              const values = variantAttributeValues[key] || [];
+              return (
+                <div key={key} className="space-y-2">
+                  <p className="font-medium text-sm">
+                    Select {key} {currentVal && <span className="text-brand-gold">— {currentVal}</span>}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {values.map(val => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setSelectedAttributes(prev => ({ ...prev, [key]: val }))}
+                        className={`px-4 h-11 border text-sm font-medium transition-all focus-visible:outline-brand-gold ${currentVal === val ? 'border-brand-text bg-brand-text text-white' : 'border-brand-light text-brand-text hover:border-brand-grey'}`}
+                      >
+                        {val}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Size selector (Fallback for simple products) */}
+            {(!product.variants || product.variants.length === 0) && sizes.length > 0 && (
               <div>
                 <div className="flex justify-between items-center mb-3">
                   <p className="font-medium text-sm">Select Size {selectedSize && <span className="text-brand-gold">— {selectedSize}</span>}</p>
@@ -299,6 +424,7 @@ const ProductDetailsPage = () => {
                   {sizes.map(size => (
                     <button
                       key={size}
+                      type="button"
                       onClick={() => setSelectedSize(size)}
                       className={`w-12 h-12 border text-sm font-medium transition-all focus-visible:outline-brand-gold ${selectedSize === size ? 'border-brand-text bg-brand-text text-white' : 'border-brand-light text-brand-text hover:border-brand-grey'}`}
                       id={`size-${size}`}
@@ -314,16 +440,16 @@ const ProductDetailsPage = () => {
             <div className="flex items-center gap-4">
               <p className="font-medium text-sm">Quantity</p>
               <div className="flex items-center border border-brand-light">
-                <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="w-10 h-10 flex items-center justify-center hover:bg-brand-light transition-colors focus-visible:outline-brand-gold" aria-label="Decrease quantity">−</button>
+                <button type="button" onClick={() => setQuantity(q => Math.max(1, q - 1))} className="w-10 h-10 flex items-center justify-center hover:bg-brand-light transition-colors focus-visible:outline-brand-gold" aria-label="Decrease quantity">−</button>
                 <span className="w-10 text-center font-medium">{quantity}</span>
-                <button onClick={() => setQuantity(q => Math.min(product.stock, q + 1))} className="w-10 h-10 flex items-center justify-center hover:bg-brand-light transition-colors focus-visible:outline-brand-gold" aria-label="Increase quantity">+</button>
+                <button type="button" onClick={() => setQuantity(q => Math.min(displayStock, q + 1))} className="w-10 h-10 flex items-center justify-center hover:bg-brand-light transition-colors focus-visible:outline-brand-gold" aria-label="Increase quantity">+</button>
               </div>
-              <span className="text-xs text-brand-grey">{product.stock} in stock</span>
+              <span className="text-xs text-brand-grey">{displayStock} in stock</span>
             </div>
 
             {/* CTA buttons */}
             <div className="flex flex-col gap-3">
-              {product.stock > 0 ? (
+              {displayStock > 0 ? (
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
                     onClick={handleAddToCart}
@@ -433,10 +559,10 @@ const ProductDetailsPage = () => {
             {/* Product attributes */}
             {attributes && Object.keys(attributes).filter(k => !['sizes', 'size', 'material', 'heelheight'].includes(k.toLowerCase())).length > 0 && (
               <div className="border-t border-brand-light pt-4">
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5">
                   {Object.entries(attributes).filter(([k]) => !['sizes', 'size', 'material', 'heelheight'].includes(k.toLowerCase())).map(([key, val]) => (
-                    <div key={key} className="flex gap-2 text-sm">
-                      <span className="text-brand-grey capitalize">{key}:</span>
+                    <div key={key} className="text-sm">
+                      <span className="text-brand-grey capitalize mr-2">{key}:</span>
                       <span className="font-medium text-brand-text">{Array.isArray(val) ? val.join(', ') : val}</span>
                     </div>
                   ))}

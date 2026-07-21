@@ -76,15 +76,27 @@ const cartSlice = createSlice({
     toggleCart: (state) => { state.isOpen = !state.isOpen; },
     // Guest cart — local only
     addLocal: (state, action) => {
-      const existing = state.items.find(i => i.productId === action.payload.productId);
-      if (existing) { existing.quantity += action.payload.quantity || 1; }
-      else state.items.push({ ...action.payload, quantity: action.payload.quantity || 1 });
-      state.subtotal = state.items.reduce((s, i) => s + i.priceAtAdd * i.quantity, 0);
+      const existing = state.items.find(i => 
+        i.productId === action.payload.productId &&
+        (i.variantId || null) === (action.payload.variantId || null)
+      );
+      if (existing) {
+        existing.quantity += action.payload.quantity || 1;
+      } else {
+        state.items.push({ ...action.payload, quantity: action.payload.quantity || 1 });
+      }
+      state.subtotal = state.items.reduce((s, i) => s + (parseFloat(i.priceAtAdd) || 0) * i.quantity, 0);
       persistCart(state.items);
     },
     removeLocal: (state, action) => {
-      state.items = state.items.filter(i => i.productId !== action.payload);
-      state.subtotal = state.items.reduce((s, i) => s + i.priceAtAdd * i.quantity, 0);
+      const { productId, variantId } = typeof action.payload === 'object' && action.payload !== null
+        ? action.payload
+        : { productId: action.payload, variantId: null };
+
+      state.items = state.items.filter(i => 
+        !(i.productId === productId && (i.variantId || null) === (variantId || null))
+      );
+      state.subtotal = state.items.reduce((s, i) => s + (parseFloat(i.priceAtAdd) || 0) * i.quantity, 0);
       persistCart(state.items);
     },
     clearLocal: (state) => { state.items = []; state.subtotal = 0; persistCart([]); },

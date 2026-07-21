@@ -45,15 +45,16 @@ const PriceRangeSlider = memo(({ priceMin = 0, priceMax = 50000, initialMin, ini
 
   return (
     <div className="pt-1 pb-2 select-none">
-      {/* Live price labels */}
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-semibold text-brand-gold bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
-          {fmt(min)}
-        </span>
-        <span className="text-[10px] text-brand-grey">–</span>
-        <span className="text-xs font-semibold text-brand-gold bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
-          {max >= priceMax ? `${fmt(priceMax)}+` : fmt(max)}
-        </span>
+      {/* Live price labels in 2-column card grid */}
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className="bg-amber-50/40 border border-amber-200/60 rounded-lg p-2 text-center">
+          <span className="block text-[8px] font-semibold uppercase tracking-wider text-brand-grey mb-0.5">Min Price</span>
+          <span className="text-[11px] sm:text-xs font-bold text-brand-gold whitespace-nowrap">{fmt(min)}</span>
+        </div>
+        <div className="bg-amber-50/40 border border-amber-200/60 rounded-lg p-2 text-center">
+          <span className="block text-[8px] font-semibold uppercase tracking-wider text-brand-grey mb-0.5">Max Price</span>
+          <span className="text-[11px] sm:text-xs font-bold text-brand-gold whitespace-nowrap">{max >= priceMax ? `${fmt(priceMax)}+` : fmt(max)}</span>
+        </div>
       </div>
 
       {/* Track + handles */}
@@ -96,9 +97,9 @@ const PriceRangeSlider = memo(({ priceMin = 0, priceMax = 50000, initialMin, ini
       </div>
 
       {/* Edge labels */}
-      <div className="flex justify-between mt-1.5">
-        <span className="text-[10px] text-brand-grey">{fmt(priceMin)}</span>
-        <span className="text-[10px] text-brand-grey">{fmt(priceMax)}+</span>
+      <div className="flex justify-between mt-1.5 text-[9px] text-brand-grey/50">
+        <span>{fmt(priceMin)}</span>
+        <span>{fmt(priceMax)}+</span>
       </div>
 
       {/* Clear */}
