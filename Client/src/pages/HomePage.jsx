@@ -857,15 +857,13 @@ const HomePage = () => {
       )}
 
       {/* ── SECTION 9: Influencer Showcase ──────────────────────────────── */}
-      {dbInfluencers.length > 0 && (
+      {/* {dbInfluencers.length > 0 && (
         <section className="py-10 bg-brand-bg border-t border-brand-light" aria-label="Style influencers">
           <div className="max-w-site mx-auto px-6 md:px-8">
             <ScrollReveal>
               <SectionHeader eyebrow="As Seen On" title="Style Diaries" subtitle="Drag or scroll to explore our favorite curators wearing Billu Bazaar" />
             </ScrollReveal>
 
-            {/* Curator showcase: arrow carousel on mobile, WebGL circular gallery on desktop.
-                Image + details now live in ONE card/frame instead of two separate boxes. */}
             {isMobileViewport ? (
               <div className="mt-6 mb-8">
                 <InfluencerCarouselMobile
@@ -876,7 +874,6 @@ const HomePage = () => {
             ) : (
               dbInfluencers[activeInfluencerIndex] && (
                 <div className="max-w-6xl mx-auto mt-6 mb-8 bg-white border border-brand-light/60 rounded-2xl shadow-sm overflow-hidden">
-                  {/* Image gallery — top of the single card */}
                   <div className="relative h-[300px] lg:h-[340px] w-full" style={{ background: 'transparent' }}>
                     <CircularGallery
                       ref={galleryRef}
@@ -908,7 +905,6 @@ const HomePage = () => {
                     </button>
                   </div>
 
-                  {/* Details — same card, directly under the gallery, no separate frame */}
                   <div className="text-center p-6 md:p-8 border-t border-brand-light/60 transition-all duration-300">
                     <span className="text-brand-gold text-xs font-bold uppercase tracking-widest bg-amber-50 px-3 py-1 rounded-full border border-amber-200/50 mb-3 inline-block font-inter">
                       Featured Curator
@@ -945,7 +941,7 @@ const HomePage = () => {
             )}
           </div>
         </section>
-      )}
+      )} */}
 
       {/* ── PARALLAX SECTION B: Our Commitment to Conscious Luxury ── */}
       <section 
