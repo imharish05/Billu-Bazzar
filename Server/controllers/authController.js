@@ -281,14 +281,19 @@ const getMe = async (req, res) => {
     const token = authHeader.split(' ')[1];
     const decoded = verifyAccessToken(token);
 
-    // Try finding as Customer
-    const customer = await Customer.findByPk(decoded.id);
+    // Try finding as Customer (excluding password)
+    const customer = await Customer.findByPk(decoded.id, {
+      attributes: { exclude: ['password'] }
+    });
     if (customer && customer.isActive) {
       return res.json({ success: true, customer });
     }
 
-    // Try finding as AdminUser
-    const admin = await AdminUser.findByPk(decoded.id, { include: [{ association: 'role' }] });
+    // Try finding as AdminUser (excluding password)
+    const admin = await AdminUser.findByPk(decoded.id, {
+      include: [{ association: 'role' }],
+      attributes: { exclude: ['password'] }
+    });
     if (admin && admin.isActive) {
       return res.json({ success: true, admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role?.name } });
     }

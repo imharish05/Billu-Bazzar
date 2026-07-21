@@ -9,8 +9,8 @@ router.get('/featured', getFeatured);
 router.get('/search', search);
 router.get('/price-range', getPriceRange);
 router.get('/:slug', getOne);
-router.post('/', verifyAdmin, upload.fields([{ name: 'images' }, { name: 'spin_images' }]), create);
-router.put('/:id', verifyAdmin, upload.fields([{ name: 'images' }, { name: 'spin_images' }]), update);
+router.post('/', verifyAdmin, upload.any(), create);
+router.put('/:id', verifyAdmin, upload.any(), update);
 router.delete('/:id', verifyAdmin, remove);
 
 module.exports = router;

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Edit2, Trash2, X, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, Upload, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import Switch from '../components/Switch';
 import { fetchAdminProducts, createProduct, updateProduct, deleteProduct } from '../redux/slices/productsSlice';
@@ -17,29 +17,210 @@ const EMPTY_FORM = {
   isBestSeller: false, isActive: true, images: [], spin_images: [], tags: [],
 };
 
+// Compute cartesian product of arrays of values
+const cartesian = (arrays) => {
+  if (!arrays.length) return [[]];
+  return arrays.reduce(
+    (acc, arr) => acc.flatMap(combo => arr.map(v => [...combo, v])),
+    [[]]
+  );
+};
+
 const ProductModal = ({ product, onClose, onSave }) => {
   const [form, setForm] = useState(product ? { ...product } : { ...EMPTY_FORM });
   const [categories, setCategories] = useState([]);
   const [subCategories, setSubCategories] = useState([]);
   const [subSubCategories, setSubSubCategories] = useState([]);
+  const [vendors, setVendors] = useState([]);
+
+  // Variant States
+  const [hasVariants, setHasVariants] = useState(product?.variants?.length > 0);
+  const [variantOptions, setVariantOptions] = useState([]);
+  const [generatedVariants, setGeneratedVariants] = useState([]);
+  const [newOptionKey, setNewOptionKey] = useState('');
+  const [newOptionValue, setNewOptionValue] = useState({});
 
   useEffect(() => {
-    const loadCategories = async () => {
+    const loadCategoriesAndVendors = async () => {
       try {
-        const [catRes, subRes, subSubRes] = await Promise.all([
+        const [catRes, subRes, subSubRes, venRes] = await Promise.all([
           api.get('/categories?all=true'),
           api.get('/subcategories?all=true'),
-          api.get('/subsubcategories?all=true')
+          api.get('/subsubcategories?all=true'),
+          api.get('/vendors')
         ]);
         setCategories(catRes.data.categories || []);
         setSubCategories(subRes.data.subCategories || []);
         setSubSubCategories(subSubRes.data.subSubCategories || []);
+        setVendors(venRes.data.vendors || venRes.data.success ? venRes.data.vendors : []);
       } catch (err) {
-        console.error('Error fetching categories hierarchy', err);
+        console.error('Error fetching categories/vendors hierarchy', err);
       }
     };
-    loadCategories();
+    loadCategoriesAndVendors();
   }, []);
+
+  // Initialize variant states when editing
+  useEffect(() => {
+    if (product && product.variants && product.variants.length > 0) {
+      // Reconstruct variantOptions from existing variants' attributes
+      const optionsMap = {};
+      product.variants.forEach(v => {
+        const attrs = v.attributes || {};
+        Object.entries(attrs).forEach(([key, val]) => {
+          if (!optionsMap[key]) optionsMap[key] = new Set();
+          optionsMap[key].add(val);
+        });
+      });
+
+      const initialOptions = Object.entries(optionsMap).map(([key, valueSet]) => ({
+        key,
+        values: Array.from(valueSet)
+      }));
+      setVariantOptions(initialOptions);
+
+      // Map existing variants
+      const initialVariants = product.variants.map(v => ({
+        id: v.id,
+        variantName: Object.entries(v.attributes || {}).map(([key, val]) => `${key}: ${val}`).join(' · '),
+        sku: v.sku || '',
+        price: v.price || '',
+        mrp: v.mrp || '',
+        stock: v.stock || 0,
+        attributes: v.attributes || {},
+        image: v.image || null,
+        images: v.images || [],
+        imagePreview: v.image || null
+      }));
+      setGeneratedVariants(initialVariants);
+    }
+  }, [product]);
+
+  // Re-generate combinations when options change
+  const handleRebuildVariants = (updatedOptions) => {
+    const activeOptions = updatedOptions.filter(o => o.key.trim() && o.values.length > 0);
+    if (activeOptions.length === 0) {
+      setGeneratedVariants([]);
+      return;
+    }
+
+    const combos = cartesian(activeOptions.map(o => o.values.map(v => ({ key: o.key, value: v }))));
+    
+    const nextVariants = combos.map((combo, idx) => {
+      // Create attributes object
+      const comboAttributes = {};
+      combo.forEach(c => { comboAttributes[c.key] = c.value; });
+      const comboName = combo.map(c => `${c.key}: ${c.value}`).join(' · ');
+
+      // Find if we have an existing variant that matches these attributes
+      const existingMatch = generatedVariants.find(gv => {
+        const gvAttrs = gv.attributes || {};
+        return combo.every(c => String(gvAttrs[c.key]) === String(c.value));
+      });
+
+      if (existingMatch) {
+        return {
+          ...existingMatch,
+          variantName: comboName,
+          attributes: comboAttributes
+        };
+      }
+
+      return {
+        variantName: comboName,
+        sku: '',
+        price: form.price || '',
+        mrp: form.comparePrice || '',
+        stock: '0',
+        attributes: comboAttributes,
+        imageFile: null,
+        imagePreview: null
+      };
+    });
+
+    setGeneratedVariants(nextVariants);
+  };
+
+  // Add a new variant option key (e.g. Size, Color, custom)
+  const addOptionKey = () => {
+    const key = newOptionKey.trim();
+    if (!key) return;
+    if (variantOptions.some(o => o.key.toLowerCase() === key.toLowerCase())) {
+      toast.error(`Option "${key}" already exists`);
+      return;
+    }
+    const nextOptions = [...variantOptions, { key, values: [] }];
+    setVariantOptions(nextOptions);
+    setNewOptionKey('');
+  };
+
+  // Remove a variant option dimension
+  const removeOptionKey = (idx) => {
+    const nextOptions = variantOptions.filter((_, i) => i !== idx);
+    setVariantOptions(nextOptions);
+    handleRebuildVariants(nextOptions);
+  };
+
+  // Add value to a specific option key
+  const addOptionValue = (optionIdx) => {
+    const val = (newOptionValue[optionIdx] || '').trim();
+    if (!val) return;
+
+    const opt = variantOptions[optionIdx];
+    if (opt.values.some(v => v.toLowerCase() === val.toLowerCase())) {
+      toast.error(`Value "${val}" already exists under ${opt.key}`);
+      return;
+    }
+
+    const nextOptions = [...variantOptions];
+    nextOptions[optionIdx] = {
+      ...opt,
+      values: [...opt.values, val]
+    };
+
+    setVariantOptions(nextOptions);
+    setNewOptionValue(prev => ({ ...prev, [optionIdx]: '' }));
+    handleRebuildVariants(nextOptions);
+  };
+
+  // Remove a value from an option
+  const removeOptionValue = (optionIdx, valIdx) => {
+    const opt = variantOptions[optionIdx];
+    const nextValues = opt.values.filter((_, i) => i !== valIdx);
+    const nextOptions = [...variantOptions];
+    nextOptions[optionIdx] = {
+      ...opt,
+      values: nextValues
+    };
+    setVariantOptions(nextOptions);
+    handleRebuildVariants(nextOptions);
+  };
+
+  // Update specific variant field in generated list
+  const handleUpdateVariantField = (idx, field, val) => {
+    setGeneratedVariants(prev => {
+      const next = [...prev];
+      next[idx] = {
+        ...next[idx],
+        [field]: val
+      };
+      return next;
+    });
+  };
+
+  // Handle variant image upload
+  const handleVariantImageUpload = (idx, file) => {
+    if (!file) return;
+    setGeneratedVariants(prev => {
+      const next = [...prev];
+      next[idx] = {
+        ...next[idx],
+        imageFile: file,
+        imagePreview: URL.createObjectURL(file)
+      };
+      return next;
+    });
+  };
 
   const filteredSubCategories = subCategories.filter(
     sub => Number(sub.categoryId) === Number(form.categoryId)
@@ -161,8 +342,6 @@ const ProductModal = ({ product, onClose, onSave }) => {
     setExistingSpinImages(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // Frame order = rotation order fed straight to react-360-view's fileName
-  // sequence, so reordering has to work across the existing/new split.
   const moveExistingSpinImage = (idx, dir) => {
     setExistingSpinImages(prev => {
       const next = [...prev];
@@ -186,8 +365,10 @@ const ProductModal = ({ product, onClose, onSave }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     const fd = new FormData();
+
+    // Map fields
     Object.keys(form).forEach(key => {
-      if (key === 'images' || key === 'spin_images') return; // Skip old fields
+      if (key === 'images' || key === 'spin_images' || key === 'variants') return; // Skip old fields
       const value = form[key];
       if (value === null || value === undefined) {
         // skip
@@ -209,6 +390,29 @@ const ProductModal = ({ product, onClose, onSave }) => {
       fd.append('spin_images', file);
     });
 
+    // Handle Variants Payload
+    if (hasVariants && generatedVariants.length > 0) {
+      const variantsPayload = generatedVariants.map((v, idx) => ({
+        id: v.id || null,
+        sku: v.sku || `PV-${form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${idx}-${Date.now()}`,
+        price: v.price === '' ? null : parseFloat(v.price),
+        mrp: v.mrp === '' ? null : parseFloat(v.mrp),
+        stock: v.stock === '' ? 0 : parseInt(v.stock, 10),
+        attributes: v.attributes || {},
+        image: v.image || null,
+        images: v.images || []
+      }));
+
+      fd.append('variants', JSON.stringify(variantsPayload));
+
+      // Append variant image files
+      generatedVariants.forEach((v, idx) => {
+        if (v.imageFile) {
+          fd.append(`variantGallery_${idx}`, v.imageFile);
+        }
+      });
+    }
+
     onSave(fd);
   };
 
@@ -216,84 +420,93 @@ const ProductModal = ({ product, onClose, onSave }) => {
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
-        className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-brand-light sticky top-0 bg-white z-10">
           <h2 className="font-playfair text-xl font-semibold">{product ? 'Edit Product' : 'Add Product'}</h2>
           <button onClick={onClose} className="p-1.5 hover:text-brand-gold transition-colors focus-visible:outline-brand-gold" aria-label="Close"><X size={20} /></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 grid sm:grid-cols-2 gap-4">
-          {[
-            { label: 'Product Name *', key: 'name', req: true },
-            { label: 'Slug', key: 'slug' },
-            { label: 'SKU', key: 'sku' },
-          ].map(({ label, key, req }) => (
-            <div key={key}>
-              <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor={`prod-${key}`}>{label}</label>
-              <input id={`prod-${key}`} type="text" value={form[key] || ''} onChange={e => set(key, e.target.value)} required={req} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" placeholder={label.replace(' *', '')} />
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <div className="grid sm:grid-cols-2 gap-4">
+            {[
+              { label: 'Product Name *', key: 'name', req: true },
+              { label: 'Slug', key: 'slug' },
+              { label: 'SKU', key: 'sku' },
+            ].map(({ label, key, req }) => (
+              <div key={key}>
+                <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor={`prod-${key}`}>{label}</label>
+                <input id={`prod-${key}`} type="text" value={form[key] || ''} onChange={e => set(key, e.target.value)} required={req} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-none" placeholder={label.replace(' *', '')} />
+              </div>
+            ))}
+
+            {/* Vendor Dropdown */}
+            <div>
+              <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="prod-vendor">Vendor</label>
+              <select
+                id="prod-vendor"
+                value={form.vendorId || ''}
+                onChange={e => set('vendorId', e.target.value)}
+                className="w-full border border-brand-light bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors rounded-none"
+              >
+                <option value="">Select Vendor</option>
+                {vendors.map(v => (
+                  <option key={v.id} value={v.id}>{v.name}</option>
+                ))}
+              </select>
             </div>
-          ))}
 
-          {/* Category Dropdown */}
-          <div>
-            <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="prod-category">Category *</label>
-            <select
-              id="prod-category"
-              value={form.categoryId || ''}
-              onChange={e => handleCategoryChange(e.target.value)}
-              required
-              className="w-full border border-brand-light bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors rounded-none"
-            >
-              <option value="">Select Category</option>
-              {categories.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Sub Category Dropdown */}
-          <div>
-            <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="prod-subcategory">Sub Category</label>
-            <select
-              id="prod-subcategory"
-              value={form.subCategoryId || ''}
-              onChange={e => handleSubCategoryChange(e.target.value)}
-              disabled={!form.categoryId}
-              className="w-full border border-brand-light bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors disabled:bg-neutral-50 disabled:cursor-not-allowed rounded-none"
-            >
-              <option value="">Select Sub Category</option>
-              {filteredSubCategories.map(sub => (
-                <option key={sub.id} value={sub.id}>{sub.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Sub Subcategory Dropdown */}
-          <div>
-            <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="prod-subsubcategory">Sub Subcategory</label>
-            <select
-              id="prod-subsubcategory"
-              value={form.subSubCategoryId || ''}
-              onChange={e => handleSubSubCategoryChange(e.target.value)}
-              disabled={!form.subCategoryId}
-              className="w-full border border-brand-light bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors disabled:bg-neutral-50 disabled:cursor-not-allowed rounded-none"
-            >
-              <option value="">Select Sub Subcategory</option>
-              {filteredSubSubCategories.map(ss => (
-                <option key={ss.id} value={ss.id}>{ss.name}</option>
-              ))}
-            </select>
-          </div>
-          {[
-            { label: 'Price (₹) *', key: 'price', req: true },
-            { label: 'Compare Price (₹)', key: 'comparePrice' },
-            { label: 'Stock Qty', key: 'stock' },
-          ].map(({ label, key, req }) => (
-            <div key={key}>
-              <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor={`prod-${key}`}>{label}</label>
-              <input id={`prod-${key}`} type="number" value={form[key] || ''} onChange={e => set(key, e.target.value)} required={req} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
+            {/* Category Dropdown */}
+            <div>
+              <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="prod-category">Category *</label>
+              <select
+                id="prod-category"
+                value={form.categoryId || ''}
+                onChange={e => handleCategoryChange(e.target.value)}
+                required
+                className="w-full border border-brand-light bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors rounded-none"
+              >
+                <option value="">Select Category</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
             </div>
-          ))}
+
+            {/* Sub Category Dropdown */}
+            <div>
+              <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="prod-subcategory">Sub Category</label>
+              <select
+                id="prod-subcategory"
+                value={form.subCategoryId || ''}
+                onChange={e => handleSubCategoryChange(e.target.value)}
+                disabled={!form.categoryId}
+                className="w-full border border-brand-light bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors disabled:bg-neutral-50 disabled:cursor-not-allowed rounded-none"
+              >
+                <option value="">Select Sub Category</option>
+                {filteredSubCategories.map(sub => (
+                  <option key={sub.id} value={sub.id}>{sub.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sub Subcategory Dropdown */}
+            <div>
+              <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="prod-subsubcategory">Sub Subcategory</label>
+              <select
+                id="prod-subsubcategory"
+                value={form.subSubCategoryId || ''}
+                onChange={e => handleSubSubCategoryChange(e.target.value)}
+                disabled={!form.subCategoryId}
+                className="w-full border border-brand-light bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors disabled:bg-neutral-50 disabled:cursor-not-allowed rounded-none"
+              >
+                <option value="">Select Sub Subcategory</option>
+                {filteredSubSubCategories.map(ss => (
+                  <option key={ss.id} value={ss.id}>{ss.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <div className="sm:col-span-2">
             <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="prod-shortDesc">Short Description</label>
             <textarea id="prod-shortDesc" rows={2} value={form.shortDescription || ''} onChange={e => set('shortDescription', e.target.value)} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold resize-none" />
@@ -302,8 +515,211 @@ const ProductModal = ({ product, onClose, onSave }) => {
             <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="prod-desc">Description</label>
             <textarea id="prod-desc" rows={4} value={form.description || ''} onChange={e => set('description', e.target.value)} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold resize-none" />
           </div>
-          <div className="sm:col-span-2">
-            <label className="block text-xs font-medium text-brand-grey mb-1.5">Product Images</label>
+
+          {/* Variants Toggle & Builder */}
+          <div className="border-t border-brand-light pt-6">
+            <div className="flex items-center justify-between bg-neutral-50 p-4 border border-brand-light mb-6">
+              <div>
+                <p className="text-sm font-semibold text-neutral-900">Product Variants</p>
+                <p className="text-xs text-brand-grey mt-0.5">This product has variants like different sizes, colors, styles, or designs</p>
+              </div>
+              <Switch checked={hasVariants} onChange={val => setHasVariants(val)} />
+            </div>
+
+            {hasVariants ? (
+              <div className="space-y-6">
+                {/* 1. Options setup */}
+                <div className="bg-neutral-50 p-4 border border-brand-light space-y-4">
+                  <h3 className="text-xs font-bold text-neutral-800 uppercase tracking-wider">Configure Attributes / Option Types</h3>
+                  
+                  {/* List existing configured option keys */}
+                  {variantOptions.map((opt, optIdx) => (
+                    <div key={optIdx} className="bg-white border border-brand-light p-4 space-y-3 relative">
+                      <button
+                        type="button"
+                        onClick={() => removeOptionKey(optIdx)}
+                        className="absolute top-2 right-2 text-red-500 hover:text-red-700 text-xs font-bold"
+                      >
+                        ✕ Remove
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-neutral-700">Option Type:</span>
+                        <span className="text-xs font-bold text-brand-gold px-2.5 py-0.5 bg-brand-gold/10">{opt.key}</span>
+                      </div>
+                      
+                      {/* Values list as pills */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {opt.values.map((v, vIdx) => (
+                          <span key={vIdx} className="inline-flex items-center gap-1 bg-neutral-100 text-neutral-700 text-xs px-2 py-0.5 font-medium border border-neutral-200">
+                            {v}
+                            <button
+                              type="button"
+                              onClick={() => removeOptionValue(optIdx, vIdx)}
+                              className="text-[10px] text-neutral-400 hover:text-neutral-600 font-bold ml-0.5"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Add new value to this key */}
+                      <div className="flex gap-2 max-w-sm">
+                        <input
+                          type="text"
+                          placeholder={`Add value to ${opt.key}...`}
+                          value={newOptionValue[optIdx] || ''}
+                          onChange={e => setNewOptionValue(prev => ({ ...prev, [optIdx]: e.target.value }))}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              addOptionValue(optIdx);
+                            }
+                          }}
+                          className="border border-brand-light px-2.5 py-1 text-xs focus:outline-none focus:border-brand-gold flex-1"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => addOptionValue(optIdx)}
+                          className="bg-neutral-900 text-white text-xs px-3 py-1 font-semibold uppercase tracking-wider"
+                        >
+                          Add Value
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Add new Option Key input */}
+                  <div className="flex gap-2 max-w-md pt-2">
+                    <input
+                      type="text"
+                      placeholder="e.g. Colour, Size, Material, Design..."
+                      value={newOptionKey}
+                      onChange={e => setNewOptionKey(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addOptionKey();
+                        }
+                      }}
+                      className="border border-brand-light px-3 py-1.5 text-xs focus:outline-none focus:border-brand-gold flex-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={addOptionKey}
+                      className="bg-brand-gold text-white text-xs px-4 py-1.5 font-semibold uppercase tracking-wider flex items-center gap-1"
+                    >
+                      <Plus size={14} /> Add Option Type
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Generated Combinations Grid */}
+                {generatedVariants.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="text-xs font-bold text-neutral-800 uppercase tracking-wider">Combinations Matrix ({generatedVariants.length})</h3>
+                    <div className="border border-brand-light divide-y divide-brand-light overflow-hidden bg-white">
+                      {generatedVariants.map((v, idx) => (
+                        <div key={idx} className="p-4 grid sm:grid-cols-12 gap-4 items-start bg-white hover:bg-neutral-50/50 transition-colors">
+                          {/* Variant Image Select */}
+                          <div className="sm:col-span-2">
+                            <div className="relative aspect-square border border-brand-light rounded bg-neutral-50 overflow-hidden group flex items-center justify-center cursor-pointer">
+                              {v.imagePreview ? (
+                                <>
+                                  <img src={v.imagePreview} alt="variant" className="w-full h-full object-cover" />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateVariantField(idx, 'imagePreview', null)}
+                                    className="absolute top-1 right-1 bg-red-500 text-white p-0.5 rounded-full hover:bg-red-600 transition-colors shadow"
+                                  >
+                                    ✕
+                                  </button>
+                                </>
+                              ) : (
+                                <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer p-1">
+                                  <Upload size={16} className="text-brand-grey mb-1" />
+                                  <span className="text-[10px] text-brand-grey text-center leading-tight">Add Photo</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={e => handleVariantImageUpload(idx, e.target.files[0])}
+                                  />
+                                </label>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Variant Name & SKU */}
+                          <div className="sm:col-span-4 space-y-2">
+                            <p className="text-xs font-bold text-neutral-900 line-clamp-1">{v.variantName}</p>
+                            <input
+                              type="text"
+                              placeholder="Auto SKU Code"
+                              value={v.sku}
+                              onChange={e => handleUpdateVariantField(idx, 'sku', e.target.value)}
+                              className="w-full border border-brand-light px-2 py-1 text-xs focus:outline-none focus:border-brand-gold font-mono"
+                            />
+                          </div>
+
+                          {/* Prices and Stock */}
+                          <div className="sm:col-span-6 grid grid-cols-3 gap-2">
+                            <div>
+                              <label className="block text-[10px] uppercase font-bold text-brand-grey mb-0.5">Sale Price *</label>
+                              <input
+                                type="number"
+                                required
+                                value={v.price}
+                                onChange={e => handleUpdateVariantField(idx, 'price', e.target.value)}
+                                className="w-full border border-brand-light px-2 py-1 text-xs focus:outline-none focus:border-brand-gold"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] uppercase font-bold text-brand-grey mb-0.5">MRP Price</label>
+                              <input
+                                type="number"
+                                value={v.mrp}
+                                onChange={e => handleUpdateVariantField(idx, 'mrp', e.target.value)}
+                                className="w-full border border-brand-light px-2 py-1 text-xs focus:outline-none focus:border-brand-gold"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] uppercase font-bold text-brand-grey mb-0.5">Stock *</label>
+                              <input
+                                type="number"
+                                required
+                                value={v.stock}
+                                onChange={e => handleUpdateVariantField(idx, 'stock', e.target.value)}
+                                className="w-full border border-brand-light px-2 py-1 text-xs focus:outline-none focus:border-brand-gold"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* If product does NOT have variants, we show the main pricing & stock fields */
+              <div className="grid sm:grid-cols-3 gap-4">
+                {[
+                  { label: 'Price (₹) *', key: 'price', req: true },
+                  { label: 'Compare Price (₹)', key: 'comparePrice' },
+                  { label: 'Stock Qty', key: 'stock' },
+                ].map(({ label, key, req }) => (
+                  <div key={key}>
+                    <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor={`prod-${key}`}>{label}</label>
+                    <input id={`prod-${key}`} type="number" value={form[key] || ''} onChange={e => set(key, e.target.value)} required={req} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Product Gallery Images */}
+          <div className="border-t border-brand-light pt-6">
+            <label className="block text-xs font-semibold text-brand-grey mb-1.5">Product Gallery Images</label>
             <div
               className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
                 isDragging
@@ -366,8 +782,9 @@ const ProductModal = ({ product, onClose, onSave }) => {
             )}
           </div>
 
-          <div className="sm:col-span-2 border-t border-brand-light pt-4 mt-2">
-            <label className="block text-xs font-medium text-brand-grey mb-1.5">360° Spin View Frames (Ordered Sequence)</label>
+          {/* 360 Spin Sequence */}
+          <div className="border-t border-brand-light pt-6">
+            <label className="block text-xs font-semibold text-brand-grey mb-1.5">360° Spin View Frames (Ordered Sequence)</label>
             <div
               className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
                 isSpinDragging
@@ -385,7 +802,6 @@ const ProductModal = ({ product, onClose, onSave }) => {
             >
               <Upload size={28} className="mx-auto text-brand-grey mb-2" />
               <p className="text-sm text-brand-grey font-medium">Drag & drop 360° frames here, or click to upload</p>
-              <p className="text-xs text-brand-grey mt-1">Upload in rotation order — 24–36 frames recommended for a smooth spin. Use the <strong>same file type for every frame</strong> (all JPG or all PNG) — they're used as-is, not converted. Use the arrows on each thumbnail to fix ordering.</p>
               <input
                 ref={spinFileInputRef}
                 type="file"
@@ -408,7 +824,6 @@ const ProductModal = ({ product, onClose, onSave }) => {
                         onClick={(e) => { e.stopPropagation(); moveExistingSpinImage(idx, -1); }}
                         disabled={idx === 0}
                         className="bg-white/90 text-brand-text p-1 rounded-full hover:bg-white transition-colors shadow disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="Move earlier in sequence"
                       >
                         <ChevronLeft size={12} />
                       </button>
@@ -416,7 +831,6 @@ const ProductModal = ({ product, onClose, onSave }) => {
                         type="button"
                         onClick={(e) => { e.stopPropagation(); removeExistingSpinImage(idx); }}
                         className="bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors shadow"
-                        title="Remove Frame"
                       >
                         <X size={12} />
                       </button>
@@ -425,7 +839,6 @@ const ProductModal = ({ product, onClose, onSave }) => {
                         onClick={(e) => { e.stopPropagation(); moveExistingSpinImage(idx, 1); }}
                         disabled={idx === existingSpinImages.length - 1}
                         className="bg-white/90 text-brand-text p-1 rounded-full hover:bg-white transition-colors shadow disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="Move later in sequence"
                       >
                         <ChevronRight size={12} />
                       </button>
@@ -442,7 +855,6 @@ const ProductModal = ({ product, onClose, onSave }) => {
                         onClick={(e) => { e.stopPropagation(); moveNewSpinFile(idx, -1); }}
                         disabled={idx === 0}
                         className="bg-white/90 text-brand-text p-1 rounded-full hover:bg-white transition-colors shadow disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="Move earlier in sequence"
                       >
                         <ChevronLeft size={12} />
                       </button>
@@ -450,7 +862,6 @@ const ProductModal = ({ product, onClose, onSave }) => {
                         type="button"
                         onClick={(e) => { e.stopPropagation(); removeNewSpinFile(idx); }}
                         className="bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors shadow"
-                        title="Remove Frame"
                       >
                         <X size={12} />
                       </button>
@@ -459,7 +870,6 @@ const ProductModal = ({ product, onClose, onSave }) => {
                         onClick={(e) => { e.stopPropagation(); moveNewSpinFile(idx, 1); }}
                         disabled={idx === newSpinImageFiles.length - 1}
                         className="bg-white/90 text-brand-text p-1 rounded-full hover:bg-white transition-colors shadow disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="Move later in sequence"
                       >
                         <ChevronRight size={12} />
                       </button>
@@ -472,17 +882,19 @@ const ProductModal = ({ product, onClose, onSave }) => {
             )}
           </div>
 
-          <div className="sm:col-span-2 flex flex-wrap items-center gap-6">
+          {/* Featured, New, Best Seller Toggles */}
+          <div className="border-t border-brand-light pt-6 flex flex-wrap items-center gap-6">
             {[{k:'isFeatured',l:'Featured'},{k:'isNewArrival',l:'New Arrival'},{k:'isBestSeller',l:'Best Seller'},{k:'isActive',l:'Active'}].map(({k,l}) => (
               <label key={k} className="flex items-center gap-2 text-sm cursor-pointer select-none" htmlFor={`prod-${k}`}>
-                <Switch checked={!!form[k]} onChange={e => set(k, e.target.checked)} id={`prod-${k}`} />
+                <Switch checked={!!form[k]} onChange={e => set(k, e)} id={`prod-${k}`} />
                 {l}
               </label>
             ))}
           </div>
-          <div className="sm:col-span-2 flex gap-3 pt-2 border-t border-brand-light">
-            <button type="button" onClick={onClose} className="btn-outline flex-1" id="prod-cancel">Cancel</button>
-            <button type="submit" className="btn-primary flex-1" id="prod-save">Save Product</button>
+
+          <div className="flex gap-3 pt-6 border-t border-brand-light">
+            <button type="button" onClick={onClose} className="w-full border border-brand-light py-3 font-semibold text-xs tracking-wider uppercase text-neutral-800 hover:bg-neutral-50 transition-colors" id="prod-cancel">Cancel</button>
+            <button type="submit" className="w-full bg-neutral-950 text-white hover:bg-neutral-800 py-3 font-semibold text-xs tracking-wider uppercase transition-colors" id="prod-save">Save Product</button>
           </div>
         </form>
       </motion.div>

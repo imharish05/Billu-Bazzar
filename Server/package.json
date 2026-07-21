@@ -28,6 +28,7 @@
     "node-cron": "^4.6.0",
     "nodemailer": "^9.0.3",
     "pdfkit": "^0.19.1",
+    "razorpay": "^2.9.8",
     "sequelize": "^6.37.8",
     "uuid": "^14.0.1",
     "web-push": "^3.6.7"

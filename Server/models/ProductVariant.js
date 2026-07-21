@@ -11,9 +11,22 @@ const ProductVariant = sequelize.define('ProductVariant', {
     onDelete: 'CASCADE'
   },
   sku: { type: DataTypes.STRING(80), unique: true, allowNull: false },
-  price: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+  price: { type: DataTypes.DECIMAL(10, 2), allowNull: true }, // Sale price
+  mrp: { type: DataTypes.DECIMAL(10, 2), allowNull: true }, // Maximum Retail Price (compare price)
   stock: { type: DataTypes.INTEGER, defaultValue: 0, allowNull: false },
-  attributes: { type: DataTypes.JSON, defaultValue: {} } // e.g. { "size": "M", "color": "Blue" }
+  attributes: { type: DataTypes.JSON, defaultValue: {} }, // e.g. { "size": "M", "color": "Blue" }
+  image: { type: DataTypes.STRING, allowNull: true },
+  images: {
+    type: DataTypes.JSON,
+    defaultValue: [],
+    get() {
+      const rawValue = this.getDataValue('images');
+      if (typeof rawValue === 'string') {
+        try { return JSON.parse(rawValue); } catch (e) { return []; }
+      }
+      return rawValue || [];
+    }
+  }
 }, {
   tableName: 'ProductVariants',
   timestamps: true,

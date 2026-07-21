@@ -1,6 +1,7 @@
 'use strict';
 const { Op } = require('sequelize');
-const { Product, Category, SubCategory, SubSubCategory, Vendor } = require('../models');
+const { Product, Category, SubCategory, SubSubCategory, Vendor, ProductVariant, Warehouse, WarehouseStock } = require('../models');
+const { syncProductVariants, syncWarehouseStock } = require('./variantController');
 const fs = require('fs');
 const path = require('path');
 const { materializeSpinSequence, deleteSpinSequence } = require('../services/spinSequenceService');
@@ -66,31 +67,18 @@ const processProductData = (req) => {
   const newImages = [];
   const newSpinImages = [];
 
-  if (req.files) {
-    if (Array.isArray(req.files)) {
-      // Compatibility with array format
-      req.files.forEach(file => {
-        const normalizedPath = file.path.replace(/\\/g, '/');
-        const uploadsIndex = normalizedPath.indexOf('uploads');
-        newImages.push('/' + normalizedPath.substring(uploadsIndex));
-      });
-    } else {
-      // Fields object format
-      if (req.files.images) {
-        req.files.images.forEach(file => {
-          const normalizedPath = file.path.replace(/\\/g, '/');
-          const uploadsIndex = normalizedPath.indexOf('uploads');
-          newImages.push('/' + normalizedPath.substring(uploadsIndex));
-        });
+  if (req.files && Array.isArray(req.files)) {
+    req.files.forEach(file => {
+      const normalizedPath = file.path.replace(/\\/g, '/');
+      const uploadsIndex = normalizedPath.indexOf('uploads');
+      const pathString = '/' + normalizedPath.substring(uploadsIndex);
+
+      if (file.fieldname === 'images') {
+        newImages.push(pathString);
+      } else if (file.fieldname === 'spin_images') {
+        newSpinImages.push(pathString);
       }
-      if (req.files.spin_images) {
-        req.files.spin_images.forEach(file => {
-          const normalizedPath = file.path.replace(/\\/g, '/');
-          const uploadsIndex = normalizedPath.indexOf('uploads');
-          newSpinImages.push('/' + normalizedPath.substring(uploadsIndex));
-        });
-      }
-    }
+    });
   }
 
   data.images = [...existingImages, ...newImages];
@@ -181,7 +169,8 @@ const getAll = async (req, res) => {
         { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
         { model: SubCategory, as: 'subcategory', attributes: ['id', 'name', 'slug'] },
         { model: SubSubCategory, as: 'subsubcategory', attributes: ['id', 'name', 'slug'] },
-        { model: Vendor, as: 'vendor', attributes: ['id', 'name', 'logo'] }
+        { model: Vendor, as: 'vendor', attributes: ['id', 'name', 'logo'] },
+        { model: ProductVariant, as: 'variants', attributes: ['id', 'sku', 'price', 'mrp', 'stock', 'attributes', 'image', 'images'] }
       ],
     });
 
@@ -199,7 +188,8 @@ const getOne = async (req, res) => {
         { model: Category, as: 'category' },
         { model: SubCategory, as: 'subcategory' },
         { model: SubSubCategory, as: 'subsubcategory' },
-        { model: Vendor, as: 'vendor', attributes: ['id', 'name', 'rating'] }
+        { model: Vendor, as: 'vendor', attributes: ['id', 'name', 'rating'] },
+        { model: ProductVariant, as: 'variants', attributes: ['id', 'sku', 'price', 'mrp', 'stock', 'attributes', 'image', 'images'] }
       ],
     });
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
@@ -217,7 +207,66 @@ const create = async (req, res) => {
     const spinMeta = materializeSpinSequence(product.id, product.spin_images);
     await product.update(spinMeta);
 
-    res.status(201).json({ success: true, product });
+    // Create variants if supplied in the request body
+    if (req.body.variants) {
+      let parsedVariants = [];
+      try {
+        parsedVariants = typeof req.body.variants === 'string' ? JSON.parse(req.body.variants) : req.body.variants;
+      } catch (e) {
+        parsedVariants = [];
+      }
+
+      if (Array.isArray(parsedVariants)) {
+        for (let i = 0; i < parsedVariants.length; i++) {
+          const v = parsedVariants[i];
+
+          // Collect images uploaded for this variant
+          const vGalleryFiles = req.files ? req.files.filter(f => f.fieldname === `variantGallery_${i}`) : [];
+          const newGalleryPaths = vGalleryFiles.map(file => {
+            const normalizedPath = file.path.replace(/\\/g, '/');
+            const uploadsIndex = normalizedPath.indexOf('uploads');
+            return '/' + normalizedPath.substring(uploadsIndex);
+          });
+
+          const mainVarImg = newGalleryPaths[0] || null;
+
+          const variant = await ProductVariant.create({
+            productId: product.id,
+            sku: v.sku ? v.sku.trim() : `PV-${product.id}-${i}-${Date.now()}`,
+            price: v.price === '' || v.price === undefined ? null : parseFloat(v.price),
+            mrp: v.mrp === '' || v.mrp === undefined ? null : parseFloat(v.mrp),
+            stock: v.stock === '' || v.stock === undefined ? 0 : parseInt(v.stock, 10),
+            attributes: v.attributes || {},
+            image: mainVarImg,
+            images: newGalleryPaths,
+          });
+
+          // Sync stock to the primary fulfillment warehouse (India)
+          await syncWarehouseStock(product.id, variant.id, variant.stock);
+        }
+        
+        // Sync product stock and price with newly created variants
+        await syncProductVariants(product.id);
+      }
+    } else {
+      // If no variants are supplied, sync the product's own stock to the India Fulfillment Warehouse
+      const primaryWh = await Warehouse.findOne({ where: { isFulfillment: true, isActive: true } });
+      if (primaryWh) {
+        const [ws, created] = await WarehouseStock.findOrCreate({
+          where: { warehouseId: primaryWh.id, productId: product.id, variantId: null },
+          defaults: { quantity: product.stock, reorderLevel: 10 }
+        });
+        if (!created) {
+          await ws.update({ quantity: product.stock });
+        }
+      }
+    }
+
+    const freshProduct = await Product.findByPk(product.id, {
+      include: [{ model: ProductVariant, as: 'variants' }]
+    });
+
+    res.status(201).json({ success: true, product: freshProduct });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -245,7 +294,98 @@ const update = async (req, res) => {
     const spinMeta = materializeSpinSequence(product.id, product.spin_images);
     await product.update(spinMeta);
 
-    res.json({ success: true, product });
+    // Update variants if supplied
+    if (req.body.variants) {
+      let parsedVariants = [];
+      try {
+        parsedVariants = typeof req.body.variants === 'string' ? JSON.parse(req.body.variants) : req.body.variants;
+      } catch (e) {
+        parsedVariants = [];
+      }
+
+      if (Array.isArray(parsedVariants)) {
+        const oldVariants = await ProductVariant.findAll({ where: { productId: product.id } });
+        const oldVariantMap = new Map(oldVariants.map(v => [v.id, v]));
+        const activeVariantIds = new Set();
+
+        for (let i = 0; i < parsedVariants.length; i++) {
+          const v = parsedVariants[i];
+          
+          // Process uploaded files for this variant
+          const vGalleryFiles = req.files ? req.files.filter(f => f.fieldname === `variantGallery_${i}`) : [];
+          const newGalleryPaths = vGalleryFiles.map(file => {
+            const normalizedPath = file.path.replace(/\\/g, '/');
+            const uploadsIndex = normalizedPath.indexOf('uploads');
+            return '/' + normalizedPath.substring(uploadsIndex);
+          });
+
+          // Concat existing variant images and new uploads
+          const existingGallery = v.images ? (typeof v.images === 'string' ? JSON.parse(v.images) : v.images) : [];
+          const vImages = [...existingGallery, ...newGalleryPaths];
+          const mainVarImg = v.image || vImages[0] || null;
+
+          let existingVariant = null;
+          if (v.id && oldVariantMap.has(parseInt(v.id, 10))) {
+            existingVariant = oldVariantMap.get(parseInt(v.id, 10));
+          }
+
+          if (existingVariant) {
+            await existingVariant.update({
+              sku: v.sku ? v.sku.trim() : existingVariant.sku,
+              price: v.price === '' || v.price === undefined ? null : parseFloat(v.price),
+              mrp: v.mrp === '' || v.mrp === undefined ? null : parseFloat(v.mrp),
+              stock: v.stock === '' || v.stock === undefined ? 0 : parseInt(v.stock, 10),
+              attributes: v.attributes || {},
+              image: mainVarImg,
+              images: vImages,
+            });
+            activeVariantIds.add(existingVariant.id);
+            await syncWarehouseStock(product.id, existingVariant.id, existingVariant.stock);
+          } else {
+            const newVar = await ProductVariant.create({
+              productId: product.id,
+              sku: v.sku ? v.sku.trim() : `PV-${product.id}-${i}-${Date.now()}`,
+              price: v.price === '' || v.price === undefined ? null : parseFloat(v.price),
+              mrp: v.mrp === '' || v.mrp === undefined ? null : parseFloat(v.mrp),
+              stock: v.stock === '' || v.stock === undefined ? 0 : parseInt(v.stock, 10),
+              attributes: v.attributes || {},
+              image: mainVarImg,
+              images: vImages,
+            });
+            activeVariantIds.add(newVar.id);
+            await syncWarehouseStock(product.id, newVar.id, newVar.stock);
+          }
+        }
+
+        // Delete variants that were removed
+        const deletedVariants = oldVariants.filter(ov => !activeVariantIds.has(ov.id));
+        for (const dv of deletedVariants) {
+          await WarehouseStock.destroy({ where: { variantId: dv.id } });
+          await dv.destroy();
+        }
+
+        // Sync parent product price and total stock
+        await syncProductVariants(product.id);
+      }
+    } else {
+      // If no variants are supplied, sync the product's own stock to the India Fulfillment Warehouse
+      const primaryWh = await Warehouse.findOne({ where: { isFulfillment: true, isActive: true } });
+      if (primaryWh) {
+        const [ws, created] = await WarehouseStock.findOrCreate({
+          where: { warehouseId: primaryWh.id, productId: product.id, variantId: null },
+          defaults: { quantity: product.stock, reorderLevel: 10 }
+        });
+        if (!created) {
+          await ws.update({ quantity: product.stock });
+        }
+      }
+    }
+
+    const freshProduct = await Product.findByPk(product.id, {
+      include: [{ model: ProductVariant, as: 'variants' }]
+    });
+
+    res.json({ success: true, product: freshProduct });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

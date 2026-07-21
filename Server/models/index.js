@@ -66,12 +66,15 @@ SubSubCategory.hasMany(Product,   { foreignKey: 'subSubCategoryId', as: 'product
 Product.belongsTo(Vendor,   { foreignKey: 'vendorId', as: 'vendor' });
 Vendor.hasMany(Product,     { foreignKey: 'vendorId', as: 'products' });
 
-// WarehouseStock ↔ Warehouse / Product
+// WarehouseStock ↔ Warehouse / Product / ProductVariant
 WarehouseStock.belongsTo(Warehouse, { foreignKey: 'warehouseId', as: 'warehouse' });
 Warehouse.hasMany(WarehouseStock,   { foreignKey: 'warehouseId', as: 'stocks' });
 
 WarehouseStock.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
 Product.hasMany(WarehouseStock,   { foreignKey: 'productId', as: 'stocks' });
+
+WarehouseStock.belongsTo(ProductVariant, { foreignKey: 'variantId', as: 'variant' });
+ProductVariant.hasMany(WarehouseStock, { foreignKey: 'variantId', as: 'stocks' });
 
 // Cart ↔ Customer (hasOne)
 Customer.hasOne(Cart,   { foreignKey: 'customerId', as: 'cart' });
@@ -109,6 +112,8 @@ ProductVariant.hasMany(OrderItem, { foreignKey: 'variantId', as: 'orderItems' })
 InventoryMovementLog.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
 InventoryMovementLog.belongsTo(ProductVariant, { foreignKey: 'variantId', as: 'variant' });
 InventoryMovementLog.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
+InventoryMovementLog.belongsTo(Warehouse, { foreignKey: 'warehouseId', as: 'warehouse' });
+InventoryMovementLog.belongsTo(Warehouse, { foreignKey: 'toWarehouseId', as: 'toWarehouse' });
 
 // Wishlist ↔ Customer / Product
 Customer.hasMany(Wishlist,    { foreignKey: 'customerId', as: 'wishlists' });

@@ -6,6 +6,8 @@ import { Check, MapPin, CreditCard, Package, ChevronRight, Eye, EyeOff } from 'l
 import { placeOrder } from '../redux/slices/ordersSlice';
 import { clearLocal, syncCart } from '../redux/slices/cartSlice';
 import { loginCustomer } from '../redux/slices/authSlice';
+import { setCurrency } from '../redux/slices/currencySlice';
+import api from '../services/api';
 import Footer from '../components/Footer';
 import { formatPrice } from '../utils/currency';
 import toast from 'react-hot-toast';
@@ -85,12 +87,28 @@ const CheckoutPage = () => {
   const [billingAddress, setBillingAddress] = useState({ ...emptyAddr });
   const [deliverySameAsBilling, setDeliverySameAsBilling] = useState(true);
   const [address, setAddress] = useState({ ...emptyAddr });
-  const [paymentMethod, setPaymentMethod] = useState('Credit/Debit Card');
+  const [paymentMethod, setPaymentMethod] = useState('Credit / Debit Card');
 
   const handleToggleDeliverySame = (checked) => {
     setDeliverySameAsBilling(checked);
     if (!checked) setAddress({ ...billingAddress });
   };
+
+  // Sync currency state when shipping country changes
+  useEffect(() => {
+    const activeAddress = deliverySameAsBilling ? billingAddress : address;
+    const country = (activeAddress.country || '').trim().toLowerCase();
+    const isUaeCountry = ['uae', 'united arab emirates', 'dubai', 'abu dhabi', 'sharjah'].includes(country);
+    if (isUaeCountry) {
+      if (currencyCode !== 'AED') {
+        dispatch(setCurrency('AED'));
+      }
+    } else {
+      if (currencyCode !== 'INR') {
+        dispatch(setCurrency('INR'));
+      }
+    }
+  }, [billingAddress.country, address.country, deliverySameAsBilling, currencyCode, dispatch]);
 
   // Guard: don't let an empty cart (e.g. from a page reload wiping in-memory
   // guest state) sit on checkout and silently reach handlePlaceOrder.
@@ -121,6 +139,18 @@ const CheckoutPage = () => {
     }
   };
 
+  // Helper to dynamically load Razorpay checkout script
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
   const handlePlaceOrder = async () => {
     if (items.length === 0) {
       toast.error('Your cart is empty. Add something before checking out.');
@@ -140,18 +170,68 @@ const CheckoutPage = () => {
 
       // 2. Proceed with order placement using server-side cart database truth
       const referralCode = localStorage.getItem('bb_referral') || undefined;
-      await dispatch(placeOrder({
+      const order = await dispatch(placeOrder({
         shippingAddress: deliverySameAsBilling ? billingAddress : address,
         billingAddress: billingAddress,
         paymentMethod, referralCode,
       })).unwrap();
 
-      localStorage.removeItem('bb_referral');
-      dispatch(clearLocal());
-      navigate('/order-confirmation');
+      // 3. Initiate payment gateway transaction
+      const initRes = await api.post('/payments/initiate', { orderId: order.id });
+      if (initRes.data?.success) {
+        const paymentData = initRes.data;
+        
+        if (paymentData.gateway === 'telr') {
+          // Telr hosted payment page redirect
+          localStorage.removeItem('bb_referral');
+          dispatch(clearLocal());
+          window.location.href = paymentData.redirectUrl;
+        } else if (paymentData.gateway === 'razorpay') {
+          // Razorpay SDK overlay
+          const loaded = await loadRazorpayScript();
+          if (!loaded) {
+            toast.error('Failed to load Razorpay SDK. Please check your internet connection.');
+            setPlacing(false);
+            return;
+          }
+
+          const options = {
+            key: paymentData.key,
+            amount: paymentData.amount,
+            currency: paymentData.currency,
+            name: paymentData.name,
+            description: paymentData.description,
+            order_id: paymentData.order_id,
+            handler: async function (response) {
+              localStorage.removeItem('bb_referral');
+              dispatch(clearLocal());
+              navigate(`/order-confirmation?gateway=razorpay&orderId=${order.id}&status=success`);
+            },
+            prefill: {
+              name: billingAddress.fullName,
+              email: billingAddress.email,
+              contact: billingAddress.phone,
+            },
+            theme: {
+              color: '#C9A24B',
+            },
+            modal: {
+              ondismiss: function () {
+                toast.error('Payment process was cancelled by the user.');
+                setPlacing(false);
+              }
+            }
+          };
+
+          const rzp = new window.Razorpay(options);
+          rzp.open();
+        }
+      } else {
+        throw new Error('Failed to initialize payment details from gateway resolver.');
+      }
     } catch (err) {
       console.error('Order failed:', err);
-      toast.error(err || 'Failed to place order. Please try again.');
+      toast.error(err.response?.data?.message || err.message || 'Failed to place order. Please try again.');
     } finally {
       setPlacing(false);
     }
@@ -399,9 +479,12 @@ const CheckoutPage = () => {
                       {/* Country */}
                       <div>
                         <label className={labelCls} htmlFor="country">Country</label>
-                        <input id="country" type="text" value={billingAddress.country}
+                        <select id="country" value={billingAddress.country}
                           onChange={e => setBillingAddress(p => ({ ...p, country: e.target.value }))}
-                          className={inputCls} />
+                          className={`${inputCls} appearance-none cursor-pointer`} required>
+                          <option value="India">India</option>
+                          <option value="United Arab Emirates">United Arab Emirates</option>
+                        </select>
                       </div>
                     </div>
 
@@ -465,9 +548,14 @@ const CheckoutPage = () => {
                                 <p className="text-[11px] text-brand-gold mt-1 font-semibold">🚚 Est. Delivery: {getEstimatedDeliveryRange(address.pincode)}</p>
                               )}
                             </div>
-                            <div>
+                             <div>
                               <label className={labelCls} htmlFor="d-country">Country</label>
-                              <input id="d-country" type="text" value={address.country} onChange={e => setAddress(p => ({...p, country: e.target.value}))} className={inputCls} />
+                              <select id="d-country" value={address.country}
+                                onChange={e => setAddress(p => ({...p, country: e.target.value}))}
+                                className={`${inputCls} appearance-none cursor-pointer`}>
+                                <option value="India">India</option>
+                                <option value="United Arab Emirates">United Arab Emirates</option>
+                              </select>
                             </div>
                           </div>
                         </motion.div>
@@ -545,13 +633,20 @@ const CheckoutPage = () => {
                   <h2 className="font-playfair text-xl font-semibold mb-1">Payment Method</h2>
                   <p className="text-xs text-neutral-400 mb-5">All transactions are secure and encrypted.</p>
                   <div className="space-y-2.5">
-                    {[
-                      { label: 'Credit / Debit Card', icon: '💳', badge: null },
-                      { label: 'Net Banking', icon: '🏦', badge: null },
-                      { label: 'UPI', icon: '📱', badge: 'Recommended' },
-                      { label: 'Wallets', icon: '👛', badge: null },
-                      { label: 'Cash on Delivery (COD)', icon: '💵', badge: null },
-                    ].map(({ label, icon, badge }) => (
+                    {(currencyCode === 'AED'
+                      ? [
+                          { label: 'Credit / Debit Card', icon: '💳', badge: null },
+                          { label: 'Apple Pay', icon: '', badge: 'Recommended' },
+                          { label: 'Net Banking', icon: '🏦', badge: null },
+                          { label: 'Wallets', icon: '👛', badge: null },
+                        ]
+                      : [
+                          { label: 'Credit / Debit Card', icon: '💳', badge: null },
+                          { label: 'Net Banking', icon: '🏦', badge: null },
+                          { label: 'UPI', icon: '📱', badge: 'Recommended' },
+                          { label: 'Wallets', icon: '👛', badge: null },
+                        ]
+                    ).map(({ label, icon, badge }) => (
                       <label key={label}
                         className={`flex items-center gap-3 p-4 rounded-md border cursor-pointer transition-all ${
                           paymentMethod === label

@@ -6,6 +6,7 @@ const WarehouseStock = sequelize.define('WarehouseStock', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   warehouseId: { type: DataTypes.INTEGER, allowNull: false },
   productId: { type: DataTypes.INTEGER, allowNull: false },
+  variantId: { type: DataTypes.INTEGER, allowNull: true },
   quantity: { type: DataTypes.INTEGER, defaultValue: 0 },
   reservedQty: { type: DataTypes.INTEGER, defaultValue: 0 },
   reorderLevel: { type: DataTypes.INTEGER, defaultValue: 10 },

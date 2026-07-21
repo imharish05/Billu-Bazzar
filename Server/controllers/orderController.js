@@ -1,5 +1,5 @@
 'use strict';
-const { sequelize, Order, OrderItem, Product, ProductVariant, Customer, Coupon, Affiliate, Cart, CartItem, InventoryMovementLog } = require('../models');
+const { sequelize, Order, OrderItem, Product, ProductVariant, Customer, Coupon, Affiliate, Cart, CartItem, InventoryMovementLog, Warehouse, WarehouseStock } = require('../models');
 const { v4: uuidv4 } = require('uuid');
 
 // Helper to push order details to Shiprocket shipping API
@@ -68,8 +68,10 @@ const getOne = async (req, res) => {
   }
 };
 
-// Main placeOrder implementation with transaction wrapping and ordered locking
 const placeOrder = async (req, res) => {
+  console.log('[placeOrder] --- Place Order Triggered ---');
+  console.log('[placeOrder] Customer authenticated:', req.customer ? `Yes (ID: ${req.customer.id})` : 'No (Guest)');
+  console.log('[placeOrder] Header x-session-id:', req.headers['x-session-id']);
   const transaction = await sequelize.transaction();
   try {
     // 1. Force session lock wait timeout to protect against locking bottlenecks
@@ -99,6 +101,17 @@ const placeOrder = async (req, res) => {
       }],
       transaction
     });
+
+    console.log('[placeOrder] Cart search criteria:', JSON.stringify(cartWhere));
+    console.log('[placeOrder] Resolved Cart:', cart ? `ID ${cart.id}` : 'None');
+    if (cart) {
+      console.log('[placeOrder] Cart items length:', cart.items ? cart.items.length : 0);
+      if (cart.items) {
+        cart.items.forEach(item => {
+          console.log(`  - CartItem ID: ${item.id}, Product ID: ${item.productId}, Qty: ${item.quantity}`);
+        });
+      }
+    }
 
     if (!cart || !cart.items || cart.items.length === 0) {
       await transaction.rollback();
@@ -207,6 +220,36 @@ const placeOrder = async (req, res) => {
 
     const isCod = paymentMethod === 'COD';
 
+    // Guard: Enforce currency uniformity and resolve correct currency code
+    let orderCurrency = 'INR';
+    const shippingCountry = (shippingAddress?.country || '').trim().toLowerCase();
+    const isUae = ['uae', 'united arab emirates', 'dubai', 'abu dhabi', 'sharjah'].includes(shippingCountry);
+
+    if (isUae) {
+      orderCurrency = 'AED';
+    } else if (req.customer) {
+      const user = await Customer.findByPk(req.customer.id, { transaction });
+      if (user && user.preferredCurrency === 'AED') {
+        orderCurrency = 'AED';
+      }
+    }
+
+    let cartCurrency = null;
+    for (const item of cart.items) {
+      const itemCurrency = item.product?.currency || 'INR';
+      if (!cartCurrency) {
+        cartCurrency = itemCurrency;
+      } else if (cartCurrency !== itemCurrency) {
+        await transaction.rollback();
+        return res.status(400).json({ success: false, message: 'Mixed currency items are not allowed in the same cart/order.' });
+      }
+    }
+
+    // Cart items' currency takes final precedence to prevent mismatches
+    if (cartCurrency) {
+      orderCurrency = cartCurrency;
+    }
+
     // 7. Create Order record
     const order = await Order.create({
       orderNumber: `BB${uuidv4().slice(0, 8).toUpperCase()}`,
@@ -222,6 +265,7 @@ const placeOrder = async (req, res) => {
       shippingAmount,
       taxAmount,
       totalAmount,
+      currency: orderCurrency,
       shippingAddress,
       billingAddress: billingAddress || shippingAddress,
       inventoryProcessed: isCod
@@ -246,6 +290,9 @@ const placeOrder = async (req, res) => {
 
     // 9. Process stock deduction immediately if COD path
     if (isCod) {
+      const fulfillmentWh = await Warehouse.findOne({ where: { isFulfillment: true, isActive: true }, transaction });
+      const whId = fulfillmentWh ? fulfillmentWh.id : null;
+
       for (const item of itemsToLock) {
         if (item.variantId) {
           const varObj = lockedStock[`v_${item.variantId}`];
@@ -255,10 +302,20 @@ const placeOrder = async (req, res) => {
           await prodObj.decrement('stock', { by: item.quantity, transaction });
         }
 
+        if (whId) {
+          const [whStock] = await WarehouseStock.findOrCreate({
+            where: { warehouseId: whId, productId: item.productId, variantId: item.variantId || null },
+            defaults: { quantity: 0, reservedQty: 0 },
+            transaction
+          });
+          await whStock.decrement('quantity', { by: item.quantity, transaction });
+        }
+
         // Log movement
         await InventoryMovementLog.create({
           productId: item.productId,
           variantId: item.variantId,
+          warehouseId: whId,
           orderId: order.id,
           quantity: -item.quantity,
           type: 'ORDER_DEDUCTION',
@@ -329,6 +386,10 @@ const updateStatus = async (req, res) => {
       previousProcessed === true;
 
     if (isRestockRequired) {
+      // Find fulfillment warehouse
+      const fulfillmentWh = await Warehouse.findOne({ where: { isFulfillment: true, isActive: true }, transaction });
+      const whId = fulfillmentWh ? fulfillmentWh.id : null;
+
       // Sort items to restock ascending to prevent deadlocks
       const sortedItems = [...order.items].sort((a, b) => {
         if (a.productId !== b.productId) return a.productId - b.productId;
@@ -356,10 +417,20 @@ const updateStatus = async (req, res) => {
           }
         }
 
+        if (whId) {
+          const [whStock] = await WarehouseStock.findOrCreate({
+            where: { warehouseId: whId, productId: item.productId, variantId: item.variantId || null },
+            defaults: { quantity: 0, reservedQty: 0 },
+            transaction
+          });
+          await whStock.increment('quantity', { by: item.quantity, transaction });
+        }
+
         // Log movement
         await InventoryMovementLog.create({
           productId: item.productId,
           variantId: item.variantId,
+          warehouseId: whId,
           orderId: order.id,
           quantity: item.quantity,
           type: 'ORDER_CANCEL_RESTOCK',

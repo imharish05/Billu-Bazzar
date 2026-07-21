@@ -93,6 +93,41 @@ const start = async () => {
       console.log('⚠️ Manual alter note (already altered or table not synced yet):', alterErr.message);
     }
 
+    // Run manual database alters for Warehouses to support isFulfillment
+    try {
+      await sequelize.query("ALTER TABLE Warehouses ADD COLUMN isFulfillment BOOLEAN NOT NULL DEFAULT FALSE");
+      console.log('✅ Warehouses table isFulfillment column added');
+    } catch (alterErr) {
+      console.log('⚠️ Manual alter note (Warehouses isFulfillment already exists):', alterErr.message);
+    }
+
+    // Run manual database alters for WarehouseStocks to support variantId
+    try {
+      await sequelize.query("ALTER TABLE WarehouseStocks ADD COLUMN variantId INT NULL");
+      console.log('✅ WarehouseStocks table variantId column added');
+    } catch (alterErr) {
+      console.log('⚠️ Manual alter note (WarehouseStocks variantId already exists):', alterErr.message);
+    }
+
+    // Run manual database alters for ProductVariants to support mrp, image, and images
+    try {
+      await sequelize.query("ALTER TABLE ProductVariants ADD COLUMN mrp DECIMAL(10, 2) NULL");
+      await sequelize.query("ALTER TABLE ProductVariants ADD COLUMN image VARCHAR(255) NULL");
+      await sequelize.query("ALTER TABLE ProductVariants ADD COLUMN images JSON NULL");
+      console.log('✅ ProductVariants table columns added');
+    } catch (alterErr) {
+      console.log('⚠️ Manual alter note (ProductVariants columns already exist):', alterErr.message);
+    }
+
+    // Run manual database alters for InventoryMovementLogs to support warehouseId and toWarehouseId
+    try {
+      await sequelize.query("ALTER TABLE InventoryMovementLogs ADD COLUMN warehouseId INT NULL");
+      await sequelize.query("ALTER TABLE InventoryMovementLogs ADD COLUMN toWarehouseId INT NULL");
+      console.log('✅ InventoryMovementLogs table warehouse columns added');
+    } catch (alterErr) {
+      console.log('⚠️ Manual alter note (InventoryMovementLogs warehouse columns already exist):', alterErr.message);
+    }
+
     // Migrate any legacy 'DEAL' banners to 'EXCLUSIVE_DEAL'
     try {
       await sequelize.query("UPDATE Banners SET type = 'EXCLUSIVE_DEAL' WHERE type = 'DEAL'");

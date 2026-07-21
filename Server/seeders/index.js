@@ -76,9 +76,8 @@ const seedAll = async () => {
   // ─── Warehouses ───────────────────────────────────────────────────────────
   if (await isTableEmpty(Warehouse)) {
     await Warehouse.bulkCreate([
-      { name: 'Mumbai Central Warehouse', code: 'MUM-01', city: 'Mumbai', state: 'Maharashtra', pincode: '400001', contactName: 'Rahul Mehta', contactPhone: '9900990099' },
-      { name: 'Delhi North Fulfillment', code: 'DEL-01', city: 'Delhi', state: 'Delhi', pincode: '110001', contactName: 'Anjali Singh', contactPhone: '9811881188' },
-      { name: 'Bangalore South Hub', code: 'BLR-01', city: 'Bangalore', state: 'Karnataka', pincode: '560001', contactName: 'Vikram Rao', contactPhone: '9922992299' },
+      { name: 'India Fulfillment Warehouse', code: 'IND-FULFILL', city: 'Mumbai', state: 'Maharashtra', pincode: '400001', contactName: 'Rajesh Kumar', contactPhone: '9988776655', isFulfillment: true, isActive: true },
+      { name: 'Dubai Procurement Source', code: 'DXB-SOURCE', city: 'Dubai', state: 'Dubai', pincode: '00000', contactName: 'Ahmed Al-Maktoum', contactPhone: '9714400000', isFulfillment: false, isActive: true },
     ]);
     console.log('✅ Warehouses seeded');
   }

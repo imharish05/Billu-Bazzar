@@ -33,6 +33,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
 // ── API Routes ────────────────────────────────────────────────────────────────
 app.use('/api/auth',       require('./routes/authRoutes'));
 app.use('/api/products',   require('./routes/productRoutes'));
+app.use('/api/variants',   require('./routes/variantRoutes'));
+app.use('/api/warehouses', require('./routes/warehouseRoutes'));
 app.use('/api/categories', require('./routes/categoryRoutes'));
 app.use('/api/subcategories', require('./routes/subCategoryRoutes'));
 app.use('/api/subsubcategories', require('./routes/subSubCategoryRoutes'));

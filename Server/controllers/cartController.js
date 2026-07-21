@@ -129,6 +129,25 @@ const addToCart = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Product not found or inactive' });
     }
 
+    // Resolve cart details
+    const cart = await getOrCreateCart(req);
+
+    // Guard: Prevent mixing different currencies in the same cart
+    const existingItems = await CartItem.findAll({
+      where: { cartId: cart.id },
+      include: [{ model: Product, as: 'product' }]
+    });
+    if (existingItems.length > 0) {
+      const existingCurrency = existingItems[0].product?.currency || 'INR';
+      const targetCurrency = product.currency || 'INR';
+      if (existingCurrency !== targetCurrency) {
+        return res.status(400).json({
+          success: false,
+          message: `Mixed currency carts are not allowed. Your cart already contains ${existingCurrency} priced items, but you are trying to add a product priced in ${targetCurrency}.`
+        });
+      }
+    }
+
     let physicalStock = 0;
     let selectedVariantJson = {};
     let itemPrice = product.price;
@@ -142,9 +161,6 @@ const addToCart = async (req, res) => {
     } else {
       physicalStock = product.stock;
     }
-
-    // Resolve cart details
-    const cart = await getOrCreateCart(req);
 
     // Fetch existing cart quantity for this specific SKU
     const existingItem = await CartItem.findOne({
@@ -270,24 +286,46 @@ const clearCart = async (req, res) => {
   }
 };
 
-// Sync local cart items from client to DB and audit stock
 const syncCart = async (req, res) => {
+  console.log('[syncCart] --- Cart Sync Triggered ---');
+  console.log('[syncCart] Incoming items payload:', JSON.stringify(req.body.items));
+  console.log('[syncCart] Customer authenticated:', req.customer ? `Yes (ID: ${req.customer.id})` : 'No (Guest)');
+  console.log('[syncCart] Header x-session-id:', req.headers['x-session-id']);
   try {
     const { items } = req.body;
     if (!Array.isArray(items)) {
+      console.log('[syncCart] Sync rejected: items is not an array');
       return res.status(400).json({ success: false, message: 'Items must be an array' });
     }
     if (items.length === 0) {
-      // Guard against wiping an existing valid server-side cart because the
-      // client sent an empty snapshot (e.g. guest cart state was lost on a
-      // page reload). Use DELETE /cart/clear to intentionally empty a cart.
+      console.log('[syncCart] Sync rejected: items array is empty');
       return res.status(400).json({ success: false, message: 'Cannot sync an empty cart' });
     }
 
+    // Guard: Prevent mixed currency syncs
+    let activeCurrency = null;
+    for (const item of items) {
+      const p = await Product.findByPk(item.productId);
+      if (p && p.isActive) {
+        const itemCurrency = p.currency || 'INR';
+        if (!activeCurrency) {
+          activeCurrency = itemCurrency;
+        } else if (activeCurrency !== itemCurrency) {
+          console.log(`[syncCart] Sync rejected: Mixed currencies detected (${activeCurrency} and ${itemCurrency})`);
+          return res.status(400).json({
+            success: false,
+            message: `Mixed currency carts are not allowed. You cannot sync a cart containing both INR and AED items.`
+          });
+        }
+      }
+    }
+
     const cart = await getOrCreateCart(req);
+    console.log(`[syncCart] Resolved Cart ID: ${cart.id}, sessionId: ${cart.sessionId}`);
 
     // Delete existing cart items to replace them with the current client cart snapshot
-    await CartItem.destroy({ where: { cartId: cart.id } });
+    const deletedCount = await CartItem.destroy({ where: { cartId: cart.id } });
+    console.log(`[syncCart] Wiped ${deletedCount} existing CartItems from Cart ID ${cart.id}`);
 
     const auditedItems = [];
     const adjustments = [];
@@ -298,14 +336,23 @@ const syncCart = async (req, res) => {
       let quantity = parseInt(item.quantity, 10);
 
       if (isNaN(productId) || isNaN(quantity) || quantity <= 0) {
-        continue; // skip invalid items
+        console.log(`[syncCart] Skipped item due to invalid productId (${productId}) or quantity (${quantity})`);
+        continue;
       }
 
       const product = await Product.findByPk(productId);
-      if (!product || !product.isActive) {
+      if (!product) {
+        console.log(`[syncCart] Skipped item: Product ID ${productId} not found in database`);
         adjustments.push({ productId, message: `Product is unavailable.` });
         continue;
       }
+      if (!product.isActive) {
+        console.log(`[syncCart] Skipped item: Product ID ${productId} ("${product.name}") is inactive`);
+        adjustments.push({ productId, message: `Product is unavailable.` });
+        continue;
+      }
+
+      console.log(`[syncCart] Processing item Product ID ${productId} ("${product.name}"), currency: ${product.currency}`);
 
       let physicalStock = 0;
       let selectedVariantJson = item.selectedVariant || {};
@@ -345,6 +392,7 @@ const syncCart = async (req, res) => {
           priceAtAdd: itemPrice,
           selectedVariant: selectedVariantJson
         });
+        console.log(`[syncCart] Saved CartItem ID: ${createdItem.id} (Product ID ${productId}) to Cart ID ${cart.id}`);
         
         auditedItems.push({
           ...createdItem.toJSON(),

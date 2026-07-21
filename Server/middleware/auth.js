@@ -14,7 +14,7 @@ const verifyCustomer = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
     const decoded = verifyToken(token);
 
-    const customer = await Customer.findByPk(decoded.id);
+    const customer = await Customer.findByPk(decoded.id, { attributes: { exclude: ['password'] } });
     if (!customer || !customer.isActive)
       return res.status(401).json({ success: false, message: 'Unauthorized' });
 
@@ -37,7 +37,10 @@ const verifyAdmin = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
     const decoded = verifyToken(token);
 
-    const admin = await AdminUser.findByPk(decoded.id, { include: [{ association: 'role' }] });
+    const admin = await AdminUser.findByPk(decoded.id, { 
+      include: [{ association: 'role' }],
+      attributes: { exclude: ['password'] }
+    });
     if (!admin || !admin.isActive)
       return res.status(401).json({ success: false, message: 'Unauthorized' });
 
@@ -54,7 +57,7 @@ const optionalCustomer = async (req, res, next) => {
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
       const decoded = verifyToken(token);
-      const customer = await Customer.findByPk(decoded.id);
+      const customer = await Customer.findByPk(decoded.id, { attributes: { exclude: ['password'] } });
       if (customer && customer.isActive) {
         req.customer = customer;
       }

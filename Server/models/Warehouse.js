@@ -12,6 +12,7 @@ const Warehouse = sequelize.define('Warehouse', {
   pincode: { type: DataTypes.STRING(10) },
   contactName: { type: DataTypes.STRING(100) },
   contactPhone: { type: DataTypes.STRING(20) },
+  isFulfillment: { type: DataTypes.BOOLEAN, defaultValue: false },
   isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
 });
 
