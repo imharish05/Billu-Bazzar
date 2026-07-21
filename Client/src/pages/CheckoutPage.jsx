@@ -55,6 +55,7 @@ const CheckoutPage = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
+  const [showAllItems, setShowAllItems] = useState(false);
 
   const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
 
@@ -405,7 +406,7 @@ const CheckoutPage = () => {
 
                     <div className="grid sm:grid-cols-2 gap-4">
                       {/* Full Name */}
-                      <div className="sm:col-span-2 sm:grid sm:grid-cols-2 sm:gap-4">
+                      <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <label className={labelCls} htmlFor="full-name">Full Name <span className="text-red-400">*</span></label>
                           <input id="full-name" type="text" value={billingAddress.fullName}
@@ -508,7 +509,7 @@ const CheckoutPage = () => {
                         >
                           <h3 className="font-playfair text-lg font-semibold mt-6 mb-4 border-t border-neutral-100 pt-5">Delivery Address</h3>
                           <div className="grid sm:grid-cols-2 gap-4">
-                            <div className="sm:col-span-2 sm:grid sm:grid-cols-2 sm:gap-4">
+                            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                               <div>
                                 <label className={labelCls} htmlFor="d-fullname">Full Name *</label>
                                 <input id="d-fullname" type="text" value={address.fullName} onChange={e => setAddress(p => ({...p, fullName: e.target.value}))} placeholder="Full name" className={inputCls} />
@@ -664,9 +665,9 @@ const CheckoutPage = () => {
                       </label>
                     ))}
                   </div>
-                  <div className="flex gap-3 mt-6">
-                    <button onClick={() => setStep(1)} className="btn-outline flex-1" id="step2-back">Back</button>
-                    <button onClick={() => setStep(3)} className="btn-primary flex-1" id="step2-next">Review Order</button>
+                  <div className="flex flex-col-reverse sm:flex-row gap-3 mt-6">
+                    <button onClick={() => setStep(1)} className="btn-outline flex-1 py-3 text-sm font-semibold" id="step2-back">Back</button>
+                    <button onClick={() => setStep(3)} className="btn-primary flex-1 py-3 text-sm font-semibold" id="step2-next">Review Order</button>
                   </div>
                 </motion.div>
               )}
@@ -717,25 +718,9 @@ const CheckoutPage = () => {
                     </div>
                   </div>
 
-                  {/* Items */}
-                  <div>
-                    <h3 className="font-semibold text-xs text-neutral-400 uppercase tracking-wider mb-3">Items ({items.length})</h3>
-                    <div className="space-y-3">
-                      {items.map(item => (
-                        <div key={item.productId} className="flex gap-3 p-3 bg-neutral-50 rounded-md">
-                          <img src={item.image || 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=100'} alt={item.name} className="w-14 h-16 object-cover flex-shrink-0 rounded-sm" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-brand-text">{item.name}</p>
-                            <p className="text-xs text-brand-grey">Qty: {item.quantity}</p>
-                            <p className="text-sm text-brand-gold font-semibold">{fmt(item.priceAtAdd * item.quantity)}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
 
-                  <div className="flex gap-3">
-                    <button onClick={() => setStep(2)} className="btn-outline flex-1" id="step3-back">Back</button>
+                  <div className="flex flex-col-reverse sm:flex-row gap-3">
+                    <button onClick={() => setStep(2)} className="btn-outline flex-1 py-3 text-sm font-semibold" id="step3-back">Back</button>
                     <button
                       onClick={() => {
                         const isHighValue = total >= 5000;
@@ -749,7 +734,7 @@ const CheckoutPage = () => {
                         }
                       }}
                       disabled={placing}
-                      className="btn-primary flex-1" id="place-order-btn"
+                      className="btn-primary flex-1 py-3 text-sm font-semibold" id="place-order-btn"
                     >
                       {placing ? 'Placing Order…' : `Place Order — ${fmt(total)}`}
                     </button>
@@ -782,7 +767,7 @@ const CheckoutPage = () => {
 
             {/* Item thumbnails */}
             <div className="mt-4 pt-4 border-t border-neutral-100 space-y-2.5">
-              {items.slice(0, 3).map(item => (
+              {(showAllItems ? items : items.slice(0, 3)).map(item => (
                 <div key={item.productId} className="flex gap-2.5 items-center">
                   <img src={item.image || ''} alt={item.name} className="w-10 h-12 object-cover rounded-sm flex-shrink-0 border border-neutral-100" />
                   <div className="flex-1 min-w-0">
@@ -792,7 +777,18 @@ const CheckoutPage = () => {
                   <span className="text-xs font-semibold text-brand-gold whitespace-nowrap">{fmt(item.priceAtAdd * item.quantity)}</span>
                 </div>
               ))}
-              {items.length > 3 && <p className="text-xs text-brand-grey text-center">+{items.length - 3} more item{items.length - 3 > 1 ? 's' : ''}</p>}
+              {items.length > 3 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllItems(!showAllItems)}
+                  className="w-full text-xs text-brand-gold hover:underline text-center pt-2 font-medium focus-visible:outline-brand-gold focus:outline-none cursor-pointer"
+                >
+                  {showAllItems 
+                    ? 'Hide extra items' 
+                    : `+${items.length - 3} more items`
+                  }
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -830,14 +826,14 @@ const CheckoutPage = () => {
                 />
               </div>
               <p className="text-[10px] text-neutral-400 italic text-center">* Enter any 6 digits to proceed (demo mode)</p>
-              <div className="flex gap-3">
-                <button onClick={() => setOtpSent(false)} className="btn-outline flex-1 text-sm">Cancel</button>
+              <div className="flex flex-col-reverse sm:flex-row gap-3">
+                <button onClick={() => setOtpSent(false)} className="btn-outline flex-1 py-3 text-sm font-semibold">Cancel</button>
                 <button
                   onClick={() => {
                     if (otp.length === 6) { setIsVerified(true); toast.success('Verification successful!'); handlePlaceOrder(); }
                     else { toast.error('Please enter a valid 6-digit code.'); }
                   }}
-                  className="btn-primary flex-1 text-sm"
+                  className="btn-primary flex-1 py-3 text-sm font-semibold"
                 >
                   Confirm &amp; Place Order
                 </button>

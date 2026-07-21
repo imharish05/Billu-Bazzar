@@ -192,10 +192,13 @@ p  { font-size: 16px; line-height: 1.7; color: var(--color-grey); }
   letter-spacing: 0.05em;
   text-transform: uppercase;
   border: none;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(197, 136, 55, 0.15);
 }
-.btn-primary:hover { background: #a8712a; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(197, 136, 55, 0.35); }
+.btn-primary:hover { background: #a8712a; transform: translateY(-1.5px); box-shadow: 0 6px 20px rgba(197, 136, 55, 0.3); }
+.btn-primary:active { transform: translateY(0) scale(0.97); }
 .btn-primary:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
 
 /* WCAG AA compliant hero CTA — darker gold #996822 (from logo palette) for contrast with white text */
@@ -210,10 +213,12 @@ p  { font-size: 16px; line-height: 1.7; color: var(--color-grey); }
   letter-spacing: 0.05em;
   text-transform: uppercase;
   border: none;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.btn-primary-hero:hover { background: #81551a; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(153, 104, 34, 0.35); }
+.btn-primary-hero:hover { background: #81551a; transform: translateY(-1.5px); box-shadow: 0 6px 20px rgba(153, 104, 34, 0.3); }
+.btn-primary-hero:active { transform: translateY(0) scale(0.97); }
 .btn-primary-hero:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
 
 .btn-outline {
@@ -227,11 +232,22 @@ p  { font-size: 16px; line-height: 1.7; color: var(--color-grey); }
   letter-spacing: 0.05em;
   text-transform: uppercase;
   border: 1.5px solid var(--color-text);
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.btn-outline:hover { background: var(--color-text); color: var(--color-background); }
+.btn-outline:hover { background: var(--color-text); color: var(--color-background); transform: translateY(-1.5px); }
+.btn-outline:active { transform: translateY(0) scale(0.97); }
 .btn-outline:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2px; }
+
+.btn-primary:disabled,
+.btn-primary-hero:disabled,
+.btn-outline:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
 
 /* ── Skeleton Loader ────────────────────────────────────────────────────────── */
 .skeleton {

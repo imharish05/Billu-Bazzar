@@ -197,6 +197,18 @@ const Navbar = () => {
           const currentScrollY = window.scrollY;
           const delta = currentScrollY - prevScrollY;
 
+          // If scrolled, close search dropdown and blur input to hide mobile keyboard
+          if (Math.abs(delta) > 5) {
+            dispatch(setDropdownOpen(false));
+            if (
+              document.activeElement &&
+              (document.activeElement.id === 'nav-search-input-desktop' ||
+                document.activeElement.id === 'nav-search-input-mobile')
+            ) {
+              document.activeElement.blur();
+            }
+          }
+
           // Accumulate scroll distance. Reset accumulator if direction changes.
           if ((delta > 0 && scrollAccumulator < 0) || (delta < 0 && scrollAccumulator > 0)) {
             scrollAccumulator = 0;
@@ -229,7 +241,7 @@ const Navbar = () => {
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [dispatch]);
 
   // Keep --header-h / --header-h-mobile in sync with the announcement bar's
   // collapsed state. HeroBanner (and anything else that sizes itself against
