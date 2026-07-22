@@ -6,6 +6,41 @@ const PaymentGatewayInterface = require('./PaymentGatewayInterface');
 
 class RazorpayService extends PaymentGatewayInterface {
   /**
+   * Helper to get a configured Razorpay instance with response interceptor
+   * to prevent SDK crashes on network/timeout errors.
+   * @private
+   * @returns {Razorpay}
+   */
+  _getInstance() {
+    const instance = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_mockkey',
+      key_secret: process.env.RAZORPAY_KEY_SECRET || 'rzp_mocksecret',
+    });
+
+    if (instance.api && instance.api.rq && instance.api.rq.interceptors) {
+      instance.api.rq.interceptors.response.use(
+        (response) => response,
+        (error) => {
+          if (!error.response) {
+            error.response = {
+              status: 500,
+              data: {
+                error: {
+                  code: 'NETWORK_ERROR',
+                  description: error.message || 'Network error connecting to Razorpay'
+                }
+              }
+            };
+          }
+          return Promise.reject(error);
+        }
+      );
+    }
+
+    return instance;
+  }
+
+  /**
    * Create an order in Razorpay.
    * @param {Object} orderData
    * @param {number} orderData.amount - Total amount in standard currency unit (INR)
@@ -15,10 +50,7 @@ class RazorpayService extends PaymentGatewayInterface {
    */
   async createOrder({ amount, currency = 'INR', receipt }) {
     try {
-      const instance = new Razorpay({
-        key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_mockkey',
-        key_secret: process.env.RAZORPAY_KEY_SECRET || 'rzp_mocksecret',
-      });
+      const instance = this._getInstance();
 
       const options = {
         amount: Math.round(amount * 100), // amount in paisa
@@ -70,10 +102,7 @@ class RazorpayService extends PaymentGatewayInterface {
    */
   async fetchPayment(paymentId) {
     try {
-      const instance = new Razorpay({
-        key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_mockkey',
-        key_secret: process.env.RAZORPAY_KEY_SECRET || 'rzp_mocksecret',
-      });
+      const instance = this._getInstance();
       const payment = await instance.payments.fetch(paymentId);
       return {
         success: payment.status === 'captured',
@@ -97,10 +126,7 @@ class RazorpayService extends PaymentGatewayInterface {
    */
   async refund(paymentId, amount) {
     try {
-      const instance = new Razorpay({
-        key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_mockkey',
-        key_secret: process.env.RAZORPAY_KEY_SECRET || 'rzp_mocksecret',
-      });
+      const instance = this._getInstance();
       const options = {};
       if (amount) {
         options.amount = Math.round(amount * 100); // refund amount in paisa

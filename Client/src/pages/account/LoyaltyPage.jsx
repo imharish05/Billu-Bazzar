@@ -18,14 +18,14 @@ const LoyaltyPage = () => {
 
       <div className="grid sm:grid-cols-2 gap-4 mb-6">
         <div className="bg-gradient-to-r from-brand-gold to-yellow-500 text-white p-6">
-          <p className="text-sm opacity-80 mb-1">Loyalty Points · {loyaltyTier} Tier</p>
-          <p className="font-playfair text-5xl font-bold">{loyaltyPoints}</p>
-          <p className="text-sm opacity-80 mt-1">Worth {formatPrice(loyaltyPoints * 0.5)}</p>
+          <p className="text-sm opacity-80 mb-1 text-white">Loyalty Points · {loyaltyTier} Tier</p>
+          <p className="font-playfair text-5xl font-bold text-white">{loyaltyPoints}</p>
+          <p className="text-sm opacity-80 mt-1 text-white">Worth {formatPrice(loyaltyPoints * 0.5)}</p>
         </div>
         <div className="bg-brand-text text-white p-6">
-          <p className="text-sm opacity-70 mb-1 flex items-center gap-1.5"><Wallet size={14} /> Cashback Wallet</p>
-          <p className="font-playfair text-5xl font-bold">{formatPrice(cashbackBalance)}</p>
-          <p className="text-sm opacity-70 mt-1">Auto-applies at checkout</p>
+          <p className="text-sm opacity-70 mb-1 flex items-center gap-1.5 text-white"><Wallet size={14} /> Cashback Wallet</p>
+          <p className="font-playfair text-5xl font-bold text-white">{formatPrice(cashbackBalance)}</p>
+          <p className="text-sm opacity-70 mt-1 text-white">Auto-applies at checkout</p>
         </div>
       </div>
 

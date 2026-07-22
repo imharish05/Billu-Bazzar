@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { useNavigate, Link } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, MapPin, CreditCard, Package, ChevronRight, Eye, EyeOff } from 'lucide-react';
 import { placeOrder } from '../redux/slices/ordersSlice';
-import { clearLocal, syncCart } from '../redux/slices/cartSlice';
-import { loginCustomer } from '../redux/slices/authSlice';
+import { clearLocal, syncCart, clearBuyNowItem } from '../redux/slices/cartSlice';
+import { loginCustomer, registerCustomer } from '../redux/slices/authSlice';
 import { setCurrency } from '../redux/slices/currencySlice';
 import api from '../services/api';
 import Footer from '../components/Footer';
@@ -31,9 +31,20 @@ const INDIAN_STATES = [
 const CheckoutPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { items, subtotal } = useSelector(s => s.cart);
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const isBuyNowMode = searchParams.get('mode') === 'buynow';
+
+  const { items: cartItems, subtotal: cartSubtotal, buyNowItem } = useSelector(s => s.cart);
   const { isAuthenticated, customer } = useSelector(s => s.auth);
   const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
+
+  const items = isBuyNowMode && buyNowItem ? [buyNowItem] : cartItems;
+
+  const subtotal = items.reduce((sum, item) => {
+    const price = parseFloat(item.priceAtAdd || item.price || item.product?.price || 0);
+    return sum + (price * (item.quantity || 1));
+  }, 0);
 
   // Login panel state
   const [showLoginPanel, setShowLoginPanel] = useState(false);
@@ -46,16 +57,120 @@ const CheckoutPage = () => {
   const [createAccount, setCreateAccount] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [showNewPw, setShowNewPw] = useState(false);
-
-
+  const [registerLoading, setRegisterLoading] = useState(false);
 
   // Checkout state
   const [step, setStep] = useState(1);
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [showAllItems, setShowAllItems] = useState(false);
+
+  // Admin-configurable OTP threshold settings (Default: INR 20,000 / AED 800)
+  const [otpSettings, setOtpSettings] = useState({
+    inrThreshold: 20000,
+    aedThreshold: 800,
+    requireCodOtp: true,
+  });
+
+  useEffect(() => {
+    api.get('/settings/otp_threshold')
+      .then(res => {
+        if (res.data?.success && res.data?.data) {
+          setOtpSettings({
+            inrThreshold: Number(res.data.data.inrThreshold) || 20000,
+            aedThreshold: Number(res.data.data.aedThreshold) || 800,
+            requireCodOtp: res.data.data.requireCodOtp !== false,
+          });
+        }
+      })
+      .catch(err => {
+        console.warn('[Checkout] Using default OTP thresholds (INR 20,000 / AED 800):', err.message);
+      });
+  }, []);
+
+  const getItemDetails = (item) => {
+    const name = item.product?.name || item.productName || item.name || 'Luxury Product';
+
+    // Resolve image URL
+    let rawImg = item.image || item.productImage || item.product?.image || (item.product?.images && item.product.images[0]);
+    if (!rawImg || rawImg === 'undefined') {
+      rawImg = 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=160';
+    } else if (typeof rawImg === 'string' && rawImg.startsWith('/') && !rawImg.startsWith('//')) {
+      rawImg = `http://localhost:5000${rawImg}`;
+    }
+
+    // Variant details
+    let variantText = null;
+    const rawVar = item.selectedVariant || item.variant;
+    if (rawVar) {
+      let parsedVar = rawVar;
+      if (typeof rawVar === 'string') {
+        try { parsedVar = JSON.parse(rawVar); } catch { parsedVar = null; }
+      }
+      if (parsedVar && typeof parsedVar === 'object') {
+        const entries = Object.entries(parsedVar).filter(([k, v]) => v !== undefined && v !== null && v !== '' && k !== 'id');
+        if (entries.length > 0) {
+          variantText = entries.map(([k, v]) => `${k}: ${v}`).join(' · ');
+        }
+      } else if (typeof rawVar === 'string' && rawVar !== '{}') {
+        variantText = rawVar;
+      }
+    }
+
+    const price = parseFloat(item.priceAtAdd || item.price || item.unitPrice || item.product?.price || 0);
+
+    return { name, image: rawImg, variantText, price };
+  };
+
+  const handleTriggerFraudCheck = async () => {
+    const targetEmail = (billingAddress.email || customer?.email || '').trim();
+    if (!targetEmail) {
+      toast.error('Please provide a valid email address for order verification.');
+      return;
+    }
+    setOtp('');
+    setOtpLoading(true);
+    try {
+      await api.post('/auth/send-checkout-otp', {
+        email: targetEmail,
+        name: billingAddress.fullName || customer?.name || 'Customer'
+      });
+      setOtpSent(true);
+      toast.success(`Verification OTP sent to ${targetEmail}`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send verification email. Please try again.');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyFraudOtp = async (codeValue) => {
+    const code = codeValue || otp;
+    if (code.length < 6) {
+      toast.error('Please enter the full 6-digit code.');
+      return;
+    }
+    const targetEmail = (billingAddress.email || customer?.email || '').trim();
+    setVerifyingOtp(true);
+    try {
+      await api.post('/auth/verify-checkout-otp', {
+        email: targetEmail,
+        otp: code
+      });
+      setIsVerified(true);
+      setOtpSent(false);
+      toast.success('Security verification successful!');
+      handlePlaceOrder();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Invalid or expired verification code.');
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
 
   const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
 
@@ -140,6 +255,49 @@ const CheckoutPage = () => {
     }
   };
 
+  const handleRegister = async () => {
+    if (!billingAddress.fullName?.trim()) {
+      toast.error('Please enter your Full Name in the Billing Address section above.');
+      return;
+    }
+    if (!billingAddress.email?.trim()) {
+      toast.error('Please enter your Email Address in the Billing Address section above.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(billingAddress.email.trim())) {
+      toast.error('Please enter a valid email address in the Billing Address section.');
+      return;
+    }
+    if (!billingAddress.phone?.trim()) {
+      toast.error('Please enter your Mobile Number in the Billing Address section above.');
+      return;
+    }
+    const phoneValidation = validatePhoneNumber(billingAddress.phone);
+    if (!phoneValidation.isValid) {
+      toast.error('Billing Phone: ' + phoneValidation.message);
+      return;
+    }
+    if (!newPassword || newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters.');
+      return;
+    }
+
+    setRegisterLoading(true);
+    try {
+      await dispatch(registerCustomer({
+        name: billingAddress.fullName.trim(),
+        email: billingAddress.email.trim().toLowerCase(),
+        password: newPassword,
+        phone: billingAddress.phone.trim()
+      })).unwrap();
+      toast.success('Account created and logged in successfully!');
+    } catch (err) {
+      toast.error(err || 'Registration failed. Please check your details.');
+    } finally {
+      setRegisterLoading(false);
+    }
+  };
+
   // Helper to dynamically load Razorpay checkout script
   const loadRazorpayScript = () => {
     return new Promise((resolve) => {
@@ -153,6 +311,12 @@ const CheckoutPage = () => {
   };
 
   const handlePlaceOrder = async () => {
+    if (!isAuthenticated) {
+      toast.error('Please log in to your account to place an order.');
+      setStep(1);
+      setShowLoginPanel(true);
+      return;
+    }
     if (items.length === 0) {
       toast.error('Your cart is empty. Add something before checking out.');
       navigate('/cart');
@@ -177,87 +341,119 @@ const CheckoutPage = () => {
         paymentMethod, referralCode,
       })).unwrap();
 
-      // 3. Initiate payment gateway transaction
-      const initRes = await api.post('/payments/initiate', { orderId: order.id });
-      if (initRes.data?.success) {
-        const paymentData = initRes.data;
-        
-        if (paymentData.gateway === 'telr') {
-          // Telr hosted payment page redirect
-          localStorage.removeItem('bb_referral');
+      const finishOrderClear = () => {
+        localStorage.removeItem('bb_referral');
+        if (isBuyNowMode) {
+          dispatch(clearBuyNowItem());
+        } else {
           dispatch(clearLocal());
-          window.location.href = paymentData.redirectUrl;
-        } else if (paymentData.gateway === 'razorpay') {
-          // Razorpay SDK overlay
-          const loaded = await loadRazorpayScript();
-          if (!loaded) {
-            toast.error('Failed to load Razorpay SDK. Please check your internet connection.');
-            setPlacing(false);
-            return;
-          }
-
-          const options = {
-            key: paymentData.key,
-            amount: paymentData.amount,
-            currency: paymentData.currency,
-            name: paymentData.name,
-            description: paymentData.description,
-            order_id: paymentData.order_id,
-            handler: async function (response) {
-              setPlacing(true);
-              try {
-                const verifyRes = await api.post('/payments/verify', {
-                  orderId: order.id,
-                  razorpayPaymentId: response.razorpay_payment_id,
-                  razorpayOrderId: response.razorpay_order_id,
-                  razorpaySignature: response.razorpay_signature,
-                });
-                if (verifyRes.data?.success) {
-                  localStorage.removeItem('bb_referral');
-                  dispatch(clearLocal());
-                  navigate(`/order-confirmation?gateway=razorpay&orderId=${order.id}&status=success`);
-                } else {
-                  toast.error(verifyRes.data?.message || 'Payment verification failed.');
-                }
-              } catch (err) {
-                console.error('Payment verification failed:', err);
-                toast.error(err.response?.data?.message || 'Failed to verify payment with server.');
-              } finally {
-                setPlacing(false);
-              }
-            },
-
-            prefill: {
-              name: billingAddress.fullName,
-              email: billingAddress.email,
-              contact: billingAddress.phone,
-            },
-            theme: {
-              color: '#C9A24B',
-            },
-            modal: {
-              ondismiss: function () {
-                toast.error('Payment process was cancelled by the user.');
-                setPlacing(false);
-              }
-            }
-          };
-
-          const rzp = new window.Razorpay(options);
-          rzp.open();
         }
-      } else {
-        throw new Error('Failed to initialize payment details from gateway resolver.');
+      };
+
+      // 3. COD: skip payment gateway entirely, go straight to confirmation
+      const isCod = paymentMethod === 'Cash on Delivery (COD)';
+      if (isCod) {
+        finishOrderClear();
+        navigate(`/order-confirmation?gateway=cod&orderId=${order.id}&status=success`);
+        return;
       }
+
+      // 4. Initiate payment gateway transaction (Razorpay for INR, Telr for AED)
+      const initRes = await api.post('/payments/initiate', { orderId: order.id });
+      if (!initRes.data?.success) {
+        throw new Error(initRes.data?.message || 'Failed to initialize payment details from gateway.');
+      }
+
+      const paymentData = initRes.data;
+
+      if (paymentData.gateway === 'telr') {
+        // Telr: redirect to hosted payment page
+        finishOrderClear();
+        window.location.href = paymentData.redirectUrl;
+
+      } else if (paymentData.gateway === 'razorpay') {
+        // Razorpay: load SDK and open checkout overlay
+        const loaded = await loadRazorpayScript();
+        if (!loaded) {
+          toast.error('Failed to load Razorpay SDK. Please check your internet connection.');
+          setPlacing(false);
+          return;
+        }
+
+        const options = {
+          key: paymentData.key,
+          amount: paymentData.amount,
+          currency: paymentData.currency,
+          name: paymentData.name,
+          description: paymentData.description,
+          order_id: paymentData.order_id,
+          handler: async function (response) {
+            setPlacing(true);
+            try {
+              const verifyRes = await api.post('/payments/verify', {
+                orderId: order.id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpayOrderId: response.razorpay_order_id,
+                razorpaySignature: response.razorpay_signature,
+              });
+              if (verifyRes.data?.success) {
+                finishOrderClear();
+                navigate(`/order-confirmation?gateway=razorpay&orderId=${order.id}&status=success`);
+              } else {
+                toast.error(verifyRes.data?.message || 'Payment verification failed. Please contact support.');
+              }
+            } catch (err) {
+              console.error('Payment verification failed:', err);
+              toast.error(err.response?.data?.message || 'Failed to verify payment with server.');
+            } finally {
+              setPlacing(false);
+            }
+          },
+          prefill: {
+            name: billingAddress.fullName,
+            email: billingAddress.email,
+            contact: billingAddress.phone,
+          },
+          theme: {
+            color: '#C9A24B',
+          },
+          modal: {
+            ondismiss: function () {
+              toast.error('Payment process was cancelled.');
+              setPlacing(false);
+            }
+          }
+        };
+
+        // Stop the main spinner — Razorpay overlay handles UI from here
+        setPlacing(false);
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+
+      } else {
+        throw new Error('Unknown payment gateway returned from server.');
+      }
+
     } catch (err) {
       console.error('Order failed:', err);
       toast.error(err.response?.data?.message || err.message || 'Failed to place order. Please try again.');
-    } finally {
       setPlacing(false);
     }
   };
 
+
   const validateStep1 = () => {
+    if (!isAuthenticated) {
+      toast.error('Please log in to your account to continue to payment.');
+      setShowLoginPanel(true);
+      setTimeout(() => {
+        const loginEl = document.getElementById('toggle-login-panel');
+        if (loginEl) {
+          loginEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      return false;
+    }
     const requiredFields = [
       { key: 'fullName', label: 'Full Name' },
       { key: 'phone', label: 'Mobile Number' },
@@ -377,7 +573,13 @@ const CheckoutPage = () => {
                       <button type="submit" disabled={loginLoading} className="btn-primary px-6 py-2 text-sm" id="login-btn">
                         {loginLoading ? 'Logging in…' : 'Login'}
                       </button>
-                      <Link to="/forgot-password" className="text-xs text-brand-gold hover:underline">Forgot password?</Link>
+                      <Link
+                        to={`/account?view=forgot${loginEmail ? `&email=${encodeURIComponent(loginEmail.trim())}` : ''}`}
+                        className="text-xs text-brand-gold hover:underline"
+                        id="checkout-forgot-password-link"
+                      >
+                        Forgot password?
+                      </Link>
                     </div>
                   </form>
                 </motion.div>
@@ -604,22 +806,33 @@ const CheckoutPage = () => {
                           >
                             <div>
                               <label className={labelCls} htmlFor="new-password">Password (min. 6 characters)</label>
-                              <div className="relative max-w-sm">
-                                <input
-                                  id="new-password"
-                                  type={showNewPw ? 'text' : 'password'}
-                                  value={newPassword}
-                                  onChange={e => setNewPassword(e.target.value)}
-                                  placeholder="Create a password"
-                                  className={`${inputCls} pr-10`}
-                                  minLength={6}
-                                />
-                                <button type="button" onClick={() => setShowNewPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
-                                  {showNewPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                              <div className="flex flex-col sm:flex-row gap-3 max-w-md items-start sm:items-center">
+                                <div className="relative flex-1 w-full">
+                                  <input
+                                    id="new-password"
+                                    type={showNewPw ? 'text' : 'password'}
+                                    value={newPassword}
+                                    onChange={e => setNewPassword(e.target.value)}
+                                    placeholder="Create a password"
+                                    className={`${inputCls} pr-10`}
+                                    minLength={6}
+                                  />
+                                  <button type="button" onClick={() => setShowNewPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
+                                    {showNewPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                                  </button>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={handleRegister}
+                                  disabled={registerLoading}
+                                  className="btn-primary py-2.5 px-5 text-sm font-semibold whitespace-nowrap h-[42px] flex items-center justify-center min-w-[120px]"
+                                  id="register-btn"
+                                >
+                                  {registerLoading ? 'Registering...' : 'Register'}
                                 </button>
                               </div>
                               <p className="text-xs text-neutral-400 mt-2">
-                                Your account will be created with the email address above. You'll be logged in automatically after checkout.
+                                Fill in your name, email, and phone under Billing Address, choose a password, and click <strong>Register</strong> to create your account instantly.
                               </p>
                             </div>
                           </motion.div>
@@ -658,7 +871,7 @@ const CheckoutPage = () => {
                     {(currencyCode === 'AED'
                       ? [
                           { label: 'Credit / Debit Card', icon: '💳', badge: null },
-                          { label: 'Apple Pay', icon: '', badge: 'Recommended' },
+                          { label: 'Apple Pay', icon: '', badge: 'Recommended' },
                           { label: 'Net Banking', icon: '🏦', badge: null },
                           { label: 'Wallets', icon: '👛', badge: null },
                         ]
@@ -685,6 +898,7 @@ const CheckoutPage = () => {
                         {badge && <span className="text-[10px] bg-green-100 text-green-700 font-semibold px-2 py-0.5 rounded-full">{badge}</span>}
                       </label>
                     ))}
+                    {/* Cash on Delivery (COD) — temporarily unavailable */}
                   </div>
                   <div className="flex flex-col-reverse sm:flex-row gap-3 mt-6">
                     <button onClick={() => setStep(1)} className="btn-outline flex-1 py-3 text-sm font-semibold" id="step2-back">Back</button>
@@ -730,6 +944,39 @@ const CheckoutPage = () => {
                     <p className="text-sm text-brand-text font-medium">{paymentMethod}</p>
                   </div>
 
+                  {/* Items in Order Breakdown */}
+                  <div className="bg-neutral-50 rounded-md p-4">
+                    <h3 className="font-semibold text-xs text-neutral-400 uppercase tracking-wider mb-3">
+                      Items in Order ({items.length})
+                    </h3>
+                    <div className="space-y-3">
+                      {items.map((item, idx) => {
+                        const details = getItemDetails(item);
+                        return (
+                          <div key={item.productId || item.id || idx} className="flex gap-3 items-center py-2 border-b border-neutral-200/60 last:border-0">
+                            <img
+                              src={details.image}
+                              alt={details.name}
+                              className="w-12 h-14 object-cover rounded border border-neutral-200 bg-white flex-shrink-0"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=160';
+                              }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-neutral-900 truncate">{details.name}</p>
+                              {details.variantText && (
+                                <p className="text-[11px] text-brand-gold font-medium mt-0.5">{details.variantText}</p>
+                              )}
+                              <p className="text-[11px] text-neutral-500 mt-0.5">Qty: {item.quantity} × {fmt(details.price)}</p>
+                            </div>
+                            <span className="text-xs font-bold text-neutral-900">{fmt(details.price * item.quantity)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {/* Delivery estimate banner */}
                   <div className="flex items-center gap-3 p-4 bg-brand-light/30 border border-brand-gold/20 rounded-md">
                     <span className="text-xl">🚚</span>
@@ -744,20 +991,26 @@ const CheckoutPage = () => {
                     <button onClick={() => setStep(2)} className="btn-outline flex-1 py-3 text-sm font-semibold" id="step3-back">Back</button>
                     <button
                       onClick={() => {
-                        const isHighValue = total >= 5000;
+                        const inrLimit = otpSettings.inrThreshold || 20000;
+                        const aedLimit = otpSettings.aedThreshold || 800;
                         const isCod = paymentMethod === 'Cash on Delivery (COD)';
-                        if ((isHighValue || isCod) && !isVerified) {
-                          setOtp('');
-                          setOtpSent(true);
-                          toast.success(`Verification OTP sent to ${billingAddress.phone || billingAddress.email}`);
+
+                        const isHighValue = currencyCode === 'AED'
+                          ? total >= aedLimit
+                          : total >= inrLimit;
+
+                        const requiresOtp = isHighValue || (isCod && otpSettings.requireCodOtp !== false);
+
+                        if (requiresOtp && !isVerified) {
+                          handleTriggerFraudCheck();
                         } else {
                           handlePlaceOrder();
                         }
                       }}
-                      disabled={placing}
+                      disabled={placing || otpLoading}
                       className="btn-primary flex-1 py-3 text-sm font-semibold" id="place-order-btn"
                     >
-                      {placing ? 'Placing Order…' : `Place Order — ${fmt(total)}`}
+                      {placing ? 'Placing Order…' : otpLoading ? 'Sending Security Code…' : `Place Order — ${fmt(total)}`}
                     </button>
                   </div>
                 </motion.div>
@@ -788,16 +1041,34 @@ const CheckoutPage = () => {
 
             {/* Item thumbnails */}
             <div className="mt-4 pt-4 border-t border-neutral-100 space-y-2.5">
-              {(showAllItems ? items : items.slice(0, 3)).map(item => (
-                <div key={item.productId} className="flex gap-2.5 items-center">
-                  <img src={item.image || ''} alt={item.name} className="w-10 h-12 object-cover rounded-sm flex-shrink-0 border border-neutral-100" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-brand-text truncate">{item.name}</p>
-                    <p className="text-xs text-brand-grey">Qty: {item.quantity}</p>
+              {(showAllItems ? items : items.slice(0, 3)).map((item, idx) => {
+                const details = getItemDetails(item);
+                return (
+                  <div key={item.productId || item.id || idx} className="flex gap-3 items-center py-2.5 border-b border-neutral-100 last:border-0">
+                    <div className="w-12 h-14 bg-neutral-50 rounded border border-neutral-200 overflow-hidden flex-shrink-0 relative">
+                      <img
+                        src={details.image}
+                        alt={details.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=160';
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-neutral-900 truncate leading-tight">{details.name}</p>
+                      {details.variantText && (
+                        <p className="text-[11px] text-brand-gold font-medium mt-0.5 truncate">{details.variantText}</p>
+                      )}
+                      <p className="text-[11px] text-neutral-500 mt-0.5">Qty: {item.quantity}</p>
+                    </div>
+                    <span className="text-xs font-bold text-neutral-900 whitespace-nowrap self-center">
+                      {fmt(details.price * item.quantity)}
+                    </span>
                   </div>
-                  <span className="text-xs font-semibold text-brand-gold whitespace-nowrap">{fmt(item.priceAtAdd * item.quantity)}</span>
-                </div>
-              ))}
+                );
+              })}
               {items.length > 3 && (
                 <button
                   type="button"
@@ -828,41 +1099,56 @@ const CheckoutPage = () => {
                 <h3 className="font-playfair text-lg font-bold text-brand-text">🔒 Security Verification</h3>
               </div>
               <p className="text-xs text-brand-grey leading-relaxed">
-                For security reasons, high-value orders (above ₹5,000) and Cash on Delivery (COD) orders require verification. We've sent a 6-digit code to <strong className="text-brand-text">{billingAddress.phone || billingAddress.email}</strong>.
+                For security reasons, high-value orders (exceeding {currencyCode === 'AED' ? `AED ${otpSettings.aedThreshold}` : `₹${otpSettings.inrThreshold.toLocaleString('en-IN')}`}) and Cash on Delivery (COD) orders require email verification. We've sent a 6-digit code to <strong className="text-brand-text font-semibold">{billingAddress.email || customer?.email}</strong>.
               </p>
+
               <div>
-                <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1.5" htmlFor="fraud-otp">
-                  Enter 6-Digit Verification Code
-                </label>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider" htmlFor="fraud-otp">
+                    Enter 6-Digit Verification Code
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleTriggerFraudCheck}
+                    disabled={otpLoading}
+                    className="text-xs text-brand-gold hover:underline font-semibold"
+                    id="resend-fraud-otp"
+                  >
+                    {otpLoading ? 'Resending…' : 'Resend Email'}
+                  </button>
+                </div>
                 <input
                   id="fraud-otp" type="text" value={otp}
                   onChange={e => {
                     const val = e.target.value.replace(/\D/g, '');
                     setOtp(val);
-                    if (val.length === 6) { setIsVerified(true); toast.success('Verification successful!'); handlePlaceOrder(); }
+                    if (val.length === 6) { handleVerifyFraudOtp(val); }
                   }}
                   placeholder="0  0  0  0  0  0" maxLength={6}
+                  disabled={verifyingOtp}
                   className="w-full border border-neutral-200 rounded-md px-4 py-3 text-center text-xl font-mono tracking-[0.5em] focus:outline-none focus:border-brand-gold bg-neutral-50"
                   aria-label="OTP Code"
                 />
               </div>
-              <p className="text-[10px] text-neutral-400 italic text-center">* Enter any 6 digits to proceed (demo mode)</p>
-              <div className="flex flex-col-reverse sm:flex-row gap-3">
-                <button onClick={() => setOtpSent(false)} className="btn-outline flex-1 py-3 text-sm font-semibold">Cancel</button>
+              <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+                <button onClick={() => setOtpSent(false)} disabled={verifyingOtp} className="btn-outline flex-1 py-3 text-sm font-semibold">Cancel</button>
                 <button
-                  onClick={() => {
-                    if (otp.length === 6) { setIsVerified(true); toast.success('Verification successful!'); handlePlaceOrder(); }
-                    else { toast.error('Please enter a valid 6-digit code.'); }
-                  }}
-                  className="btn-primary flex-1 py-3 text-sm font-semibold"
+                  onClick={() => handleVerifyFraudOtp()}
+                  disabled={verifyingOtp || otp.length < 6}
+                  className="btn-primary flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2"
                 >
-                  Confirm &amp; Place Order
+                  {verifyingOtp ? (
+                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    'Confirm & Place Order'
+                  )}
                 </button>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+
 
       <Footer />
     </main>

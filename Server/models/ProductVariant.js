@@ -14,8 +14,19 @@ const ProductVariant = sequelize.define('ProductVariant', {
   price: { type: DataTypes.DECIMAL(10, 2), allowNull: true }, // Sale price
   mrp: { type: DataTypes.DECIMAL(10, 2), allowNull: true }, // Maximum Retail Price (compare price)
   stock: { type: DataTypes.INTEGER, defaultValue: 0, allowNull: false },
-  attributes: { type: DataTypes.JSON, defaultValue: {} }, // e.g. { "size": "M", "color": "Blue" }
+  attributes: {
+    type: DataTypes.JSON,
+    defaultValue: {},
+    get() {
+      const rawValue = this.getDataValue('attributes');
+      if (typeof rawValue === 'string') {
+        try { return JSON.parse(rawValue); } catch (e) { return {}; }
+      }
+      return rawValue || {};
+    }
+  },
   image: { type: DataTypes.STRING, allowNull: true },
+  warehouseId: { type: DataTypes.INTEGER, allowNull: true },
   images: {
     type: DataTypes.JSON,
     defaultValue: [],

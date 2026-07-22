@@ -95,21 +95,35 @@ const initiateIdempotentRefund = async (orderId, paymentId, amount) => {
 const initiatePayment = async (req, res) => {
   try {
     const { orderId } = req.body;
-    const order = await Order.findOne({ where: { id: orderId, customerId: req.customer?.id || null } });
-    if (!order) {
-      return res.status(404).json({ success: false, message: 'Order not found' });
-    }
-    if (order.status !== 'PENDING_PAYMENT') {
-      return res.status(400).json({ success: false, message: 'Order is not in PENDING_PAYMENT state' });
+
+    if (!orderId) {
+      return res.status(400).json({ success: false, message: 'orderId is required' });
     }
 
-    // Resolve gateway based on currency and create gateway order
+    // Lookup only by id — customerId can be null for guest orders
+    const order = await Order.findOne({ where: { id: orderId } });
+    if (!order) {
+      return res.status(404).json({ success: false, message: `Order #${orderId} not found` });
+    }
+
+    if (order.status !== 'PENDING_PAYMENT') {
+      return res.status(400).json({
+        success: false,
+        message: `Order is in '${order.status}' state, not PENDING_PAYMENT. Cannot initiate payment.`
+      });
+    }
+
+    // Resolve gateway based on order currency (INR → Razorpay, AED → Telr)
     const gateway = resolver.getGateway(order.currency);
+    console.log(`[initiatePayment] Order #${order.orderNumber} | Currency: ${order.currency} | Gateway: ${order.currency === 'INR' ? 'Razorpay' : 'Telr'}`);
+
     const gatewayOrder = await gateway.createOrder({
       amount: parseFloat(order.totalAmount),
       currency: order.currency,
       receipt: order.orderNumber,
     });
+
+    console.log(`[initiatePayment] Gateway order created: ${gatewayOrder.gatewayRef}`);
 
     // Update order with gateway references
     if (order.currency === 'INR') {
@@ -126,8 +140,8 @@ const initiatePayment = async (req, res) => {
     res.json({
       success: true,
       gateway: order.currency === 'INR' ? 'razorpay' : 'telr',
-      key: order.currency === 'INR' ? (process.env.RAZORPAY_KEY_ID || 'rzp_test_mockkey') : undefined,
-      amount: order.currency === 'INR' ? Math.round(order.totalAmount * 100) : parseFloat(order.totalAmount),
+      key: order.currency === 'INR' ? process.env.RAZORPAY_KEY_ID : undefined,
+      amount: order.currency === 'INR' ? Math.round(parseFloat(order.totalAmount) * 100) : parseFloat(order.totalAmount),
       currency: order.currency,
       name: 'Billu Bazzar',
       description: `Payment for Order ${order.orderNumber}`,
@@ -135,7 +149,8 @@ const initiatePayment = async (req, res) => {
       redirectUrl: gatewayOrder.redirectUrl || undefined,
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error('[initiatePayment] Error:', err.message, err.stack);
+    res.status(500).json({ success: false, message: err.message || 'Internal server error during payment initiation' });
   }
 };
 

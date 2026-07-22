@@ -59,7 +59,10 @@ const create = async (req, res) => {
       data.isActive = data.isActive === 'true' || data.isActive === true;
     }
     const subCategory = await SubCategory.create(data);
-    res.status(201).json({ success: true, subCategory });
+    const fresh = await SubCategory.findByPk(subCategory.id, {
+      include: [{ model: Category, as: 'category', attributes: ['id', 'name'] }]
+    });
+    res.status(201).json({ success: true, subCategory: fresh });
   } catch (err) {
     return handleDBError(err, res, 'sub-category');
   }
@@ -82,7 +85,10 @@ const update = async (req, res) => {
       data.isActive = data.isActive === 'true' || data.isActive === true;
     }
     await subCategory.update(data);
-    res.json({ success: true, subCategory });
+    const fresh = await SubCategory.findByPk(subCategory.id, {
+      include: [{ model: Category, as: 'category', attributes: ['id', 'name'] }]
+    });
+    res.json({ success: true, subCategory: fresh });
   } catch (err) {
     return handleDBError(err, res, 'sub-category');
   }

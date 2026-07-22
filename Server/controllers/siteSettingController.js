@@ -46,6 +46,12 @@ const defaultAboutSettings = {
   marqueeWords: ['ELECTRONICS', 'APPAREL', 'HOME', 'BEAUTY', 'SPORTS', 'TOYS', 'EXCLUSIVITY', 'QUALITY', 'CRAFTSMANSHIP']
 };
 
+const defaultOtpSettings = {
+  inrThreshold: 20000,
+  aedThreshold: 800,
+  requireCodOtp: true,
+};
+
 const getSetting = async (req, res) => {
   try {
     const { key } = req.params;
@@ -53,6 +59,9 @@ const getSetting = async (req, res) => {
     if (!setting) {
       if (key === 'about') {
         return res.json({ success: true, key, data: defaultAboutSettings });
+      }
+      if (key === 'otp_threshold' || key === 'security') {
+        return res.json({ success: true, key, data: defaultOtpSettings });
       }
       return res.json({ success: true, key, data: {} });
     }

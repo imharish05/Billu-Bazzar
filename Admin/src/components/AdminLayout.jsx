@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
   LayoutDashboard, Package, Tag, ShoppingBag, Users, Image, Ticket,
   Warehouse, UserCheck, BarChart3, Settings, LogOut, Menu, X,
-  Store, CreditCard, Gift, MessageSquare, Globe, Bell
+  Store, CreditCard, Gift, MessageSquare, Globe, Bell, ShoppingCart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from './Logo';
@@ -34,6 +34,7 @@ const NAV_SECTIONS = [
       { to: '/sub-categories', label: 'Sub-categories', icon: Tag },
       { to: '/sub-sub-categories', label: 'Sub-subcategories', icon: Tag },
       { to: '/products', label: 'Products', icon: Package },
+      { to: '/variants', label: 'Variants', icon: Package },
       { to: '/orders', label: 'Orders', icon: ShoppingBag },
     ],
   },
@@ -41,6 +42,7 @@ const NAV_SECTIONS = [
     heading: 'Customers',
     items: [
       { to: '/customers', label: 'Customers', icon: Users },
+      { to: '/abandoned-carts', label: 'Abandoned Carts', icon: ShoppingCart },
     ],
   },
   {

@@ -51,6 +51,44 @@ const getMyOrders = async (req, res) => {
   }
 };
 
+const getMyOrderById = async (req, res) => {
+  try {
+    const order = await Order.findOne({
+      where: { id: req.params.id, customerId: req.customer.id },
+      include: [
+        { model: OrderItem, as: 'items' },
+        { model: Coupon, as: 'coupon' },
+      ],
+    });
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+    res.json({ success: true, order });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const cancelMyOrder = async (req, res) => {
+  try {
+    const order = await Order.findOne({
+      where: { id: req.params.id, customerId: req.customer.id },
+    });
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+
+    const cancellableStatuses = ['PENDING', 'PENDING_PAYMENT', 'CONFIRMED'];
+    if (!cancellableStatuses.includes(order.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Order cannot be cancelled because its status is '${order.status}'. Please contact support.`,
+      });
+    }
+
+    await order.update({ status: 'CANCELLED' });
+    res.json({ success: true, message: 'Order cancelled successfully', order });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 const getOne = async (req, res) => {
   try {
     const order = await Order.findOne({
@@ -484,4 +522,4 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
-module.exports = { getAll, getOne, getMyOrders, placeOrder, updateStatus, getDashboardStats };
+module.exports = { getAll, getOne, getMyOrders, getMyOrderById, cancelMyOrder, placeOrder, updateStatus, getDashboardStats };

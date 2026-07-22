@@ -98,7 +98,17 @@ const CartPage = () => {
     }
   }, [availableCoupons, subtotal]);
 
+  useEffect(() => {
+    if (items && items.length > 0) {
+      const missingDetails = items.some(i => !i.name && !i.product?.name);
+      if (missingDetails) {
+        dispatch(syncCart(items));
+      }
+    }
+  }, [items, dispatch]);
+
   const applyCoupon = async (codeToApply = couponCode) => {
+
     const code = codeToApply.trim().toUpperCase();
     if (!code) return;
     
@@ -158,56 +168,89 @@ const CartPage = () => {
           {/* Cart items */}
           <div className="lg:col-span-2 space-y-4">
             <AnimatePresence mode="popLayout">
-              {items.map(item => (
-                <motion.div
-                  key={item.productId}
-                  layout
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  exit={{ opacity: 0, x: 100, height: 0 }} /* shrink-fade exit */
-                  transition={{ duration: 0.3 }}
-                  className="bg-white shadow-sm flex gap-4 p-4"
-                >
-                  <img
-                    src={item.image || item.product?.images?.[0] || 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=200'}
-                    alt={item.name}
-                    className="w-24 h-28 object-cover flex-shrink-0"
-                  />
-                  <div className="flex-1 flex flex-col">
-                    <div className="flex justify-between gap-2">
-                      <div>
-                        <p className="font-medium text-brand-text">{item.name}</p>
-                        {item.selectedVariant && Object.keys(item.selectedVariant).length > 0 && (
-                          <p className="text-xs text-brand-grey mt-1">{Object.entries(item.selectedVariant).map(([k,v]) => `${k}: ${v}`).join(' · ')}</p>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => dispatch(removeLocal({ productId: item.productId, variantId: item.variantId }))}
-                        className="text-brand-grey hover:text-red-400 transition-colors p-1 focus-visible:outline-brand-gold flex-shrink-0"
-                        aria-label={`Remove ${item.name} from cart`}
-                        id={`remove-${item.productId}`}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                    <div className="flex items-center justify-between mt-auto">
-                      <div className="flex items-center border border-brand-light">
+              {items.map((item, idx) => {
+                const rawName = item.product?.name || item.productName || item.name;
+                const name = (rawName && String(rawName).trim()) ? String(rawName).trim() : `Product #${item.productId || item.id || idx + 1}`;
+
+                let img = item.image || item.productImage || item.product?.image || (item.product?.images && item.product.images[0]);
+                if (!img || img === 'undefined') {
+                  img = 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=200';
+                } else if (typeof img === 'string' && img.startsWith('/') && !img.startsWith('//')) {
+                  img = `http://localhost:5000${img}`;
+                }
+
+                let variantText = null;
+                const rawVar = item.selectedVariant || item.variant?.attributes || item.variant;
+                if (rawVar) {
+                  let parsed = rawVar;
+                  if (typeof rawVar === 'string') {
+                    try { parsed = JSON.parse(rawVar); } catch {
+                      if (rawVar !== '{}' && rawVar !== 'null') variantText = rawVar;
+                    }
+                  }
+                  if (parsed && typeof parsed === 'object') {
+                    const entries = Object.entries(parsed).filter(([k, v]) => v !== undefined && v !== null && v !== '' && k !== 'id');
+                    if (entries.length > 0) {
+                      variantText = entries.map(([k, v]) => `${k}: ${v}`).join(' · ');
+                    }
+                  }
+                }
+
+                return (
+                  <motion.div
+                    key={`${item.productId || item.id}_${item.variantId || JSON.stringify(item.selectedVariant || {})}_${idx}`}
+                    layout
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    exit={{ opacity: 0, x: 100, height: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="bg-white shadow-sm flex gap-4 p-4 rounded-lg border border-neutral-100"
+                  >
+                    <img
+                      src={img}
+                      alt={name}
+                      className="w-24 h-28 object-cover flex-shrink-0 rounded border border-neutral-200"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=200';
+                      }}
+                    />
+                    <div className="flex-1 flex flex-col">
+                      <div className="flex justify-between gap-2">
+                        <div>
+                          <p className="font-semibold text-neutral-900">{name}</p>
+                          {variantText && (
+                            <p className="text-xs text-brand-gold font-medium mt-1">{variantText}</p>
+                          )}
+                        </div>
                         <button
-                          onClick={() => item.quantity <= 1 ? dispatch(removeLocal({ productId: item.productId, variantId: item.variantId })) : dispatch(addLocal({ ...item, quantity: -1 }))}
-                          className="w-9 h-9 flex items-center justify-center hover:bg-brand-light transition-colors focus-visible:outline-brand-gold"
-                          aria-label="Decrease"
-                        >−</button>
-                        <span className="w-10 text-center text-sm font-medium">{item.quantity}</span>
-                        <button
-                          onClick={() => dispatch(addLocal({ ...item, quantity: 1 }))}
-                          className="w-9 h-9 flex items-center justify-center hover:bg-brand-light transition-colors focus-visible:outline-brand-gold"
-                          aria-label="Increase"
-                        >+</button>
+                          onClick={() => dispatch(removeLocal({ productId: item.productId || item.id, variantId: item.variantId, selectedVariant: item.selectedVariant }))}
+                          className="text-brand-grey hover:text-red-400 transition-colors p-1 focus-visible:outline-brand-gold flex-shrink-0"
+                          aria-label={`Remove ${name} from cart`}
+                          id={`remove-${item.productId || item.id}`}
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
-                      <p className="font-semibold text-brand-text">{fmt(item.priceAtAdd * item.quantity)}</p>
+                      <div className="flex items-center justify-between mt-auto pt-3">
+                        <div className="flex items-center border border-brand-light">
+                          <button
+                            onClick={() => item.quantity <= 1 ? dispatch(removeLocal({ productId: item.productId || item.id, variantId: item.variantId, selectedVariant: item.selectedVariant })) : dispatch(addLocal({ ...item, quantity: -1 }))}
+                            className="w-9 h-9 flex items-center justify-center hover:bg-brand-light transition-colors focus-visible:outline-brand-gold"
+                            aria-label="Decrease"
+                          >−</button>
+                          <span className="w-10 text-center text-sm font-medium">{item.quantity}</span>
+                          <button
+                            onClick={() => dispatch(addLocal({ ...item, quantity: 1 }))}
+                            className="w-9 h-9 flex items-center justify-center hover:bg-brand-light transition-colors focus-visible:outline-brand-gold"
+                            aria-label="Increase"
+                          >+</button>
+                        </div>
+                        <p className="font-semibold text-brand-text">{fmt((item.priceAtAdd || item.price || 0) * item.quantity)}</p>
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
 
             <button

@@ -7,6 +7,7 @@ const Cart = sequelize.define('Cart', {
   customerId: { type: DataTypes.INTEGER, allowNull: true, unique: true },
   sessionId: { type: DataTypes.STRING(100), allowNull: true },  // guest carts session token
   couponId: { type: DataTypes.INTEGER, allowNull: true },
+  lastEmailSentAt: { type: DataTypes.DATE, allowNull: true },
 }, {
   tableName: 'Carts',
   timestamps: true,

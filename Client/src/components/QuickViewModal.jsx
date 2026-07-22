@@ -4,7 +4,7 @@ import { X, Star, Heart, ShoppingBag, Eye } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { closeQuickView } from '../redux/slices/uiSlice';
-import { addLocal, openCart } from '../redux/slices/cartSlice';
+import { addLocal, openCart, setBuyNowItem } from '../redux/slices/cartSlice';
 import { formatPrice } from '../utils/currency';
 
 /* Glass surface 2: Quick-view modal — rgba(255,255,255,0.60) + blur(16px) + gold-tinted border glow */
@@ -21,16 +21,48 @@ const QuickViewModal = () => {
 
   const inStock = product.inStock !== false;
 
+  const defaultVariant = (product.variants && product.variants.length > 0) ? product.variants[0] : null;
+
+  const displayPrice = defaultVariant && defaultVariant.price !== null
+    ? parseFloat(defaultVariant.price)
+    : parseFloat(product.price);
+
+  const displayComparePrice = defaultVariant && defaultVariant.mrp !== null
+    ? parseFloat(defaultVariant.mrp)
+    : (product.comparePrice ? parseFloat(product.comparePrice) : null);
+
+  const resolvedVariantAttr = defaultVariant
+    ? (typeof defaultVariant.attributes === 'string' ? JSON.parse(defaultVariant.attributes || '{}') : (defaultVariant.attributes || {}))
+    : {};
+
   const handleAddToCart = () => {
-    dispatch(addLocal({ productId: product.id, name: product.name, image: product.images?.[0], priceAtAdd: product.price, quantity: 1 }));
+    const cartItem = {
+      productId: product.id,
+      name: product.name,
+      image: (defaultVariant && defaultVariant.image) || product.images?.[0] || '',
+      priceAtAdd: displayPrice,
+      quantity: 1,
+      variantId: defaultVariant ? defaultVariant.id : null,
+      selectedVariant: resolvedVariantAttr
+    };
+    dispatch(addLocal(cartItem));
     dispatch(closeQuickView());
     dispatch(openCart());
   };
 
   const handleBuyNow = () => {
-    dispatch(addLocal({ productId: product.id, name: product.name, image: product.images?.[0], priceAtAdd: product.price, quantity: 1 }));
+    const cartItem = {
+      productId: product.id,
+      name: product.name,
+      image: (defaultVariant && defaultVariant.image) || product.images?.[0] || '',
+      priceAtAdd: displayPrice,
+      quantity: 1,
+      variantId: defaultVariant ? defaultVariant.id : null,
+      selectedVariant: resolvedVariantAttr
+    };
+    dispatch(setBuyNowItem(cartItem));
     dispatch(closeQuickView());
-    navigate('/checkout');
+    navigate('/checkout?mode=buynow');
   };
 
   const handleNotifyMe = () => {

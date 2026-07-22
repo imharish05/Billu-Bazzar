@@ -85,6 +85,7 @@ const SubSubCategoriesAdminPage = () => {
   };
 
   const openModal = (item = null) => {
+    loadData();
     setEditing(item);
     if (item) {
       const parentSub = subCategories.find(c => c.id === item.subCategoryId);

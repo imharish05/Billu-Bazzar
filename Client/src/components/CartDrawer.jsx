@@ -81,59 +81,96 @@ const CartDrawer = () => {
                       transition={{ duration: 0.25 }}
                       className="flex gap-4 py-3 border-b border-brand-light/60 last:border-0"
                     >
-                      {/* Product image */}
-                      <div className="w-20 h-24 flex-shrink-0 bg-brand-light overflow-hidden">
-                        <img
-                          src={item.product?.images?.[0] || item.image || 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=160'}
-                          alt={item.product?.name || item.name}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                      </div>
+                    {(() => {
+                      const name = item.product?.name || item.productName || item.name || 'Product';
+                      let img = item.image || item.productImage || item.product?.image || (item.product?.images && item.product.images[0]);
+                      if (!img || img === 'undefined') {
+                        img = 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=160';
+                      } else if (typeof img === 'string' && img.startsWith('/') && !img.startsWith('//')) {
+                        img = `http://localhost:5000${img}`;
+                      }
 
-                      {/* Details */}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm leading-tight line-clamp-2">
-                          {item.product?.name || item.name}
-                        </p>
-                        {item.selectedVariant && Object.keys(item.selectedVariant).length > 0 && (
-                          <p className="text-xs text-brand-grey mt-1">
-                            {Object.entries(item.selectedVariant).map(([k, v]) => `${k}: ${v}`).join(' · ')}
-                          </p>
-                        )}
-                        <p className="text-brand-gold font-semibold text-sm mt-1">
-                          {fmt(item.priceAtAdd || item.product?.price)}
-                        </p>
+                      let variantText = null;
+                      const rawVar = item.selectedVariant || item.variant;
+                      if (rawVar) {
+                        let parsed = rawVar;
+                        if (typeof rawVar === 'string') {
+                          try { parsed = JSON.parse(rawVar); } catch { parsed = null; }
+                        }
+                        if (parsed && typeof parsed === 'object') {
+                          const entries = Object.entries(parsed).filter(([k, v]) => v !== undefined && v !== null && v !== '' && k !== 'id');
+                          if (entries.length > 0) {
+                            variantText = entries.map(([k, v]) => `${k}: ${v}`).join(' · ');
+                          }
+                        } else if (typeof rawVar === 'string' && rawVar !== '{}') {
+                          variantText = rawVar;
+                        }
+                      }
 
-                        {/* Quantity controls */}
-                        <div className="flex items-center gap-2 mt-2">
-                          <button
-                            onClick={() => item.quantity <= 1 
-                              ? dispatch(removeLocal({ productId: item.productId, variantId: item.variantId })) 
-                              : dispatch(addLocal({ ...item, quantity: -1 }))}
-                            className="w-7 h-7 border border-brand-light flex items-center justify-center hover:border-brand-gold hover:text-brand-gold transition-colors focus-visible:outline-brand-gold"
-                            aria-label="Decrease quantity"
-                          >
-                            <Minus size={12} />
-                          </button>
-                          <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
-                          <button
-                            onClick={() => dispatch(addLocal({ ...item, quantity: 1 }))}
-                            className="w-7 h-7 border border-brand-light flex items-center justify-center hover:border-brand-gold hover:text-brand-gold transition-colors focus-visible:outline-brand-gold"
-                            aria-label="Increase quantity"
-                          >
-                            <Plus size={12} />
-                          </button>
-                          <button
-                            onClick={() => dispatch(removeLocal({ productId: item.productId, variantId: item.variantId }))}
-                            className="ml-auto text-brand-grey hover:text-red-400 transition-colors p-1 focus-visible:outline-brand-gold"
-                            aria-label="Remove item"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
+                      const price = parseFloat(item.priceAtAdd || item.price || item.product?.price || 0);
+
+                      return (
+                        <>
+                          {/* Product image */}
+                          <div className="w-20 h-24 flex-shrink-0 bg-neutral-50 rounded border border-neutral-200 overflow-hidden">
+                            <img
+                              src={img}
+                              alt={name}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=160';
+                              }}
+                            />
+                          </div>
+
+                          {/* Details */}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm leading-tight text-neutral-900 line-clamp-2">
+                              {name}
+                            </p>
+                            {variantText && (
+                              <p className="text-xs text-brand-gold font-medium mt-1">
+                                {variantText}
+                              </p>
+                            )}
+                            <p className="text-brand-gold font-semibold text-sm mt-1">
+                              {fmt(price * item.quantity)}
+                            </p>
+
+                            {/* Quantity controls */}
+                            <div className="flex items-center gap-2 mt-2">
+                              <button
+                                onClick={() => item.quantity <= 1 
+                                  ? dispatch(removeLocal({ productId: item.productId || item.id, variantId: item.variantId, selectedVariant: item.selectedVariant })) 
+                                  : dispatch(addLocal({ ...item, quantity: -1 }))}
+                                className="w-7 h-7 border border-brand-light flex items-center justify-center hover:border-brand-gold hover:text-brand-gold transition-colors focus-visible:outline-brand-gold"
+                                aria-label="Decrease quantity"
+                              >
+                                <Minus size={12} />
+                              </button>
+                              <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
+                              <button
+                                onClick={() => dispatch(addLocal({ ...item, quantity: 1 }))}
+                                className="w-7 h-7 border border-brand-light flex items-center justify-center hover:border-brand-gold hover:text-brand-gold transition-colors focus-visible:outline-brand-gold"
+                                aria-label="Increase quantity"
+                              >
+                                <Plus size={12} />
+                              </button>
+                              <button
+                                onClick={() => dispatch(removeLocal({ productId: item.productId || item.id, variantId: item.variantId, selectedVariant: item.selectedVariant }))}
+                                className="ml-auto text-brand-grey hover:text-red-400 transition-colors p-1 focus-visible:outline-brand-gold"
+                                aria-label="Remove item"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </motion.div>
                   ))}
                 </AnimatePresence>
               )}

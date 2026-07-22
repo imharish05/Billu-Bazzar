@@ -74,6 +74,7 @@ const SubCategoriesAdminPage = () => {
   };
 
   const openModal = (sub = null) => {
+    loadData();
     setEditing(sub);
     setForm(sub ? {
       categoryId: String(sub.categoryId || ''),

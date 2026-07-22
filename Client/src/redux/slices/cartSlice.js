@@ -58,6 +58,27 @@ export const removeFromCart = createAsyncThunk('cart/remove', async (itemId, { r
   catch (err) { return rejectWithValue(err.response?.data?.message); }
 });
 
+// ── Buy Now persistence (sessionStorage) ──────────────────────────────────
+const BUY_NOW_STORAGE_KEY = 'bb_buy_now_item';
+
+const loadPersistedBuyNow = () => {
+  try {
+    const raw = sessionStorage.getItem(BUY_NOW_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const areVariantsEqual = (varA, varB) => {
+  const a = varA || {};
+  const b = varB || {};
+  const keysA = Object.keys(a).sort();
+  const keysB = Object.keys(b).sort();
+  if (keysA.length !== keysB.length) return false;
+  return keysA.every(k => String(a[k]).toLowerCase() === String(b[k]).toLowerCase());
+};
+
 // ── Local cart (guest — before auth) ─────────────────────────────────────────
 const persistedCart = loadPersistedCart();
 
@@ -66,6 +87,7 @@ const cartSlice = createSlice({
   initialState: {
     items: persistedCart.items,
     subtotal: persistedCart.subtotal,
+    buyNowItem: loadPersistedBuyNow(),
     isOpen: false,   // cart drawer open state
     loading: false,
     error: null,
@@ -74,32 +96,83 @@ const cartSlice = createSlice({
     openCart: (state) => { state.isOpen = true; },
     closeCart: (state) => { state.isOpen = false; },
     toggleCart: (state) => { state.isOpen = !state.isOpen; },
-    // Guest cart — local only
-    addLocal: (state, action) => {
-      const existing = state.items.find(i => 
-        i.productId === action.payload.productId &&
-        (i.variantId || null) === (action.payload.variantId || null)
-      );
-      if (existing) {
-        existing.quantity += action.payload.quantity || 1;
+    setBuyNowItem: (state, action) => {
+      state.buyNowItem = action.payload;
+      try {
+        if (action.payload) {
+          sessionStorage.setItem(BUY_NOW_STORAGE_KEY, JSON.stringify(action.payload));
+        } else {
+          sessionStorage.removeItem(BUY_NOW_STORAGE_KEY);
+        }
+      } catch {}
+    },
+    clearBuyNowItem: (state) => {
+      state.buyNowItem = null;
+      try { sessionStorage.removeItem(BUY_NOW_STORAGE_KEY); } catch {}
+    },
+    // Guest cart — local state reducers
+    addLocalState: (state, action) => {
+      const payload = action.payload || {};
+      const targetProductId = payload.productId || payload.id;
+      const targetVariantId = payload.variantId || null;
+
+      const resolvedName = payload.name || payload.productName || payload.product?.name || '';
+      const resolvedImage = payload.image || payload.productImage || payload.product?.image || (payload.product?.images && payload.product.images[0]) || '';
+      const resolvedVariant = payload.selectedVariant || payload.variant?.attributes || {};
+      const resolvedPrice = parseFloat(payload.priceAtAdd || payload.price || payload.product?.price || 0);
+      const addedQty = parseInt(payload.quantity || 1, 10);
+
+      const existingIndex = state.items.findIndex(i => {
+        const sameProd = Number(i.productId || i.id) === Number(targetProductId);
+        if (!sameProd) return false;
+        if (targetVariantId || i.variantId) {
+          return Number(i.variantId) === Number(targetVariantId);
+        }
+        return areVariantsEqual(i.selectedVariant, resolvedVariant);
+      });
+
+      if (existingIndex !== -1) {
+        state.items[existingIndex].quantity += addedQty;
+        if (resolvedName) state.items[existingIndex].name = resolvedName;
+        if (resolvedImage) state.items[existingIndex].image = resolvedImage;
+        if (resolvedPrice) state.items[existingIndex].priceAtAdd = resolvedPrice;
+        if (resolvedVariant && Object.keys(resolvedVariant).length > 0) {
+          state.items[existingIndex].selectedVariant = resolvedVariant;
+        }
       } else {
-        state.items.push({ ...action.payload, quantity: action.payload.quantity || 1 });
+        state.items.push({
+          productId: targetProductId,
+          variantId: targetVariantId,
+          name: resolvedName,
+          image: resolvedImage,
+          priceAtAdd: resolvedPrice,
+          selectedVariant: resolvedVariant,
+          quantity: addedQty,
+        });
       }
       state.subtotal = state.items.reduce((s, i) => s + (parseFloat(i.priceAtAdd) || 0) * i.quantity, 0);
       persistCart(state.items);
     },
-    removeLocal: (state, action) => {
-      const { productId, variantId } = typeof action.payload === 'object' && action.payload !== null
+    removeLocalState: (state, action) => {
+      const { productId, variantId, selectedVariant } = typeof action.payload === 'object' && action.payload !== null
         ? action.payload
-        : { productId: action.payload, variantId: null };
+        : { productId: action.payload, variantId: null, selectedVariant: null };
 
-      state.items = state.items.filter(i => 
-        !(i.productId === productId && (i.variantId || null) === (variantId || null))
-      );
+      state.items = state.items.filter(i => {
+        const sameProd = Number(i.productId || i.id) === Number(productId);
+        if (!sameProd) return true;
+        if (variantId || i.variantId) {
+          return Number(i.variantId) !== Number(variantId);
+        }
+        if (selectedVariant) {
+          return !areVariantsEqual(i.selectedVariant, selectedVariant);
+        }
+        return false;
+      });
       state.subtotal = state.items.reduce((s, i) => s + (parseFloat(i.priceAtAdd) || 0) * i.quantity, 0);
       persistCart(state.items);
     },
-    clearLocal: (state) => { state.items = []; state.subtotal = 0; persistCart([]); },
+    clearLocalState: (state) => { state.items = []; state.subtotal = 0; persistCart([]); },
   },
   extraReducers: (builder) => {
     builder
@@ -120,5 +193,39 @@ const cartSlice = createSlice({
   },
 });
 
-export const { openCart, closeCart, toggleCart, addLocal, removeLocal, clearLocal } = cartSlice.actions;
+export const { openCart, closeCart, toggleCart, setBuyNowItem, clearBuyNowItem, addLocalState, removeLocalState, clearLocalState } = cartSlice.actions;
+
+// ── Wrapped local cart actions that trigger background server sync ─────────────────────────────
+export const addLocal = createAsyncThunk('cart/addLocalSync', async (cartItem, { dispatch, getState }) => {
+  dispatch(addLocalState(cartItem));
+  const items = getState().cart.items;
+  if (items.length > 0) {
+    try {
+      await api.post('/cart/sync', { items });
+    } catch (err) {
+      console.log('[cart/sync] Background sync note:', err.message);
+    }
+  }
+});
+
+export const removeLocal = createAsyncThunk('cart/removeLocalSync', async (payload, { dispatch, getState }) => {
+  dispatch(removeLocalState(payload));
+  const items = getState().cart.items;
+  try {
+    await api.post('/cart/sync', { items });
+  } catch (err) {
+    console.log('[cart/sync] Background sync note:', err.message);
+  }
+});
+
+export const clearLocal = createAsyncThunk('cart/clearLocalSync', async (_, { dispatch, getState }) => {
+  dispatch(clearLocalState());
+  try {
+    await api.post('/cart/sync', { items: [] });
+  } catch (err) {
+    console.log('[cart/sync] Background sync note:', err.message);
+  }
+});
+
 export default cartSlice.reducer;
+

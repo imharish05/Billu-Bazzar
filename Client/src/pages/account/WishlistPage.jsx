@@ -13,8 +13,8 @@ const WishlistPage = () => {
   // Real Redux Wishlist items (containing fully detailed product objects)
   const items = useSelector(s => s.wishlist.items) || [];
 
-  const remove = (id) => {
-    dispatch(toggleItem(id));
+  const remove = (item) => {
+    dispatch(toggleItem(item));
     toast.success('Removed from wishlist', {
       style: {
         border: '1px solid #C58837',
@@ -30,7 +30,9 @@ const WishlistPage = () => {
       return;
     }
     dispatch(addLocal({ 
-      productId: item.id, 
+      productId: item.productId || item.id, 
+      variantId: item.variantId || null,
+      selectedVariant: item.selectedVariant || {},
       name: item.name, 
       image: item.image, 
       priceAtAdd: item.price, 
@@ -76,9 +78,12 @@ const WishlistPage = () => {
               ? Math.round(((Number(item.comparePrice) - Number(item.price)) / Number(item.comparePrice)) * 100)
               : null;
 
+            const variantEntries = item.selectedVariant ? Object.entries(item.selectedVariant).filter(([k,v]) => v) : [];
+            const variantText = variantEntries.length > 0 ? variantEntries.map(([k,v]) => `${k}: ${v}`).join(' · ') : null;
+
             return (
               <motion.article
-                key={item.id}
+                key={`${item.id || item.productId}_${item.variantId || JSON.stringify(item.selectedVariant || {})}_${index}`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.05 }}
@@ -110,7 +115,7 @@ const WishlistPage = () => {
 
                   {/* Remove Button (Red Heart on top right) */}
                   <button
-                    onClick={(e) => { e.preventDefault(); remove(item.id); }}
+                    onClick={(e) => { e.preventDefault(); remove(item); }}
                     className="absolute top-3 right-3 p-2 rounded-full bg-white/95 text-red-500 shadow-sm hover:scale-110 hover:bg-white transition-all duration-200 focus-visible:outline-brand-gold z-20"
                     aria-label={`Remove ${item.name} from wishlist`}
                     id={`wishlist-remove-${item.id}`}
@@ -152,6 +157,11 @@ const WishlistPage = () => {
                         {item.name}
                       </h3>
                     </Link>
+                    {variantText && (
+                      <p className="text-[10px] text-brand-gold font-medium mt-1">
+                        {variantText}
+                      </p>
+                    )}
                   </div>
 
                   <div className="mt-3">

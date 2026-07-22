@@ -25,6 +25,10 @@ const deleteLocalFile = (imagePath) => {
 const processProductData = (req) => {
   const data = { ...req.body };
 
+  if (data.productName && !data.name) {
+    data.name = data.productName.trim();
+  }
+
   // Helper to safely parse JSON strings
   const parseJsonField = (field) => {
     if (typeof field === 'string') {
@@ -41,19 +45,43 @@ const processProductData = (req) => {
   if (data.attributes) data.attributes = parseJsonField(data.attributes);
   if (data.dimensions) data.dimensions = parseJsonField(data.dimensions);
 
+  // Parse dynamic variant options [{ optionName, optionValue }] -> attributes object
+  if (data.variantOptions) {
+    const parsedOptions = parseJsonField(data.variantOptions);
+    if (Array.isArray(parsedOptions)) {
+      const attrsObj = {};
+      parsedOptions.forEach(opt => {
+        if (opt.optionName && opt.optionValue) {
+          attrsObj[opt.optionName.trim()] = opt.optionValue.trim();
+        }
+      });
+      data.attributes = attrsObj;
+    }
+  }
+
   // Cast values from FormData strings
   if (data.price !== undefined) data.price = data.price === '' ? null : parseFloat(data.price);
   if (data.comparePrice !== undefined) data.comparePrice = data.comparePrice === '' || data.comparePrice === 'null' ? null : parseFloat(data.comparePrice);
   if (data.stock !== undefined) data.stock = data.stock === '' ? 0 : parseInt(data.stock, 10);
+  if (data.weight !== undefined) data.weight = data.weight === '' || data.weight === 'null' ? null : parseFloat(data.weight);
+  if (data.dimensions !== undefined) data.dimensions = parseJsonField(data.dimensions);
   if (data.categoryId !== undefined) data.categoryId = data.categoryId === '' || data.categoryId === 'null' ? null : parseInt(data.categoryId, 10);
   if (data.subCategoryId !== undefined) data.subCategoryId = data.subCategoryId === '' || data.subCategoryId === 'null' ? null : parseInt(data.subCategoryId, 10);
   if (data.subSubCategoryId !== undefined) data.subSubCategoryId = data.subSubCategoryId === '' || data.subSubCategoryId === 'null' ? null : parseInt(data.subSubCategoryId, 10);
   if (data.vendorId !== undefined) data.vendorId = data.vendorId === '' || data.vendorId === 'null' ? null : parseInt(data.vendorId, 10);
+  if (data.warehouseId !== undefined) data.warehouseId = data.warehouseId === '' || data.warehouseId === 'null' ? null : parseInt(data.warehouseId, 10);
 
   if (data.isFeatured !== undefined) data.isFeatured = data.isFeatured === 'true' || data.isFeatured === true;
   if (data.isNewArrival !== undefined) data.isNewArrival = data.isNewArrival === 'true' || data.isNewArrival === true;
   if (data.isBestSeller !== undefined) data.isBestSeller = data.isBestSeller === 'true' || data.isBestSeller === true;
   if (data.isActive !== undefined) data.isActive = data.isActive === 'true' || data.isActive === true;
+  if (data.showAuthenticity !== undefined || data.hasAuthenticityBadge !== undefined) {
+    const val = data.hasAuthenticityBadge !== undefined ? data.hasAuthenticityBadge : data.showAuthenticity;
+    data.showAuthenticity = val === 'true' || val === true;
+    delete data.hasAuthenticityBadge;
+  }
+  if (data.has360View !== undefined) data.has360View = data.has360View === 'true' || data.has360View === true;
+  if (data.hasVideo !== undefined) data.hasVideo = data.hasVideo === 'true' || data.hasVideo === true;
 
   // Handle uploaded images
   let existingImages = [];
@@ -73,16 +101,30 @@ const processProductData = (req) => {
       const uploadsIndex = normalizedPath.indexOf('uploads');
       const pathString = '/' + normalizedPath.substring(uploadsIndex);
 
-      if (file.fieldname === 'images') {
+      if (file.fieldname === 'images' || file.fieldname === 'variantImages') {
         newImages.push(pathString);
+      } else if (file.fieldname === 'defaultProductImage') {
+        data.defaultProductImage = pathString;
       } else if (file.fieldname === 'spin_images') {
         newSpinImages.push(pathString);
+      } else if (file.fieldname === 'video') {
+        data.videoUrl = pathString;
+        data.hasVideo = true;
       }
     });
   }
 
+  if (data.videoUrl && data.videoUrl.trim() !== '') {
+    data.hasVideo = true;
+  }
+
   data.images = [...existingImages, ...newImages];
   delete data.existingImages;
+
+  // Fallback for defaultProductImage if not explicitly uploaded
+  if (!data.defaultProductImage && data.images && data.images.length > 0) {
+    data.defaultProductImage = data.images[0];
+  }
 
   // Handle uploaded 360 spin images
   let existingSpinImages = [];
@@ -170,7 +212,8 @@ const getAll = async (req, res) => {
         { model: SubCategory, as: 'subcategory', attributes: ['id', 'name', 'slug'] },
         { model: SubSubCategory, as: 'subsubcategory', attributes: ['id', 'name', 'slug'] },
         { model: Vendor, as: 'vendor', attributes: ['id', 'name', 'logo'] },
-        { model: ProductVariant, as: 'variants', attributes: ['id', 'sku', 'price', 'mrp', 'stock', 'attributes', 'image', 'images'] }
+        { model: Warehouse, as: 'warehouse', attributes: ['id', 'name'] },
+        { model: ProductVariant, as: 'variants', attributes: ['id', 'sku', 'price', 'mrp', 'stock', 'attributes', 'image', 'images', 'warehouseId'], include: [{ model: Warehouse, as: 'warehouse', attributes: ['id', 'name'] }] }
       ],
     });
 
@@ -189,7 +232,8 @@ const getOne = async (req, res) => {
         { model: SubCategory, as: 'subcategory' },
         { model: SubSubCategory, as: 'subsubcategory' },
         { model: Vendor, as: 'vendor', attributes: ['id', 'name', 'rating'] },
-        { model: ProductVariant, as: 'variants', attributes: ['id', 'sku', 'price', 'mrp', 'stock', 'attributes', 'image', 'images'] }
+        { model: Warehouse, as: 'warehouse', attributes: ['id', 'name'] },
+        { model: ProductVariant, as: 'variants', attributes: ['id', 'sku', 'price', 'mrp', 'stock', 'attributes', 'image', 'images', 'warehouseId'], include: [{ model: Warehouse, as: 'warehouse', attributes: ['id', 'name'] }] }
       ],
     });
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
@@ -207,8 +251,40 @@ const create = async (req, res) => {
     const spinMeta = materializeSpinSequence(product.id, product.spin_images);
     await product.update(spinMeta);
 
-    // Create variants if supplied in the request body
-    if (req.body.variants) {
+    // Handle single default variant sync if req.body.variants is not supplied
+    if (!req.body.variants || (Array.isArray(req.body.variants) && req.body.variants.length === 0)) {
+      const [defaultVar, created] = await ProductVariant.findOrCreate({
+        where: { productId: product.id },
+        defaults: {
+          sku: product.sku || `PV-${product.id}-${Date.now()}`,
+          price: product.price,
+          mrp: product.comparePrice,
+          stock: product.stock,
+          attributes: product.attributes || {},
+          image: product.defaultProductImage || product.images?.[0] || null,
+          images: product.images || [],
+          warehouseId: product.warehouseId || null
+        }
+      });
+      if (!created) {
+        await defaultVar.update({
+          sku: product.sku || defaultVar.sku,
+          price: product.price,
+          mrp: product.comparePrice,
+          stock: product.stock,
+          attributes: product.attributes || {},
+          image: product.defaultProductImage || product.images?.[0] || defaultVar.image,
+          images: product.images || [],
+          warehouseId: product.warehouseId || defaultVar.warehouseId
+        });
+      }
+
+      // Sync warehouse stock
+      const targetWhId = product.warehouseId || (await Warehouse.findOne({ where: { isFulfillment: true, isActive: true } }))?.id;
+      if (targetWhId) {
+        await syncWarehouseStock(product.id, defaultVar.id, product.stock, 10, targetWhId);
+      }
+    } else {
       let parsedVariants = [];
       try {
         parsedVariants = typeof req.body.variants === 'string' ? JSON.parse(req.body.variants) : req.body.variants;
@@ -220,7 +296,6 @@ const create = async (req, res) => {
         for (let i = 0; i < parsedVariants.length; i++) {
           const v = parsedVariants[i];
 
-          // Collect images uploaded for this variant
           const vGalleryFiles = req.files ? req.files.filter(f => f.fieldname === `variantGallery_${i}`) : [];
           const newGalleryPaths = vGalleryFiles.map(file => {
             const normalizedPath = file.path.replace(/\\/g, '/');
@@ -239,31 +314,24 @@ const create = async (req, res) => {
             attributes: v.attributes || {},
             image: mainVarImg,
             images: newGalleryPaths,
+            warehouseId: v.warehouseId ? parseInt(v.warehouseId, 10) : (product.warehouseId ? parseInt(product.warehouseId, 10) : null),
           });
 
-          // Sync stock to the primary fulfillment warehouse (India)
-          await syncWarehouseStock(product.id, variant.id, variant.stock);
+          await syncWarehouseStock(product.id, variant.id, variant.stock, 10, variant.warehouseId);
         }
-        
-        // Sync product stock and price with newly created variants
         await syncProductVariants(product.id);
-      }
-    } else {
-      // If no variants are supplied, sync the product's own stock to the India Fulfillment Warehouse
-      const primaryWh = await Warehouse.findOne({ where: { isFulfillment: true, isActive: true } });
-      if (primaryWh) {
-        const [ws, created] = await WarehouseStock.findOrCreate({
-          where: { warehouseId: primaryWh.id, productId: product.id, variantId: null },
-          defaults: { quantity: product.stock, reorderLevel: 10 }
-        });
-        if (!created) {
-          await ws.update({ quantity: product.stock });
-        }
       }
     }
 
     const freshProduct = await Product.findByPk(product.id, {
-      include: [{ model: ProductVariant, as: 'variants' }]
+      include: [
+        { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
+        { model: SubCategory, as: 'subcategory', attributes: ['id', 'name', 'slug'] },
+        { model: SubSubCategory, as: 'subsubcategory', attributes: ['id', 'name', 'slug'] },
+        { model: Vendor, as: 'vendor', attributes: ['id', 'name', 'logo'] },
+        { model: Warehouse, as: 'warehouse', attributes: ['id', 'name'] },
+        { model: ProductVariant, as: 'variants', attributes: ['id', 'sku', 'price', 'mrp', 'stock', 'attributes', 'image', 'images', 'warehouseId'], include: [{ model: Warehouse, as: 'warehouse', attributes: ['id', 'name'] }] }
+      ]
     });
 
     res.status(201).json({ success: true, product: freshProduct });
@@ -329,6 +397,7 @@ const update = async (req, res) => {
             existingVariant = oldVariantMap.get(parseInt(v.id, 10));
           }
 
+          const variantWarehouseId = v.warehouseId ? parseInt(v.warehouseId, 10) : (product.warehouseId ? parseInt(product.warehouseId, 10) : null);
           if (existingVariant) {
             await existingVariant.update({
               sku: v.sku ? v.sku.trim() : existingVariant.sku,
@@ -338,9 +407,10 @@ const update = async (req, res) => {
               attributes: v.attributes || {},
               image: mainVarImg,
               images: vImages,
+              warehouseId: variantWarehouseId,
             });
             activeVariantIds.add(existingVariant.id);
-            await syncWarehouseStock(product.id, existingVariant.id, existingVariant.stock);
+            await syncWarehouseStock(product.id, existingVariant.id, existingVariant.stock, 10, existingVariant.warehouseId);
           } else {
             const newVar = await ProductVariant.create({
               productId: product.id,
@@ -351,9 +421,10 @@ const update = async (req, res) => {
               attributes: v.attributes || {},
               image: mainVarImg,
               images: vImages,
+              warehouseId: variantWarehouseId,
             });
             activeVariantIds.add(newVar.id);
-            await syncWarehouseStock(product.id, newVar.id, newVar.stock);
+            await syncWarehouseStock(product.id, newVar.id, newVar.stock, 10, newVar.warehouseId);
           }
         }
 
@@ -368,11 +439,20 @@ const update = async (req, res) => {
         await syncProductVariants(product.id);
       }
     } else {
-      // If no variants are supplied, sync the product's own stock to the India Fulfillment Warehouse
-      const primaryWh = await Warehouse.findOne({ where: { isFulfillment: true, isActive: true } });
-      if (primaryWh) {
+      // If no variants are supplied, sync the product's own stock to the selected warehouse or fallback to fulfillment warehouse
+      const targetWhId = product.warehouseId || (await Warehouse.findOne({ where: { isFulfillment: true, isActive: true } }))?.id;
+      if (targetWhId) {
+        // Destroy other warehouse stock records for this product to prevent duplication
+        await WarehouseStock.destroy({
+          where: {
+            productId: product.id,
+            variantId: null,
+            warehouseId: { [Op.ne]: targetWhId }
+          }
+        });
+
         const [ws, created] = await WarehouseStock.findOrCreate({
-          where: { warehouseId: primaryWh.id, productId: product.id, variantId: null },
+          where: { warehouseId: targetWhId, productId: product.id, variantId: null },
           defaults: { quantity: product.stock, reorderLevel: 10 }
         });
         if (!created) {
@@ -382,7 +462,14 @@ const update = async (req, res) => {
     }
 
     const freshProduct = await Product.findByPk(product.id, {
-      include: [{ model: ProductVariant, as: 'variants' }]
+      include: [
+        { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
+        { model: SubCategory, as: 'subcategory', attributes: ['id', 'name', 'slug'] },
+        { model: SubSubCategory, as: 'subsubcategory', attributes: ['id', 'name', 'slug'] },
+        { model: Vendor, as: 'vendor', attributes: ['id', 'name', 'logo'] },
+        { model: Warehouse, as: 'warehouse', attributes: ['id', 'name'] },
+        { model: ProductVariant, as: 'variants', attributes: ['id', 'sku', 'price', 'mrp', 'stock', 'attributes', 'image', 'images', 'warehouseId'], include: [{ model: Warehouse, as: 'warehouse', attributes: ['id', 'name'] }] }
+      ]
     });
 
     res.json({ success: true, product: freshProduct });

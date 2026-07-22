@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
 import ScrollToTop from './components/ScrollToTop';
@@ -29,9 +30,12 @@ import ShippingPage from './pages/ShippingPage';
 import CancellationPage from './pages/CancellationPage';
 import ReturnsPage from './pages/ReturnsPage';
 import api from './services/api';
+import { fetchProfile } from './redux/slices/authSlice';
+import { getAccessToken } from './utils/tokenStorage';
 
 const App = () => {
   const location = useLocation();
+  const dispatch = useDispatch();
 
   useEffect(() => {
     let scrollTimeout;
@@ -61,6 +65,15 @@ const App = () => {
       clearTimeout(scrollTimeout);
     };
   }, []);
+
+  // ── Bootstrap: fetch profile whenever a token exists ────────────────────────
+  // Runs once on mount. If a token is in localStorage, call /getme to load
+  // fresh customer data into Redux — covers page refresh, new tab, etc.
+  useEffect(() => {
+    if (getAccessToken()) {
+      dispatch(fetchProfile());
+    }
+  }, [dispatch]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -111,6 +124,7 @@ const App = () => {
           <Route path="/shipping" element={<ShippingPage />} />
           <Route path="/cancellation" element={<CancellationPage />} />
           <Route path="/returns" element={<ReturnsPage />} />
+          <Route path="/forgot-password" element={<Navigate to="/account?view=forgot" replace />} />
           <Route path="/account" element={<AccountLayout />}>
             <Route index element={<ProfilePage />} />
             <Route path="orders" element={<OrdersPage />} />

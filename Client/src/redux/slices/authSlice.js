@@ -44,12 +44,21 @@ export const fetchProfile = createAsyncThunk('auth/profile', async (_, { rejectW
   } catch (err) { return rejectWithValue(err.response?.data?.message); }
 });
 
+export const updateProfile = createAsyncThunk('auth/updateProfile', async (data, { rejectWithValue }) => {
+  try {
+    const res = await api.put('/auth/profile', data);
+    if (!res.data.success) return rejectWithValue(res.data.message || 'Update failed');
+    return res.data.customer;
+  } catch (err) { return rejectWithValue(err.response?.data?.message || 'Failed to update profile'); }
+});
+
 const authSlice = createSlice({
   name: 'auth',
   initialState: {
     customer: null,
     token: getAccessToken() || null,
     loading: false,
+    profileLoading: false,
     error: null,
     isAuthenticated: !!getAccessToken(),
   },
@@ -71,8 +80,13 @@ const authSlice = createSlice({
       .addCase(loginCustomer.pending, (state) => { state.loading = true; state.error = null; })
       .addCase(loginCustomer.fulfilled, (state, action) => { state.loading = false; state.token = action.payload.token; state.customer = action.payload.customer; state.isAuthenticated = true; })
       .addCase(loginCustomer.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
-      .addCase(registerCustomer.fulfilled, (state, action) => { state.token = action.payload.token; state.customer = action.payload.customer; state.isAuthenticated = true; })
-      .addCase(fetchProfile.fulfilled, (state, action) => { state.customer = action.payload.customer; });
+      .addCase(registerCustomer.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(registerCustomer.fulfilled, (state, action) => { state.loading = false; state.token = action.payload.token; state.customer = action.payload.customer; state.isAuthenticated = true; })
+      .addCase(registerCustomer.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
+      .addCase(fetchProfile.fulfilled, (state, action) => { state.customer = action.payload.customer; })
+      .addCase(updateProfile.pending, (state) => { state.profileLoading = true; })
+      .addCase(updateProfile.fulfilled, (state, action) => { state.profileLoading = false; state.customer = action.payload; })
+      .addCase(updateProfile.rejected, (state) => { state.profileLoading = false; });
   },
 });
 

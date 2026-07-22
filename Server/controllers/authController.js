@@ -1,7 +1,7 @@
 'use strict';
 const bcrypt = require('bcryptjs');
 const { signAccessToken, signRefreshToken, verifyAccessToken, verifyRefreshToken } = require('../config/jwt');
-const { Customer, AdminUser } = require('../models');
+const { Customer, AdminUser, Role } = require('../models');
 const { v4: uuidv4 } = require('uuid');
 
 // ── Phone Number Validation Helper ───────────────────────────────────────────
@@ -304,4 +304,265 @@ const getMe = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getProfile, updateProfile, adminLogin, refresh, getRefreshToken, getMe };
+const adminRegister = async (req, res) => {
+  try {
+    const { name, email, password } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password are required' });
+    }
+
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      return res.status(400).json({ success: false, message: emailValidation.message });
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({ success: false, message: passwordValidation.message });
+    }
+
+    let [role] = await Role.findOrCreate({
+      where: { name: 'ADMIN' },
+      defaults: { permissions: { all: true } }
+    });
+
+    const hashed = await bcrypt.hash(password, 12);
+    const cleanEmail = email.trim().toLowerCase();
+    const adminName = name || cleanEmail.split('@')[0] || 'Admin User';
+
+    let admin = await AdminUser.findOne({ where: { email: cleanEmail } });
+    if (admin) {
+      await admin.update({ password: hashed, isActive: true, roleId: role.id });
+      return res.status(200).json({
+        success: true,
+        message: 'Admin account updated successfully with new password',
+        admin: { id: admin.id, name: admin.name, email: admin.email }
+      });
+    }
+
+    admin = await AdminUser.create({
+      name: adminName,
+      email: cleanEmail,
+      password: hashed,
+      roleId: role.id,
+      isActive: true
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Admin registered successfully',
+      admin: { id: admin.id, name: admin.name, email: admin.email }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ── Forgot / Reset Password (OTP flow) ───────────────────────────────────────
+const crypto = require('crypto');
+const { sendOtpEmail, sendFraudOtpEmail } = require('../services/emailService');
+
+// ── Checkout Fraud Verification OTP ──────────────────────────────────────────
+const sendCheckoutOtp = async (req, res) => {
+  try {
+    const { email, name } = req.body || {};
+    const targetEmail = (email || req.customer?.email || '').trim().toLowerCase();
+    if (!targetEmail) return res.status(400).json({ success: false, message: 'Email address is required' });
+
+    const emailValidation = validateEmail(targetEmail);
+    if (!emailValidation.isValid) {
+      return res.status(400).json({ success: false, message: emailValidation.message });
+    }
+
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const hashedOtp = crypto.createHash('sha256').update(otp).digest('hex');
+    const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    const customer = await Customer.findOne({ where: { email: targetEmail } });
+    if (customer) {
+      await customer.update({ passwordResetToken: hashedOtp, passwordResetExpiry: expiry });
+    }
+
+    try {
+      await sendFraudOtpEmail(targetEmail, name || customer?.name || 'Customer', otp);
+    } catch (emailErr) {
+      console.error('Checkout OTP email failed:', emailErr.message);
+      return res.status(500).json({ success: false, message: 'Failed to send verification OTP email. Please try again.' });
+    }
+
+    return res.json({ success: true, message: `Verification OTP sent to ${targetEmail}` });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const verifyCheckoutOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body || {};
+    const targetEmail = (email || req.customer?.email || '').trim().toLowerCase();
+    if (!targetEmail || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and 6-digit verification code are required' });
+    }
+
+    const customer = await Customer.findOne({ where: { email: targetEmail } });
+    if (!customer || !customer.passwordResetToken || !customer.passwordResetExpiry) {
+      return res.status(400).json({ success: false, message: 'Verification code expired or not found. Please resend.' });
+    }
+
+    if (new Date() > new Date(customer.passwordResetExpiry)) {
+      await customer.update({ passwordResetToken: null, passwordResetExpiry: null });
+      return res.status(400).json({ success: false, message: 'Verification code has expired. Please resend.' });
+    }
+
+    const hashedOtp = crypto.createHash('sha256').update(otp.toString().trim()).digest('hex');
+    if (hashedOtp !== customer.passwordResetToken) {
+      return res.status(400).json({ success: false, message: 'Incorrect 6-digit verification code. Please try again.' });
+    }
+
+    // OTP verified — clear token
+    await customer.update({ passwordResetToken: null, passwordResetExpiry: null });
+
+    return res.json({ success: true, message: 'Security verification successful' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const { signResetToken, verifyResetToken } = require('../config/jwt');
+
+/**
+ * Step 1 — Customer submits their email.
+ * Generates a 6-digit OTP, stores a SHA-256 hash of it in the DB (10 min expiry),
+ * and sends the plain OTP to the customer's email via Gmail.
+ */
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    if (!email) return res.status(400).json({ success: false, message: 'Email address is required' });
+
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      return res.status(400).json({ success: false, message: emailValidation.message });
+    }
+
+    const customer = await Customer.findOne({ where: { email: email.trim().toLowerCase() } });
+
+    // Always respond with success to prevent email enumeration
+    if (!customer) {
+      return res.json({ success: true, message: 'If that email is registered, an OTP has been sent.' });
+    }
+
+    // Generate a cryptographically secure 6-digit OTP
+    const otp = crypto.randomInt(100000, 999999).toString();
+
+    // Store only the hash — never the plain OTP
+    const hashedOtp = crypto.createHash('sha256').update(otp).digest('hex');
+    const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await customer.update({
+      passwordResetToken: hashedOtp,
+      passwordResetExpiry: expiry,
+    });
+
+    try {
+      await sendOtpEmail(customer.email, customer.name, otp);
+    } catch (emailErr) {
+      console.error('OTP email failed:', emailErr.message);
+      // Clear the token so the user can retry cleanly
+      await customer.update({ passwordResetToken: null, passwordResetExpiry: null });
+      return res.status(500).json({ success: false, message: 'Failed to send OTP email. Please try again.' });
+    }
+
+    return res.json({ success: true, message: 'If that email is registered, an OTP has been sent.' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/**
+ * Step 2 — Customer submits the 6-digit OTP.
+ * Validates the OTP hash and expiry. On success, clears the OTP (one-time use)
+ * and returns a short-lived resetToken JWT (10 min) the frontend uses for step 3.
+ */
+const verifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body || {};
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and OTP are required' });
+    }
+
+    const customer = await Customer.findOne({ where: { email: email.trim().toLowerCase() } });
+
+    if (!customer || !customer.passwordResetToken || !customer.passwordResetExpiry) {
+      return res.status(400).json({ success: false, message: 'OTP not found or already used. Please request a new one.' });
+    }
+
+    // Check expiry first
+    if (new Date() > new Date(customer.passwordResetExpiry)) {
+      await customer.update({ passwordResetToken: null, passwordResetExpiry: null });
+      return res.status(400).json({ success: false, message: 'OTP has expired. Please request a new one.' });
+    }
+
+    // Verify the OTP hash
+    const hashedOtp = crypto.createHash('sha256').update(otp.toString().trim()).digest('hex');
+    if (hashedOtp !== customer.passwordResetToken) {
+      return res.status(400).json({ success: false, message: 'Incorrect OTP. Please try again.' });
+    }
+
+    // OTP correct — clear it (one-time use)
+    await customer.update({ passwordResetToken: null, passwordResetExpiry: null });
+
+    // Issue a short-lived reset token so step 3 can proceed
+    const resetToken = signResetToken({ id: customer.id });
+
+    return res.json({ success: true, resetToken });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/**
+ * Step 3 — Customer submits their new password.
+ * Verifies the resetToken JWT from step 2 and updates the password.
+ */
+const resetPassword = async (req, res) => {
+  try {
+    const { resetToken, password } = req.body || {};
+    if (!resetToken || !password) {
+      return res.status(400).json({ success: false, message: 'Reset token and new password are required' });
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({ success: false, message: passwordValidation.message });
+    }
+
+    // Verify the OTP-issued reset token
+    let decoded;
+    try {
+      decoded = verifyResetToken(resetToken);
+    } catch {
+      return res.status(400).json({ success: false, message: 'Your session has expired. Please start the reset process again.' });
+    }
+
+    const customer = await Customer.findByPk(decoded.id);
+    if (!customer || !customer.isActive) {
+      return res.status(400).json({ success: false, message: 'Account not found.' });
+    }
+
+    const hashed = await bcrypt.hash(password, 12);
+    await customer.update({ password: hashed });
+
+    return res.json({ success: true, message: 'Password reset successfully. You can now sign in.' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+module.exports = {
+  register, login, getProfile, updateProfile,
+  adminLogin, adminRegister,
+  refresh, getRefreshToken, getMe,
+  forgotPassword, verifyOtp, resetPassword,
+  sendCheckoutOtp, verifyCheckoutOtp,
+};

@@ -129,7 +129,11 @@ const Navbar = () => {
       }
     };
     fetchHeaderCategories();
-  }, []);
+
+    const handleFocus = () => fetchHeaderCategories();
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [location.pathname]);
 
   const activeNavLinks = dynamicNavLinks.length > 0 ? dynamicNavLinks : DEFAULT_NAV_LINKS;
 

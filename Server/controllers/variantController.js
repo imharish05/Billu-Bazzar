@@ -13,17 +13,30 @@ const buildImagePath = (file) => {
   return '/' + file.path.replace(/\\/g, '/').replace(/^.*uploads\//, 'uploads/');
 };
 
-// Helper to sync variant stock into India Fulfillment Warehouse
-const syncWarehouseStock = async (productId, variantId, stockQty, reorderLevel = 10) => {
+// Helper to sync variant stock into selected or default warehouse
+const syncWarehouseStock = async (productId, variantId, stockQty, reorderLevel = 10, warehouseId = null) => {
   try {
-    const primaryWh = await Warehouse.findOne({ where: { isFulfillment: true, isActive: true } });
-    if (!primaryWh) {
-      console.warn('[SyncWarehouseStock] No primary fulfillment warehouse found');
-      return;
+    let targetWhId = warehouseId;
+    if (!targetWhId) {
+      const primaryWh = await Warehouse.findOne({ where: { isFulfillment: true, isActive: true } });
+      if (!primaryWh) {
+        console.warn('[SyncWarehouseStock] No primary fulfillment warehouse found');
+        return;
+      }
+      targetWhId = primaryWh.id;
     }
 
+    // Destroy duplicate/outdated stock in other warehouses for this product variant
+    await WarehouseStock.destroy({
+      where: {
+        productId,
+        variantId: variantId || null,
+        warehouseId: { [Op.ne]: targetWhId }
+      }
+    });
+
     const [ws, created] = await WarehouseStock.findOrCreate({
-      where: { warehouseId: primaryWh.id, productId, variantId },
+      where: { warehouseId: targetWhId, productId, variantId: variantId || null },
       defaults: { quantity: stockQty, reorderLevel },
     });
 
@@ -34,8 +47,8 @@ const syncWarehouseStock = async (productId, variantId, stockQty, reorderLevel =
     // Log manual adjustment movement
     await InventoryMovementLog.create({
       productId,
-      variantId,
-      warehouseId: primaryWh.id,
+      variantId: variantId || null,
+      warehouseId: targetWhId,
       quantity: stockQty,
       type: 'MANUAL_ADJUSTMENT',
       reason: 'Sync from Variant CRUD',
@@ -70,7 +83,10 @@ const syncProductVariants = async (productId) => {
 const getAll = async (req, res) => {
   try {
     const variants = await ProductVariant.findAll({
-      include: [{ model: Product, as: 'product', attributes: ['id', 'name', 'slug'] }],
+      include: [
+        { model: Product, as: 'product', attributes: ['id', 'name', 'slug'] },
+        { model: Warehouse, as: 'warehouse', attributes: ['id', 'name'] }
+      ],
       order: [['createdAt', 'DESC']],
     });
     res.json({ success: true, variants });
@@ -95,7 +111,7 @@ const getByProduct = async (req, res) => {
 // POST /api/variants/add
 const add = async (req, res) => {
   try {
-    const { productId, sku, price, mrp, stock, attributes } = req.body;
+    const { productId, sku, price, mrp, stock, attributes, warehouseId } = req.body;
 
     if (!productId) return res.status(400).json({ success: false, message: 'productId is required' });
     if (price !== undefined && Number(price) < 0) return res.status(400).json({ success: false, message: 'Price cannot be negative' });
@@ -109,23 +125,44 @@ const add = async (req, res) => {
       return res.status(400).json({ success: false, message: `SKU "${finalSku}" is already in use` });
     }
 
-    // Process file uploads
-    let mainVarImg = null;
-    let galleryPaths = [];
-
-    if (req.files) {
-      const mainFile = req.files.image ? req.files.image[0] : (req.files[0] || null);
-      mainVarImg = buildImagePath(mainFile);
-
-      const galleryFiles = req.files.gallery || [];
-      galleryPaths = galleryFiles.map(file => buildImagePath(file)).filter(Boolean);
-    } else if (req.file) {
-      mainVarImg = buildImagePath(req.file);
+    // Process file uploads (up to 10 images per variant)
+    let existingImagesParsed = [];
+    if (req.body.existingImages) {
+      try { existingImagesParsed = JSON.parse(req.body.existingImages); }
+      catch (e) { existingImagesParsed = Array.isArray(req.body.existingImages) ? req.body.existingImages : []; }
     }
+
+    let galleryPaths = [];
+    if (req.files && Array.isArray(req.files)) {
+      req.files.forEach(file => {
+        const p = buildImagePath(file);
+        if (p) galleryPaths.push(p);
+      });
+    } else if (req.file) {
+      const p = buildImagePath(req.file);
+      if (p) galleryPaths.push(p);
+    }
+
+    const allImages = [...existingImagesParsed, ...galleryPaths].slice(0, 10);
+    const mainVarImg = allImages.length > 0 ? allImages[0] : null;
 
     let parsedAttributes = attributes || {};
     if (typeof attributes === 'string') {
       try { parsedAttributes = JSON.parse(attributes); } catch (e) { parsedAttributes = {}; }
+    }
+
+    // Check if variant with identical attributes already exists for this product
+    const existingVariants = await ProductVariant.findAll({ where: { productId: parseInt(productId, 10) } });
+    const isDuplicate = existingVariants.some(v => {
+      const vAttrs = v.attributes || {};
+      const keysA = Object.keys(vAttrs).sort();
+      const keysB = Object.keys(parsedAttributes).sort();
+      if (keysA.length !== keysB.length) return false;
+      return keysA.every(k => String(vAttrs[k]).trim().toLowerCase() === String(parsedAttributes[k]).trim().toLowerCase());
+    });
+
+    if (isDuplicate) {
+      return res.status(400).json({ success: false, message: 'A variant with this combination of option attributes already exists for this product.' });
     }
 
     const variant = await ProductVariant.create({
@@ -136,11 +173,12 @@ const add = async (req, res) => {
       stock: stock === '' || stock === undefined ? 0 : parseInt(stock, 10),
       attributes: parsedAttributes,
       image: mainVarImg,
-      images: galleryPaths,
+      images: allImages,
+      warehouseId: warehouseId ? parseInt(warehouseId, 10) : null
     });
 
-    // Sync warehouse stock at India warehouse level
-    await syncWarehouseStock(variant.productId, variant.id, variant.stock);
+    // Sync warehouse stock
+    await syncWarehouseStock(variant.productId, variant.id, variant.stock, 10, variant.warehouseId);
 
     // Sync product price and stock
     await syncProductVariants(variant.productId);
@@ -157,7 +195,7 @@ const update = async (req, res) => {
     const variant = await ProductVariant.findByPk(req.params.id);
     if (!variant) return res.status(404).json({ success: false, message: 'Variant not found' });
 
-    const { sku, price, mrp, stock, attributes } = req.body;
+    const { sku, price, mrp, stock, attributes, warehouseId } = req.body;
 
     if (price !== undefined && Number(price) < 0) return res.status(400).json({ success: false, message: 'Price cannot be negative' });
     if (stock !== undefined && Number(stock) < 0) return res.status(400).json({ success: false, message: 'Stock cannot be negative' });
@@ -174,6 +212,7 @@ const update = async (req, res) => {
       ...(price !== undefined && { price: price === '' ? null : parseFloat(price) }),
       ...(mrp !== undefined && { mrp: mrp === '' ? null : parseFloat(mrp) }),
       ...(stock !== undefined && { stock: stock === '' ? 0 : parseInt(stock, 10) }),
+      ...(warehouseId !== undefined && { warehouseId: warehouseId === '' || warehouseId === 'null' ? null : parseInt(warehouseId, 10) }),
     };
 
     if (attributes !== undefined) {
@@ -184,29 +223,37 @@ const update = async (req, res) => {
       updates.attributes = parsedAttributes;
     }
 
-    // Process file uploads
-    if (req.files) {
-      const mainFile = req.files.image ? req.files.image[0] : (req.files[0] || null);
-      if (mainFile) {
-        updates.image = buildImagePath(mainFile);
-      }
+    // Process file uploads (up to 10 images per variant)
+    let existingImagesParsed = [];
+    if (req.body.existingImages) {
+      try { existingImagesParsed = JSON.parse(req.body.existingImages); }
+      catch (e) { existingImagesParsed = Array.isArray(req.body.existingImages) ? req.body.existingImages : []; }
+    } else if (variant.images) {
+      existingImagesParsed = variant.images;
+    }
 
-      const galleryFiles = req.files.gallery || [];
-      if (galleryFiles.length > 0) {
-        updates.images = galleryFiles.map(file => buildImagePath(file)).filter(Boolean);
-        if (!updates.image && updates.images.length > 0) {
-          updates.image = updates.images[0];
-        }
-      }
+    let galleryPaths = [];
+    if (req.files && Array.isArray(req.files)) {
+      req.files.forEach(file => {
+        const p = buildImagePath(file);
+        if (p) galleryPaths.push(p);
+      });
     } else if (req.file) {
-      updates.image = buildImagePath(req.file);
+      const p = buildImagePath(req.file);
+      if (p) galleryPaths.push(p);
+    }
+
+    if (req.body.existingImages || galleryPaths.length > 0) {
+      const allImages = [...existingImagesParsed, ...galleryPaths].slice(0, 10);
+      updates.images = allImages;
+      updates.image = allImages.length > 0 ? allImages[0] : null;
     }
 
     await variant.update(updates);
 
-    if (stock !== undefined) {
-      // Sync warehouse stock at India warehouse level
-      await syncWarehouseStock(variant.productId, variant.id, variant.stock);
+    if (stock !== undefined || warehouseId !== undefined) {
+      // Sync warehouse stock
+      await syncWarehouseStock(variant.productId, variant.id, variant.stock, 10, variant.warehouseId);
     }
 
     // Sync product price and stock

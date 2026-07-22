@@ -2,11 +2,13 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ProductsAdminPage from './pages/ProductsAdminPage';
+import VariantsAdminPage from './pages/VariantsAdminPage';
 import CategoriesAdminPage from './pages/CategoriesAdminPage';
 import SubCategoriesAdminPage from './pages/SubCategoriesAdminPage';
 import SubSubCategoriesAdminPage from './pages/SubSubCategoriesAdminPage';
 import OrdersAdminPage from './pages/OrdersAdminPage';
 import CustomersAdminPage from './pages/CustomersAdminPage';
+import AbandonedCartsAdminPage from './pages/AbandonedCartsAdminPage';
 import BannersAdminPage from './pages/BannersAdminPage';
 import VendorsAdminPage from './pages/VendorsAdminPage';
 import WarehousesAdminPage from './pages/WarehousesAdminPage';
@@ -36,11 +38,13 @@ const App = () => (
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/dashboard"   element={<Protected><DashboardPage /></Protected>} />
       <Route path="/products"    element={<Protected><ProductsAdminPage /></Protected>} />
+      <Route path="/variants"    element={<Protected><VariantsAdminPage /></Protected>} />
       <Route path="/categories"  element={<Protected><CategoriesAdminPage /></Protected>} />
       <Route path="/sub-categories" element={<Protected><SubCategoriesAdminPage /></Protected>} />
       <Route path="/sub-sub-categories" element={<Protected><SubSubCategoriesAdminPage /></Protected>} />
       <Route path="/orders"      element={<Protected><OrdersAdminPage /></Protected>} />
       <Route path="/customers"   element={<Protected><CustomersAdminPage /></Protected>} />
+      <Route path="/abandoned-carts" element={<Protected><AbandonedCartsAdminPage /></Protected>} />
       <Route path="/slider-messages" element={<Protected><SliderMessagesAdminPage /></Protected>} />
       <Route path="/banners"     element={<Protected><BannersAdminPage /></Protected>} />
       <Route path="/vendors"     element={<Protected><VendorsAdminPage /></Protected>} />

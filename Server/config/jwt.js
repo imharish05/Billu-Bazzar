@@ -13,6 +13,16 @@ const verifyAccessToken = (token) =>
 const verifyRefreshToken = (token) =>
   jwt.verify(token, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET);
 
+// Short-lived token issued after OTP verification — allows one password reset (10 min)
+const signResetToken = (payload) =>
+  jwt.sign({ ...payload, purpose: 'password_reset' }, process.env.JWT_SECRET, { expiresIn: '10m' });
+
+const verifyResetToken = (token) => {
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  if (decoded.purpose !== 'password_reset') throw new Error('Invalid token purpose');
+  return decoded;
+};
+
 const signToken = (payload) => signAccessToken(payload);
 const verifyToken = (token) => verifyAccessToken(token);
 
@@ -21,6 +31,8 @@ module.exports = {
   signRefreshToken,
   verifyAccessToken,
   verifyRefreshToken,
+  signResetToken,
+  verifyResetToken,
   signToken,
   verifyToken
 };

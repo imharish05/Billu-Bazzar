@@ -66,6 +66,12 @@ SubSubCategory.hasMany(Product,   { foreignKey: 'subSubCategoryId', as: 'product
 Product.belongsTo(Vendor,   { foreignKey: 'vendorId', as: 'vendor' });
 Vendor.hasMany(Product,     { foreignKey: 'vendorId', as: 'products' });
 
+Product.belongsTo(Warehouse, { foreignKey: 'warehouseId', as: 'warehouse' });
+Warehouse.hasMany(Product,   { foreignKey: 'warehouseId', as: 'products' });
+
+ProductVariant.belongsTo(Warehouse, { foreignKey: 'warehouseId', as: 'warehouse' });
+Warehouse.hasMany(ProductVariant,   { foreignKey: 'warehouseId', as: 'variants' });
+
 // WarehouseStock ↔ Warehouse / Product / ProductVariant
 WarehouseStock.belongsTo(Warehouse, { foreignKey: 'warehouseId', as: 'warehouse' });
 Warehouse.hasMany(WarehouseStock,   { foreignKey: 'warehouseId', as: 'stocks' });

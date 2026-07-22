@@ -1,5 +1,6 @@
 'use strict';
-const { Cart, CartItem, Product, ProductVariant } = require('../models');
+const { Cart, CartItem, Product, ProductVariant, Customer } = require('../models');
+const emailService = require('../services/emailService');
 
 // Helper to determine selector for Cart search based on customer or guest session
 const getCartSelector = (req) => {
@@ -14,13 +15,21 @@ const getCartSelector = (req) => {
 // Helper to resolve or create a Cart for a user/guest
 const getOrCreateCart = async (req) => {
   if (req.customer && req.customer.id) {
-    const [cart] = await Cart.findOrCreate({ where: { customerId: req.customer.id } });
+    let cart = await Cart.findOne({ where: { customerId: req.customer.id } });
+    if (!cart) {
+      cart = await Cart.create({ customerId: req.customer.id, sessionId: null });
+    }
     return cart;
   }
   const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] || `sess_${Math.random().toString(36).substring(2, 15)}`;
-  const [cart] = await Cart.findOrCreate({ where: { sessionId } });
+  let cart = await Cart.findOne({ where: { sessionId } });
+  if (!cart) {
+    cart = await Cart.create({ sessionId, customerId: null });
+  }
   return cart;
 };
+
+
 
 // GET Cart with automatic stock-reduction audit
 const getCart = async (req, res) => {
@@ -429,4 +438,112 @@ const syncCart = async (req, res) => {
   }
 };
 
-module.exports = { getCart, addToCart, updateCartItem, removeFromCart, clearCart, syncCart };
+// GET All Abandoned Carts (with items) for Admin Dashboard
+const getAbandonedCarts = async (req, res) => {
+  try {
+    const carts = await Cart.findAll({
+      include: [
+        {
+          model: CartItem,
+          as: 'items',
+          required: true, // Only fetch carts that currently contain items
+          include: [
+            { model: Product, as: 'product', attributes: ['id', 'name', 'price', 'images', 'currency', 'stock'] },
+            { model: ProductVariant, as: 'variant', attributes: ['id', 'sku', 'price', 'stock', 'attributes'] }
+          ]
+        },
+        {
+          model: Customer,
+          as: 'customer',
+          attributes: ['id', 'name', 'email', 'phone']
+        }
+      ],
+      order: [['updatedAt', 'DESC']]
+    });
+
+    res.json({ success: true, carts });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST Send Abandoned Cart Recovery / Marketing Automation Email
+const sendAbandonedCartEmail = async (req, res) => {
+  const { cartId, email, reportType, customNote, couponCode } = req.body || {};
+  if (!cartId) {
+    return res.status(400).json({ success: false, message: 'Cart ID is required' });
+  }
+
+  try {
+    const cart = await Cart.findByPk(cartId, {
+      include: [
+        {
+          model: CartItem,
+          as: 'items',
+          include: [
+            { model: Product, as: 'product', attributes: ['id', 'name', 'price', 'images', 'currency', 'stock'] },
+            { model: ProductVariant, as: 'variant', attributes: ['id', 'sku', 'price', 'stock', 'attributes'] }
+          ]
+        },
+        {
+          model: Customer,
+          as: 'customer',
+          attributes: ['id', 'name', 'email', 'phone']
+        }
+      ]
+    });
+
+    if (!cart) {
+      return res.status(404).json({ success: false, message: 'Cart not found' });
+    }
+
+    // Determine recipient email
+    const recipientEmail = email || cart.customer?.email;
+    if (!recipientEmail) {
+      return res.status(400).json({ success: false, message: 'No recipient email specified for this guest session' });
+    }
+
+    // Determine customer name
+    const customerName = cart.customer?.name || 'Valued Customer';
+
+    // Calculate cart total
+    let cartTotal = 0;
+    let currency = 'INR';
+    cart.items?.forEach(item => {
+      const price = parseFloat(item.variant?.price || item.priceAtAdd || 0);
+      cartTotal += price * (item.quantity || 0);
+      if (item.product?.currency) {
+        currency = item.product.currency;
+      }
+    });
+
+    // Send email using service
+    const result = await emailService.sendMarketingAutomationReport({
+      to: recipientEmail,
+      customerName,
+      items: cart.items || [],
+      cartTotal,
+      currency,
+      reportType: reportType || 'all',
+      customNote: customNote || '',
+      couponCode: couponCode || 'RECOVER10'
+    });
+
+    // Update lastEmailSentAt in database
+    const now = new Date();
+    await cart.update({ lastEmailSentAt: now });
+
+    res.json({
+      success: true,
+      message: `Marketing automation report email sent successfully to ${recipientEmail}`,
+      lastEmailSentAt: now,
+      result
+    });
+
+  } catch (err) {
+    console.error('Error sending marketing report email:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+module.exports = { getCart, addToCart, updateCartItem, removeFromCart, clearCart, syncCart, getAbandonedCarts, sendAbandonedCartEmail };

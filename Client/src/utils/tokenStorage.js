@@ -1,10 +1,10 @@
 /**
  * Secure token storage utility.
  * Obfuscates keys and values in localStorage using a XOR + Base64 encoding.
- * This prevents plain-text JWT tokens from being directly readable via browser console or extensions.
+ * This prevents plain-text JWT tokens from being directly readable in browser dev tools.
  */
 
-const SECRET_KEY = 'BilluBazzarSecuredTokenHashKey_987#@!';
+const SECRET_KEY = 'BbBazaar_xK9#mLqVn7pWz2024';
 
 /**
  * Encrypts/decrypts input string using a XOR cipher with a secret key.

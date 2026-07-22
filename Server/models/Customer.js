@@ -16,6 +16,8 @@ const Customer = sequelize.define('Customer', {
   referralCode: { type: DataTypes.STRING(20), unique: true },
   preferredCurrency: { type: DataTypes.STRING(5), defaultValue: 'INR' },
   whatsappOptIn: { type: DataTypes.BOOLEAN, defaultValue: false },
+  passwordResetToken: { type: DataTypes.STRING(128), allowNull: true, defaultValue: null },
+  passwordResetExpiry: { type: DataTypes.DATE, allowNull: true, defaultValue: null }
 });
 
 module.exports = Customer;

@@ -18,6 +18,27 @@ const start = async () => {
     await sequelize.authenticate();
     console.log('✅ Database connected');
 
+    // Run safe database alters for Wishlists table BEFORE syncing models
+    try {
+      const queryInterface = sequelize.getQueryInterface();
+      const tableDesc = await queryInterface.describeTable('Wishlists').catch(() => null);
+      if (tableDesc) {
+        if (!tableDesc.variantId) {
+          await sequelize.query("ALTER TABLE Wishlists ADD COLUMN variantId INT NULL");
+          console.log('✅ Wishlists table variantId column added');
+        }
+        if (!tableDesc.selectedVariant) {
+          await sequelize.query("ALTER TABLE Wishlists ADD COLUMN selectedVariant JSON NULL");
+          console.log('✅ Wishlists table selectedVariant column added');
+        }
+        // Drop legacy unique index if it exists so 3-column index can sync cleanly
+        try { await sequelize.query("ALTER TABLE Wishlists DROP INDEX customerId_productId"); } catch (e) {}
+        try { await sequelize.query("ALTER TABLE Wishlists DROP INDEX customer_id_product_id"); } catch (e) {}
+      }
+    } catch (alterErr) {
+      console.log('⚠️ Pre-sync Wishlists alter note:', alterErr.message);
+    }
+
     // 2. Sync all models (safe — doesn't drop data)
     await sequelize.sync();
     console.log('✅ Models synced');
@@ -68,29 +89,54 @@ const start = async () => {
     // Run manual database alters for Carts table to allow guest checkout customerId relaxation
     try {
       await sequelize.query("ALTER TABLE Carts ADD COLUMN sessionId VARCHAR(100) NULL");
-      await sequelize.query("ALTER TABLE Carts MODIFY COLUMN customerId INT NULL");
+      await sequelize.query("ALTER TABLE Carts MODIFY COLUMN customerId INT NULL DEFAULT NULL");
       console.log('✅ Carts table session columns updated');
     } catch (alterErr) {
       console.log('⚠️ Manual alter note (Carts columns already exist):', alterErr.message);
     }
 
-    // Manual alter to add react-360-view materialized frame columns to existing Products tables
     try {
-      await sequelize.query("ALTER TABLE Products ADD COLUMN spinImagePath VARCHAR(300) NULL");
-      await sequelize.query("ALTER TABLE Products ADD COLUMN spinImageCount INT NOT NULL DEFAULT 0");
-      await sequelize.query("ALTER TABLE Products ADD COLUMN spinImageExt VARCHAR(10) NOT NULL DEFAULT 'jpg'");
-      console.log('✅ Products table spin-sequence columns added');
+      await sequelize.query("ALTER TABLE Carts ADD COLUMN lastEmailSentAt DATETIME NULL");
+      console.log('✅ Carts table lastEmailSentAt column added');
     } catch (alterErr) {
-      console.log('⚠️ Manual alter note (already altered or table not synced yet):', alterErr.message);
+      console.log('⚠️ Manual alter note (Carts lastEmailSentAt column already exists):', alterErr.message);
     }
 
-    // Manual alter to add subCategory and subSubCategory columns to Products table
+    // Manual alter to add react-360-view materialized frame columns to existing Products tables
     try {
+      await sequelize.query("ALTER TABLE Products ADD COLUMN defaultProductImage VARCHAR(500) NULL");
+      await sequelize.query("ALTER TABLE Products ADD COLUMN has360View BOOLEAN NOT NULL DEFAULT FALSE");
+      await sequelize.query("ALTER TABLE Products ADD COLUMN hasVideo BOOLEAN NOT NULL DEFAULT FALSE");
+      await sequelize.query("ALTER TABLE Products ADD COLUMN videoUrl VARCHAR(500) NULL");
+      console.log('✅ Products table media & listing columns added');
+    } catch (alterErr) {
+      console.log('⚠️ Manual alter note (Products columns already exist):', alterErr.message);
+    }
+
+    try {
+      await sequelize.query("ALTER TABLE Products ADD COLUMN spinImagePath VARCHAR(300) NULL");
       await sequelize.query("ALTER TABLE Products ADD COLUMN subCategoryId INT NULL");
       await sequelize.query("ALTER TABLE Products ADD COLUMN subSubCategoryId INT NULL");
       console.log('✅ Products table sub-category columns added');
     } catch (alterErr) {
       console.log('⚠️ Manual alter note (already altered or table not synced yet):', alterErr.message);
+    }
+
+    // Manual alter to add showAuthenticity and warehouseId to Products
+    try {
+      await sequelize.query("ALTER TABLE Products ADD COLUMN showAuthenticity BOOLEAN NOT NULL DEFAULT FALSE");
+      await sequelize.query("ALTER TABLE Products ADD COLUMN warehouseId INT NULL");
+      console.log('✅ Products table showAuthenticity and warehouseId columns added');
+    } catch (alterErr) {
+      console.log('⚠️ Manual alter note (Products columns already exist):', alterErr.message);
+    }
+
+    // Manual alter to add warehouseId to ProductVariants
+    try {
+      await sequelize.query("ALTER TABLE ProductVariants ADD COLUMN warehouseId INT NULL");
+      console.log('✅ ProductVariants table warehouseId column added');
+    } catch (alterErr) {
+      console.log('⚠️ Manual alter note (ProductVariants warehouseId column already exists):', alterErr.message);
     }
 
     // Run manual database alters for Warehouses to support isFulfillment
@@ -126,6 +172,15 @@ const start = async () => {
       console.log('✅ InventoryMovementLogs table warehouse columns added');
     } catch (alterErr) {
       console.log('⚠️ Manual alter note (InventoryMovementLogs warehouse columns already exist):', alterErr.message);
+    }
+
+    // Add Customer password reset columns
+    try {
+      await sequelize.query('ALTER TABLE Customers ADD COLUMN passwordResetToken VARCHAR(128) NULL DEFAULT NULL');
+      await sequelize.query('ALTER TABLE Customers ADD COLUMN passwordResetExpiry DATETIME NULL DEFAULT NULL');
+      console.log('✅ Customers table password reset columns added');
+    } catch (alterErr) {
+      console.log('⚠️ Manual alter note (Customer reset columns already exist):', alterErr.message);
     }
 
     // Migrate any legacy 'DEAL' banners to 'EXCLUSIVE_DEAL'
@@ -179,7 +234,7 @@ const start = async () => {
     // 3.5 Load background cron jobs
     require('./jobs/reminderJob');
     require('./jobs/searchJob');
-    require('./jobs/orderExpiryJob');
+    // require('./jobs/orderExpiryJob'); // Disabled to prevent minutely database queries and optimize performance under high traffic.
 
     // 4. Start server
     app.listen(PORT, () => {

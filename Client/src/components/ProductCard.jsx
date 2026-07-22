@@ -19,18 +19,98 @@ const ProductCard = ({ product, index = 0 }) => {
   const wishlist = useSelector(s => s.wishlist.items) || [];
   const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
   const [imgLoaded, setImgLoaded] = useState(false);
-  const isWishlisted = wishlist.some(item => (item.id || item) === product.id);
+
+  const resolveDefaultVariant = (prod) => {
+    if (prod.variants && prod.variants.length > 0) {
+      const v = prod.variants[0];
+      const attrs = typeof v.attributes === 'string' ? JSON.parse(v.attributes || '{}') : (v.attributes || {});
+      return {
+        variantId: v.id,
+        price: v.price !== null && v.price !== undefined ? parseFloat(v.price) : parseFloat(prod.price),
+        mrp: v.mrp !== null && v.mrp !== undefined ? parseFloat(v.mrp) : (prod.comparePrice ? parseFloat(prod.comparePrice) : null),
+        image: v.image || prod.images?.[0] || '',
+        attributes: attrs
+      };
+    }
+
+    const prodAttrs = typeof prod.attributes === 'string' ? JSON.parse(prod.attributes || '{}') : (prod.attributes || {});
+    const defaultAttrs = {};
+
+    Object.entries(prodAttrs).forEach(([k, v]) => {
+      if (Array.isArray(v) && v.length > 0) {
+        const keyName = k.toLowerCase() === 'sizes' ? 'size' : (k.toLowerCase().endsWith('s') && k.length > 3 ? k.slice(0, -1) : k);
+        defaultAttrs[keyName] = v[0];
+      } else if (typeof v === 'string' || typeof v === 'number') {
+        defaultAttrs[k] = v;
+      }
+    });
+
+    if (Object.keys(defaultAttrs).length === 0) {
+      defaultAttrs['variant'] = 'Standard';
+    }
+
+    return {
+      variantId: null,
+      price: parseFloat(prod.price),
+      mrp: prod.comparePrice ? parseFloat(prod.comparePrice) : null,
+      image: prod.images?.[0] || '',
+      attributes: defaultAttrs
+    };
+  };
+
+  const resolvedDefault = resolveDefaultVariant(product);
+
+  const isWishlisted = wishlist.some(item => {
+    const sameProd = Number(item.productId || item.id) === Number(product.id);
+    if (!sameProd) return false;
+    if (resolvedDefault.variantId) {
+      return Number(item.variantId) === Number(resolvedDefault.variantId);
+    }
+    return true;
+  });
 
   const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
 
-  const discount = (product.comparePrice && Number(product.comparePrice) > Number(product.price))
-    ? Math.round(((Number(product.comparePrice) - Number(product.price)) / Number(product.comparePrice)) * 100)
+  const displayPrice = resolvedDefault.price;
+  const displayComparePrice = resolvedDefault.mrp;
+
+  const discount = (displayComparePrice && Number(displayComparePrice) > Number(displayPrice))
+    ? Math.round(((Number(displayComparePrice) - Number(displayPrice)) / Number(displayComparePrice)) * 100)
     : null;
 
   const handleAddToCart = (e) => {
     e.preventDefault();
-    dispatch(addLocal({ productId: product.id, name: product.name, image: product.images?.[0], priceAtAdd: product.price, quantity: 1 }));
+    const cartPayload = {
+      productId: product.id,
+      name: product.name,
+      image: resolvedDefault.image || product.images?.[0],
+      priceAtAdd: displayPrice,
+      quantity: 1,
+      variantId: resolvedDefault.variantId,
+      selectedVariant: resolvedDefault.attributes
+    };
+    dispatch(addLocal(cartPayload));
     dispatch(openCart());
+  };
+
+  const handleWishlistToggle = (e) => {
+    e.preventDefault();
+    const wishlistPayload = {
+      id: product.id,
+      productId: product.id,
+      name: product.name,
+      slug: product.slug,
+      image: resolvedDefault.image || product.images?.[0] || '',
+      price: displayPrice,
+      comparePrice: displayComparePrice,
+      inStock: product.stock > 0,
+      categoryName: product.category?.name || 'Lifestyle',
+      rating: product.rating || 4.5,
+      reviewCount: product.reviewCount || 10,
+      variantId: resolvedDefault.variantId,
+      selectedVariant: resolvedDefault.attributes
+    };
+    dispatch(toggleItem(wishlistPayload));
   };
 
   return (
@@ -47,7 +127,7 @@ const ProductCard = ({ product, index = 0 }) => {
         {/* Skeleton while image loads */}
         {!imgLoaded && <div className="skeleton absolute inset-0" aria-hidden="true" />}
         <img
-          src={product.images?.[0] || getPlaceholderSvg(product.name)}
+          src={product.defaultProductImage || product.images?.[0] || getPlaceholderSvg(product.name)}
           alt={product.name}
           className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
           loading="lazy"
@@ -78,7 +158,7 @@ const ProductCard = ({ product, index = 0 }) => {
 
         {/* Wishlist */}
         <button
-          onClick={(e) => { e.preventDefault(); dispatch(toggleItem(product)); }}
+          onClick={handleWishlistToggle}
           className={`absolute top-3 right-3 p-2 rounded-full shadow-sm transition-all duration-200 ${isWishlisted ? 'bg-red-50 text-red-500' : 'bg-white/80 text-brand-grey hover:text-red-400'} focus-visible:outline-brand-gold`}
           aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
           id={`wishlist-${product.id}`}
@@ -125,10 +205,15 @@ const ProductCard = ({ product, index = 0 }) => {
           ))}
           {product.reviewCount > 0 && <span className="text-[11px] text-brand-grey ml-1">({product.reviewCount})</span>}
         </div>
+        {resolvedDefault.attributes && Object.keys(resolvedDefault.attributes).length > 0 && (
+          <p className="text-[10px] text-brand-gold/80 font-medium mb-1 truncate">
+            Default: {Object.entries(resolvedDefault.attributes).map(([k,v]) => `${k}: ${v}`).join(' · ')}
+          </p>
+        )}
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-auto">
-          <span className="font-semibold text-brand-text whitespace-nowrap">{fmt(product.price)}</span>
-          {product.comparePrice && Number(product.comparePrice) > Number(product.price) && (
-            <span className="text-brand-grey text-sm line-through whitespace-nowrap">{fmt(product.comparePrice)}</span>
+          <span className="font-semibold text-brand-text whitespace-nowrap">{fmt(displayPrice)}</span>
+          {displayComparePrice && Number(displayComparePrice) > Number(displayPrice) && (
+            <span className="text-brand-grey text-sm line-through whitespace-nowrap">{fmt(displayComparePrice)}</span>
           )}
         </div>
       </div>

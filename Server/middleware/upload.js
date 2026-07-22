@@ -33,9 +33,9 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  const allowed = /jpeg|jpg|png|webp|gif|glb|gltf/;
+  const allowed = /jpeg|jpg|png|webp|gif|glb|gltf|mp4|webm|mov|avi|mkv/;
   const ext = allowed.test(path.extname(file.originalname).toLowerCase());
-  const mime = allowed.test(file.mimetype) || file.mimetype.includes('model');
+  const mime = allowed.test(file.mimetype) || file.mimetype.includes('model') || file.mimetype.includes('video');
   cb(null, ext || mime);
 };
 

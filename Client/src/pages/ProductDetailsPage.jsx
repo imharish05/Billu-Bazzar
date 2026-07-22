@@ -2,9 +2,9 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingBag, Heart, Star, ChevronRight, Share2, Shield, Truck, RotateCcw, ZoomIn, Play, Mail, CheckCircle2, X } from 'lucide-react';
+import { ShoppingBag, Heart, Star, ChevronRight, ChevronLeft, Share2, Shield, Truck, RotateCcw, ZoomIn, Play, Mail, CheckCircle2, X } from 'lucide-react';
 import { fetchProduct, fetchProducts } from '../redux/slices/productsSlice';
-import { addLocal, openCart } from '../redux/slices/cartSlice';
+import { addLocal, openCart, setBuyNowItem } from '../redux/slices/cartSlice';
 import { toggleItem } from '../redux/slices/wishlistSlice';
 import { openQuickView } from '../redux/slices/uiSlice';
 import Footer from '../components/Footer';
@@ -38,7 +38,8 @@ const ProductDetailsPage = () => {
   const [selectedColor, setSelectedColor] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState('description');
-  const [imageZoomed, setImageZoomed] = useState(false);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const [viewMode, setViewMode] = useState('standard'); // 'standard', 'spin', 'ar'
   const [videoOpen, setVideoOpen] = useState(false);
@@ -52,9 +53,6 @@ const ProductDetailsPage = () => {
       videoRef.current.playbackRate = videoSpeed;
     }
   }, [videoSpeed, videoOpen]);
-
-  const isWishlisted = product ? wishlist.some(item => (item.id || item) === product.id) : false;
-  const inCart = product ? cartItems.some(i => i.productId === product.id) : false;
 
   const attributes = useMemo(() => {
     if (!product || !product.attributes) return {};
@@ -75,24 +73,39 @@ const ProductDetailsPage = () => {
       .slice(0, 4);
   }, [allProducts, product]);
 
+  const parsedVariants = useMemo(() => {
+    if (!product || !product.variants) return [];
+    return product.variants.map(v => {
+      let attrs = v.attributes;
+      if (typeof attrs === 'string') {
+        try {
+          attrs = JSON.parse(attrs);
+        } catch (e) {
+          attrs = {};
+        }
+      }
+      return { ...v, attributes: attrs || {} };
+    });
+  }, [product]);
+
   const [selectedAttributes, setSelectedAttributes] = useState({});
 
   const variantAttributeKeys = useMemo(() => {
-    if (!product || !product.variants || product.variants.length === 0) return [];
+    if (!product || parsedVariants.length === 0) return [];
     const keys = new Set();
-    product.variants.forEach(v => {
+    parsedVariants.forEach(v => {
       if (v.attributes) {
         Object.keys(v.attributes).forEach(k => keys.add(k));
       }
     });
     return Array.from(keys);
-  }, [product]);
+  }, [product, parsedVariants]);
 
   const variantAttributeValues = useMemo(() => {
     const valuesMap = {};
     variantAttributeKeys.forEach(key => {
       const valSet = new Set();
-      product.variants.forEach(v => {
+      parsedVariants.forEach(v => {
         if (v.attributes && v.attributes[key]) {
           valSet.add(v.attributes[key]);
         }
@@ -100,22 +113,33 @@ const ProductDetailsPage = () => {
       valuesMap[key] = Array.from(valSet);
     });
     return valuesMap;
-  }, [product, variantAttributeKeys]);
+  }, [parsedVariants, variantAttributeKeys]);
 
   useEffect(() => {
-    if (product && product.variants && product.variants.length > 0) {
-      setSelectedAttributes(product.variants[0].attributes || {});
+    if (product && parsedVariants.length > 0) {
+      setSelectedAttributes(parsedVariants[0].attributes || {});
     } else {
       setSelectedAttributes({});
     }
-  }, [product]);
+  }, [product, parsedVariants]);
 
   const selectedVariant = useMemo(() => {
-    if (!product || !product.variants || product.variants.length === 0) return null;
-    return product.variants.find(v => {
+    if (!product || parsedVariants.length === 0) return null;
+    return parsedVariants.find(v => {
       return variantAttributeKeys.every(key => v.attributes[key] === selectedAttributes[key]);
     });
-  }, [product, selectedAttributes, variantAttributeKeys]);
+  }, [parsedVariants, selectedAttributes, variantAttributeKeys]);
+
+  const isWishlisted = product ? wishlist.some(item => {
+    const sameProd = Number(item.productId || item.id) === Number(product.id);
+    if (!sameProd) return false;
+    if (selectedVariant) {
+      return Number(item.variantId) === Number(selectedVariant.id);
+    }
+    return true;
+  }) : false;
+
+  const inCart = product ? cartItems.some(i => i.productId === product.id) : false;
 
   const rawImages = useMemo(() => {
     if (!product) return [];
@@ -142,6 +166,37 @@ const ProductDetailsPage = () => {
     }
     return baseImages;
   }, [product, baseImages, selectedVariant]);
+
+  const allLightboxImages = useMemo(() => {
+    if (!product) return [];
+    const list = [...images];
+    if (Array.isArray(product.variants)) {
+      product.variants.forEach(v => {
+        if (v.image && !list.includes(v.image)) list.push(v.image);
+        if (Array.isArray(v.images)) {
+          v.images.forEach(img => {
+            if (img && !list.includes(img)) list.push(img);
+          });
+        }
+      });
+    }
+    return list;
+  }, [product, images]);
+
+  useEffect(() => {
+    if (!isImageModalOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'ArrowLeft') {
+        setLightboxIndex(prev => (prev - 1 + allLightboxImages.length) % allLightboxImages.length);
+      } else if (e.key === 'ArrowRight') {
+        setLightboxIndex(prev => (prev + 1) % allLightboxImages.length);
+      } else if (e.key === 'Escape') {
+        setIsImageModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isImageModalOpen, allLightboxImages.length]);
 
   // When selectedVariant changes, automatically select the first image
   useEffect(() => {
@@ -197,8 +252,30 @@ const ProductDetailsPage = () => {
         ? selectedVariant.attributes 
         : (selectedSize ? { size: selectedSize } : {})
     };
-    dispatch(addLocal(cartItem));
-    navigate('/checkout');
+    dispatch(setBuyNowItem(cartItem));
+    navigate('/checkout?mode=buynow');
+  };
+
+  const handleWishlistToggle = () => {
+    if (!product) return;
+    const payload = {
+      id: product.id,
+      productId: product.id,
+      name: product.name,
+      slug: product.slug,
+      image: (selectedVariant && selectedVariant.image) || images[0] || '',
+      price: displayPrice,
+      comparePrice: displayComparePrice,
+      inStock: displayStock > 0,
+      categoryName: product.category?.name || 'Lifestyle',
+      rating: product.rating || 4.5,
+      reviewCount: product.reviewCount || 10,
+      variantId: selectedVariant ? selectedVariant.id : null,
+      selectedVariant: selectedVariant 
+        ? selectedVariant.attributes 
+        : (selectedSize ? { size: selectedSize } : {})
+    };
+    dispatch(toggleItem(payload));
   };
 
   if (loading || !product) {
@@ -307,8 +384,11 @@ const ProductDetailsPage = () => {
                   <Product360Viewer product={product} onClose={() => setViewMode('standard')} />
                 ) : (
                   <div
-                    className="w-full h-full relative cursor-zoom-in"
-                    onClick={() => setImageZoomed(!imageZoomed)}
+                    className="w-full h-full relative cursor-zoom-in group"
+                    onClick={() => {
+                      setLightboxIndex(selectedImage);
+                      setIsImageModalOpen(true);
+                    }}
                   >
                     <AnimatePresence mode="wait">
                       <motion.img
@@ -329,7 +409,16 @@ const ProductDetailsPage = () => {
                         −{discount}%
                       </span>
                     )}
-                    <button className="absolute top-4 right-4 w-9 h-9 bg-white/80 rounded-full flex items-center justify-center hover:bg-white transition-colors" aria-label="Zoom image">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setLightboxIndex(selectedImage);
+                        setIsImageModalOpen(true);
+                      }}
+                      className="absolute top-4 right-4 w-9 h-9 bg-white/80 hover:bg-white text-neutral-900 rounded-full flex items-center justify-center transition-all shadow-md z-10 hover:scale-110"
+                      aria-label="Zoom image"
+                    >
                       <ZoomIn size={16} />
                     </button>
                   </div>
@@ -396,7 +485,7 @@ const ProductDetailsPage = () => {
 
             <p className="text-brand-grey text-sm leading-relaxed">{product.shortDescription}</p>
 
-            {/* Dynamic Variant Attributes selectors */}
+            {/* Dynamic Variant Attributes selectors (Amazon-Style Variant Matrix) */}
             {product.variants && product.variants.length > 0 && variantAttributeKeys.map(key => {
               const currentVal = selectedAttributes[key];
               const values = variantAttributeValues[key] || [];
@@ -406,16 +495,35 @@ const ProductDetailsPage = () => {
                     Select {key} {currentVal && <span className="text-brand-gold">— {currentVal}</span>}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {values.map(val => (
-                      <button
-                        key={val}
-                        type="button"
-                        onClick={() => setSelectedAttributes(prev => ({ ...prev, [key]: val }))}
-                        className={`px-4 h-11 border text-sm font-medium transition-all focus-visible:outline-brand-gold ${currentVal === val ? 'border-brand-text bg-brand-text text-white' : 'border-brand-light text-brand-text hover:border-brand-grey'}`}
-                      >
-                        {val}
-                      </button>
-                    ))}
+                    {values.map(val => {
+                      const testCombo = { ...selectedAttributes, [key]: val };
+                      const matchingVariant = parsedVariants.find(v => {
+                        return variantAttributeKeys.every(k => v.attributes[k] === testCombo[k]);
+                      });
+                      const isExists = !!matchingVariant;
+                      const isOutOfStock = matchingVariant ? (parseInt(matchingVariant.stock, 10) <= 0) : true;
+                      const isSelected = currentVal === val;
+
+                      let btnStyle = "border-brand-light text-brand-text hover:border-brand-grey";
+                      if (isSelected) {
+                        btnStyle = "border-brand-text bg-brand-text text-white font-semibold";
+                      } else if (!isExists || isOutOfStock) {
+                        btnStyle = "border-dashed border-neutral-300 bg-neutral-100 text-neutral-400 opacity-60 line-through cursor-not-allowed";
+                      }
+
+                      return (
+                        <button
+                          key={val}
+                          type="button"
+                          disabled={!isExists || isOutOfStock}
+                          onClick={() => setSelectedAttributes(prev => ({ ...prev, [key]: val }))}
+                          className={`px-4 h-11 border text-sm font-medium transition-all focus-visible:outline-brand-gold relative ${btnStyle}`}
+                          title={!isExists ? 'Combination unavailable' : (isOutOfStock ? 'Out of stock' : `${key}: ${val}`)}
+                        >
+                          {val}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -486,7 +594,7 @@ const ProductDetailsPage = () => {
                 </button>
               )}
               <button
-                onClick={() => dispatch(toggleItem(product))}
+                onClick={handleWishlistToggle}
                 className={`border font-semibold text-sm tracking-wider uppercase py-4 w-full flex items-center justify-center gap-2 transition-all duration-200 ${
                   isWishlisted 
                     ? 'border-red-400 text-red-500 bg-red-50/50 hover:bg-red-50 hover:text-red-600 hover:border-red-500' 
@@ -554,15 +662,17 @@ const ProductDetailsPage = () => {
             </div>
 
             {/* Authenticity Certificate Card */}
-            <div className="bg-amber-50/50 border border-amber-200/50 p-4 rounded-xl flex items-start gap-3">
-              <Shield size={24} className="text-brand-gold flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs font-semibold text-brand-text tracking-wider uppercase">Authenticity Guaranteed</p>
-                <p className="text-[11px] text-brand-grey mt-0.5 leading-relaxed">
-                  Certified 100% genuine luxury item. Accompanied by official designer brand tags, validation certificates, and master artisan credentials.
-                </p>
+            {product.showAuthenticity && (
+              <div className="bg-amber-50/50 border border-amber-200/50 p-4 rounded-xl flex items-start gap-3">
+                <Shield size={24} className="text-brand-gold flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-brand-text tracking-wider uppercase">Authenticity Guaranteed</p>
+                  <p className="text-[11px] text-brand-grey mt-0.5 leading-relaxed">
+                    Certified 100% genuine luxury item. Accompanied by official designer brand tags, validation certificates, and master artisan credentials.
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Product attributes */}
             {attributes && Object.keys(attributes).filter(k => !['sizes', 'size', 'material', 'heelheight'].includes(k.toLowerCase())).length > 0 && (
@@ -659,7 +769,7 @@ const ProductDetailsPage = () => {
       {/* Video Lightbox Modal */}
       <AnimatePresence>
         {videoOpen && (
-          <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && setVideoOpen(false)}>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -669,46 +779,149 @@ const ProductDetailsPage = () => {
               <button
                 onClick={() => setVideoOpen(false)}
                 className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white w-9 h-9 rounded-full flex items-center justify-center transition-colors z-10"
+                aria-label="Close Video"
               >
                 <X size={20} />
               </button>
-              <video
-                ref={videoRef}
-                src="https://assets.mixkit.co/videos/preview/mixkit-luxury-gold-rings-on-a-display-42866-large.mp4"
-                className="w-full h-full object-cover"
-                controls
-                autoPlay
-                loop
-                playsInline
-              />
-              {/* Playback speed selector overlay */}
-              <div className="absolute bottom-4 left-4 z-10 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2 shadow-lg">
-                <span className="text-[10px] text-white/60 font-semibold uppercase tracking-wider select-none">Speed</span>
-                <div className="flex items-center gap-1.5">
-                  {['0.5', '0.75', '1.0', '1.25', '1.5'].map(speedStr => {
-                    const speedVal = parseFloat(speedStr);
-                    return (
-                      <button
-                        key={speedStr}
-                        onClick={() => setVideoSpeed(speedVal)}
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-all border ${
-                          videoSpeed === speedVal
-                            ? 'bg-brand-gold border-brand-gold text-white shadow-sm'
-                            : 'bg-white/10 border-transparent text-white/80 hover:bg-white/20 hover:text-white'
-                        }`}
-                      >
-                        {speedStr}x
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              {(() => {
+                const rawUrl = product.videoUrl;
+                if (!rawUrl && !product.hasVideo) {
+                  return (
+                    <div className="flex flex-col items-center justify-center w-full h-full text-white/80 text-sm font-medium gap-2">
+                      <p>No video showcase uploaded for this product.</p>
+                    </div>
+                  );
+                }
+
+                // Check YouTube / Vimeo / Direct file
+                const urlStr = (rawUrl || '').trim();
+                const ytMatch = urlStr.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+                if (ytMatch && ytMatch[1]) {
+                  return (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1`}
+                      title="Product Video Showcase"
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  );
+                }
+
+                const vimeoMatch = urlStr.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+                if (vimeoMatch && vimeoMatch[1]) {
+                  return (
+                    <iframe
+                      src={`https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1`}
+                      title="Product Video Showcase"
+                      className="w-full h-full border-0"
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      allowFullScreen
+                    />
+                  );
+                }
+
+                // Local upload or direct MP4 URL
+                const directSrc = urlStr || 'https://assets.mixkit.co/videos/preview/mixkit-luxury-gold-rings-on-a-display-42866-large.mp4';
+                return (
+                  <video
+                    ref={videoRef}
+                    src={directSrc}
+                    className="w-full h-full object-contain"
+                    controls
+                    autoPlay
+                    playsInline
+                    preload="auto"
+                  />
+                );
+              })()}
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
+      {/* Fullscreen Image Lightbox Modal */}
+      <AnimatePresence>
+        {isImageModalOpen && allLightboxImages.length > 0 && (
+          <div className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-between p-4 md:p-6 select-none" onClick={e => e.target === e.currentTarget && setIsImageModalOpen(false)}>
+            {/* Top Toolbar */}
+            <div className="w-full max-w-7xl flex items-center justify-between z-20 text-white">
+              <div>
+                <h3 className="font-playfair text-base md:text-lg font-semibold">{product.name}</h3>
+                <p className="text-xs text-neutral-400 font-mono">
+                  Image {lightboxIndex + 1} of {allLightboxImages.length}
+                </p>
+              </div>
+              <button
+                onClick={() => setIsImageModalOpen(false)}
+                className="w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-colors"
+                aria-label="Close Lightbox"
+              >
+                <X size={22} />
+              </button>
+            </div>
 
+            {/* Center Stage with Previous & Next Navigation Arrows */}
+            <div className="relative w-full max-w-6xl flex-1 flex items-center justify-center py-4 overflow-hidden">
+              {allLightboxImages.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setLightboxIndex(prev => (prev - 1 + allLightboxImages.length) % allLightboxImages.length)}
+                  className="absolute left-2 md:left-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/15 hover:bg-white/30 text-white rounded-full flex items-center justify-center backdrop-blur-md transition-all z-30 shadow-lg hover:scale-110"
+                  aria-label="Previous Image"
+                >
+                  <ChevronLeft size={28} />
+                </button>
+              )}
+
+              <AnimatePresence mode="wait">
+                <motion.img
+                  key={lightboxIndex}
+                  src={allLightboxImages[lightboxIndex]}
+                  alt={`${product.name} - View ${lightboxIndex + 1}`}
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.2 }}
+                  className="max-h-[72vh] max-w-[85vw] object-contain shadow-2xl rounded-lg border border-white/10"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = getPlaceholderSvg(product.name);
+                  }}
+                />
+              </AnimatePresence>
+
+              {allLightboxImages.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setLightboxIndex(prev => (prev + 1) % allLightboxImages.length)}
+                  className="absolute right-2 md:right-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/15 hover:bg-white/30 text-white rounded-full flex items-center justify-center backdrop-blur-md transition-all z-30 shadow-lg hover:scale-110"
+                  aria-label="Next Image"
+                >
+                  <ChevronRight size={28} />
+                </button>
+              )}
+            </div>
+
+            {/* Bottom Thumbnails Strip for Variant & Gallery Images */}
+            {allLightboxImages.length > 1 && (
+              <div className="w-full max-w-4xl overflow-x-auto py-2 px-4 flex justify-center gap-3 z-20">
+                {allLightboxImages.map((img, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setLightboxIndex(i)}
+                    className={`w-16 h-20 rounded border-2 overflow-hidden flex-shrink-0 transition-all ${
+                      lightboxIndex === i ? 'border-brand-gold scale-105 shadow-md' : 'border-white/20 hover:border-white/60 opacity-60'
+                    }`}
+                  >
+                    <img src={img} alt={`Thumb ${i + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </AnimatePresence>
 
       <Footer />
     </main>

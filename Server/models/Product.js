@@ -17,6 +17,12 @@ const Product = sequelize.define('Product', {
   subCategoryId: { type: DataTypes.INTEGER, allowNull: true },
   subSubCategoryId: { type: DataTypes.INTEGER, allowNull: true },
   vendorId: { type: DataTypes.INTEGER },
+  showAuthenticity: { type: DataTypes.BOOLEAN, defaultValue: false, allowNull: false },
+  warehouseId: { type: DataTypes.INTEGER, allowNull: true },
+  defaultProductImage: { type: DataTypes.STRING(500), allowNull: true },
+  has360View: { type: DataTypes.BOOLEAN, defaultValue: false },
+  hasVideo: { type: DataTypes.BOOLEAN, defaultValue: false },
+  videoUrl: { type: DataTypes.STRING(500), allowNull: true },
   images: {
     type: DataTypes.JSON,
     defaultValue: [],

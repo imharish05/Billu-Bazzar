@@ -1,5 +1,5 @@
 'use strict';
-const { Customer, Wishlist, LoyaltyLedger, Order, SupportTicket, Product } = require('../models');
+const { Customer, Wishlist, LoyaltyLedger, Order, SupportTicket, Product, ProductVariant } = require('../models');
 
 const getAll = async (req, res) => {
   try {
@@ -29,17 +29,36 @@ const getOne = async (req, res) => {
 
 const getWishlist = async (req, res) => {
   try {
-    const items = await Wishlist.findAll({ where: { customerId: req.customer.id }, include: [{ model: Product, as: 'product' }] });
+    const items = await Wishlist.findAll({
+      where: { customerId: req.customer.id },
+      include: [
+        { model: Product, as: 'product' },
+        { model: ProductVariant, as: 'variant' }
+      ]
+    });
     res.json({ success: true, wishlist: items });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 };
 
 const toggleWishlist = async (req, res) => {
   try {
-    const { productId } = req.body;
-    const existing = await Wishlist.findOne({ where: { customerId: req.customer.id, productId } });
-    if (existing) { await existing.destroy(); return res.json({ success: true, action: 'removed' }); }
-    await Wishlist.create({ customerId: req.customer.id, productId });
+    const { productId, variantId, selectedVariant } = req.body;
+    const whereClause = {
+      customerId: req.customer.id,
+      productId,
+      variantId: variantId || null,
+    };
+    const existing = await Wishlist.findOne({ where: whereClause });
+    if (existing) {
+      await existing.destroy();
+      return res.json({ success: true, action: 'removed' });
+    }
+    await Wishlist.create({
+      customerId: req.customer.id,
+      productId,
+      variantId: variantId || null,
+      selectedVariant: selectedVariant || {}
+    });
     res.json({ success: true, action: 'added' });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 };
