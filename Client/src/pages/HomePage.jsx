@@ -479,11 +479,11 @@ const HomePage = () => {
             </div>
 
             {/* Product Preview (Responsive across Mobile, Tablet & Desktop) */}
-            <div className="relative w-48 h-48 sm:w-56 sm:h-56 lg:w-60 lg:h-60 flex-shrink-0 rounded-xl overflow-hidden shadow-xl border border-white/10 bg-neutral-900/60 p-2 my-2 md:my-0">
+            <div className="relative w-48 h-48 sm:w-56 sm:h-56 lg:w-60 lg:h-60 flex-shrink-0 rounded-xl overflow-hidden shadow-xl border border-white/20 bg-black my-2 md:my-0">
               <img
                 src={countdownBanner.image}
                 alt={countdownBanner.title || 'Deal of the week'}
-                className="w-full h-full object-contain rounded-lg"
+                className="w-full h-full object-cover rounded-xl"
               />
             </div>
 
@@ -767,29 +767,29 @@ const HomePage = () => {
                 loading="lazy"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent pointer-events-none" />
-              <div className="absolute inset-0 flex flex-col justify-end p-8 md:p-12 promo-card-overlay pointer-events-auto">
+              <div className="absolute inset-0 flex flex-col justify-end p-4 md:p-12 promo-card-overlay pointer-events-auto">
                 {exclusiveBanners[0].badgeText && (
-                  <span className="bg-brand-gold text-white text-sm font-bold px-3 py-1 self-start mb-3">
+                  <span className="bg-brand-gold text-white text-[10px] md:text-sm font-bold px-2 py-1 md:px-3 self-start mb-2 md:mb-3">
                     {exclusiveBanners[0].badgeText}
                   </span>
                 )}
                 {exclusiveBanners[0].title && (
-                  <h3 className="font-playfair text-2xl md:text-4xl font-bold text-white mb-2 max-w-2xl">
+                  <h3 className="font-playfair text-xl md:text-4xl font-bold text-white mb-1 md:mb-2 max-w-2xl line-clamp-2">
                     {exclusiveBanners[0].title}
                   </h3>
                 )}
                 {exclusiveBanners[0].subtitle && (
-                  <p className="text-white/70 text-sm md:text-base mb-6 max-w-xl">
+                  <p className="text-white/70 text-xs md:text-base mb-3 md:mb-6 max-w-xl line-clamp-2">
                     {exclusiveBanners[0].subtitle}
                   </p>
                 )}
                 {exclusiveBanners[0].ctaText && (
                   <Link
                     to={exclusiveBanners[0].ctaLink || '/products'}
-                    className="text-brand-gold font-medium text-sm md:text-base flex items-center gap-2 hover:gap-3 transition-all focus-visible:outline-white self-start"
+                    className="text-brand-gold font-medium text-xs md:text-base flex items-center gap-1.5 md:gap-2 hover:gap-3 transition-all focus-visible:outline-white self-start"
                     id={`promo-deal-${exclusiveBanners[0].id}`}
                   >
-                    {exclusiveBanners[0].ctaText} <ArrowRight size={16} />
+                    {exclusiveBanners[0].ctaText} <ArrowRight size={14} className="md:w-4 md:h-4" />
                   </Link>
                 )}
               </div>
@@ -798,7 +798,7 @@ const HomePage = () => {
         </section>
       )}
 
-      {exclusiveBanners.length >= 2 && (
+      {exclusiveBanners.length === 2 && (
         <section className="py-10 bg-white" aria-label="Promotional offers">
           <div className="max-w-site mx-auto px-6 md:px-8">
             <div className="grid md:grid-cols-2 gap-6">
@@ -811,29 +811,29 @@ const HomePage = () => {
                     loading="lazy"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent pointer-events-none" />
-                  <div className="absolute inset-0 flex flex-col justify-end p-8 promo-card-overlay pointer-events-auto">
+                  <div className="absolute inset-0 flex flex-col justify-end p-4 md:p-8 promo-card-overlay pointer-events-auto">
                     {banner.badgeText && (
-                      <span className="bg-brand-gold text-white text-sm font-bold px-3 py-1 self-start mb-3">
+                      <span className="bg-brand-gold text-white text-[10px] md:text-sm font-bold px-2 py-1 md:px-3 self-start mb-2 md:mb-3">
                         {banner.badgeText}
                       </span>
                     )}
                     {banner.title && (
-                      <h3 className="font-playfair text-2xl md:text-3xl font-bold text-white mb-2">
+                      <h3 className="font-playfair text-xl md:text-3xl font-bold text-white mb-1 md:mb-2 line-clamp-2">
                         {banner.title}
                       </h3>
                     )}
                     {banner.subtitle && (
-                      <p className="text-white/70 text-sm mb-4">
+                      <p className="text-white/70 text-xs md:text-sm mb-2 md:mb-4 line-clamp-2">
                         {banner.subtitle}
                       </p>
                     )}
                     {banner.ctaText && (
                       <Link
                         to={banner.ctaLink || '/products'}
-                        className="text-brand-gold font-medium text-sm flex items-center gap-2 hover:gap-3 transition-all focus-visible:outline-white self-start"
+                        className="text-brand-gold font-medium text-xs md:text-sm flex items-center gap-1.5 md:gap-2 hover:gap-3 transition-all focus-visible:outline-white self-start"
                         id={`promo-deal-${banner.id}`}
                       >
-                        {banner.ctaText} <ArrowRight size={16} />
+                        {banner.ctaText} <ArrowRight size={14} className="md:w-4 md:h-4" />
                       </Link>
                     )}
                   </div>
@@ -899,29 +899,29 @@ const HomePage = () => {
                         loading="lazy"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-                      <div className="absolute inset-0 flex flex-col justify-end p-8 promo-card-overlay">
+                      <div className="absolute inset-0 flex flex-col justify-end p-4 md:p-8 promo-card-overlay">
                         {banner.badgeText && (
-                          <span className="bg-brand-gold text-white text-sm font-bold px-3 py-1 self-start mb-3">
+                          <span className="bg-brand-gold text-white text-[10px] md:text-sm font-bold px-2 py-1 md:px-3 self-start mb-2 md:mb-3">
                             {banner.badgeText}
                           </span>
                         )}
                         {banner.title && (
-                          <h3 className="font-playfair text-2xl md:text-3xl font-bold text-white mb-2">
+                          <h3 className="font-playfair text-xl md:text-3xl font-bold text-white mb-1 md:mb-2 line-clamp-2">
                             {banner.title}
                           </h3>
                         )}
                         {banner.subtitle && (
-                          <p className="text-white/70 text-sm mb-4">
+                          <p className="text-white/70 text-xs md:text-sm mb-2 md:mb-4 line-clamp-2">
                             {banner.subtitle}
                           </p>
                         )}
                         <Link
                           to={banner.ctaLink}
-                          className="group/btn inline-flex items-center gap-2 px-5 py-2.5 border border-brand-gold/60 hover:border-brand-gold bg-black/40 hover:bg-brand-gold text-brand-gold hover:text-neutral-950 text-xs font-semibold uppercase tracking-widest transition-all duration-300 rounded-none self-start"
+                          className="group/btn inline-flex items-center gap-1.5 md:gap-2 px-4 py-2 md:px-5 md:py-2.5 border border-brand-gold/60 hover:border-brand-gold bg-black/40 hover:bg-brand-gold text-brand-gold hover:text-neutral-950 text-[10px] md:text-xs font-semibold uppercase tracking-widest transition-all duration-300 rounded-none self-start"
                           id={`promo-deal-${banner.id}`}
                         >
                           <span>{banner.ctaText || 'Shop Now'}</span>
-                          <ArrowRight size={14} className="transform transition-transform duration-300 group-hover/btn:translate-x-1" />
+                          <ArrowRight size={12} className="md:w-3.5 md:h-3.5 transform transition-transform duration-300 group-hover/btn:translate-x-1" />
                         </Link>
                       </div>
                     </div>

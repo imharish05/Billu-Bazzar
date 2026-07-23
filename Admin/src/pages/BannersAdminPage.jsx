@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit2, Trash2, X, ToggleLeft, ToggleRight, Upload, AlertCircle, RefreshCw } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Upload, RefreshCw, AlertCircle, CheckCircle2, Info } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import Switch from '../components/Switch';
 import api from '../services/api';
@@ -15,10 +15,7 @@ const formatDatetimeLocal = (dateStr) => {
 
 const checkImageDimensions = (fileOrUrl) => {
   return new Promise((resolve) => {
-    if (!fileOrUrl) {
-      resolve(null);
-      return;
-    }
+    if (!fileOrUrl) { resolve(null); return; }
     const img = new Image();
     if (typeof fileOrUrl === 'string') {
       img.crossOrigin = 'anonymous';
@@ -40,39 +37,75 @@ const checkImageDimensions = (fileOrUrl) => {
   });
 };
 
+// Specifications for reference & validation (matching Client homepage order)
 const BANNER_SPECS = {
   HERO: {
     label: 'HERO',
-    recommended: '1920x1080px',
-    aspectLabel: '16:9 Landscape',
-    minWidth: 1200,
-    minRatio: 1.60,
-    maxRatio: 2.00,
-  },
-  EXCLUSIVE_DEAL: {
-    label: 'EXCLUSIVE DEAL',
-    recommended: '1920x640px',
-    aspectLabel: '3:1 Ultra-Wide Landscape',
-    minWidth: 1200,
-    minRatio: 2.60,
-    maxRatio: 3.40,
-  },
-  PROMO: {
-    label: 'PROMO',
-    recommended: '1080x1350px',
-    aspectLabel: '4:5 Portrait',
-    minWidth: 600,
-    minRatio: 0.75,
-    maxRatio: 0.85,
+    recommended: '1920 × 1080 px',
+    width: 1920,
+    height: 1080,
+    aspectRatio: 16 / 9,
+    aspectLabel: '16:9 Landscape - Full-width hero slider',
   },
   COUNTDOWN: {
     label: 'COUNTDOWN',
-    recommended: '1080x1350px',
-    aspectLabel: '4:5 Portrait',
-    minWidth: 600,
-    minRatio: 0.75,
-    maxRatio: 0.85,
+    recommended: '800 × 800 px',
+    width: 800,
+    height: 800,
+    aspectRatio: 1.0,
+    aspectLabel: '1:1 Square Fit',
   },
+  EXCLUSIVE_DEAL: {
+    label: 'EXCLUSIVE DEAL',
+    recommended: '1920 × 1080 px',
+    width: 1920,
+    height: 1080,
+    aspectRatio: 16 / 9,
+    aspectLabel: '16:9 Landscape - Exclusive collection banner',
+  },
+  PROMO: {
+    label: 'PROMO',
+    recommended: '1200 × 800 px',
+    width: 1200,
+    height: 800,
+    aspectRatio: 3 / 2,
+    aspectLabel: '3:2 Landscape - Promo offer banner',
+  },
+};
+
+const validateBannerImageDimensions = (dims, bannerType) => {
+  if (!dims) return { isValid: true, message: null };
+  const spec = BANNER_SPECS[bannerType];
+  if (!spec) return { isValid: true, message: null };
+
+  const { width, height } = dims;
+  const actualRatio = width / height;
+  const targetRatio = spec.aspectRatio;
+
+  // Allow aspect ratio tolerance of ±0.08 (e.g. 1.70 to 1.85 for 16:9)
+  const ratioDiff = Math.abs(actualRatio - targetRatio);
+  const isRatioValid = ratioDiff <= 0.08;
+
+  // Verify minimum size (at least 40% of recommended dimensions)
+  const minWidth = Math.round(spec.width * 0.4);
+  const minHeight = Math.round(spec.height * 0.4);
+  const isSizeValid = width >= minWidth && height >= minHeight;
+
+  if (!isRatioValid || !isSizeValid) {
+    let reason = '';
+    if (!isRatioValid) {
+      reason = `Aspect ratio mismatch (Current: ${actualRatio.toFixed(2)}, Recommended: ${targetRatio.toFixed(2)})`;
+    } else {
+      reason = `Image resolution too low (${width}×${height} px, minimum required: ${minWidth}×${minHeight} px)`;
+    }
+
+    return {
+      isValid: false,
+      message: `Image dimensions (${width} × ${height} px) do not match recommended dimensions for ${spec.label}. Recommended size is ${spec.recommended} (${spec.aspectLabel}). ${reason}`
+    };
+  }
+
+  return { isValid: true, message: null };
 };
 
 const BannersAdminPage = () => {
@@ -86,9 +119,9 @@ const BannersAdminPage = () => {
   const [uploadError, setUploadError] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);
+  const [imageDims, setImageDims] = useState(null);
+  const [dimValidation, setDimValidation] = useState({ isValid: true, message: null });
   const [isDragging, setIsDragging] = useState(false);
-  const [imageInvalid, setImageInvalid] = useState(false);
-  const [imageErrorMsg, setImageErrorMsg] = useState('');
   const fileInputRef = useRef(null);
 
   const [form, setForm] = useState({
@@ -97,48 +130,27 @@ const BannersAdminPage = () => {
   });
 
   useEffect(() => {
-    if (!modalOpen) {
-      setImageInvalid(false);
-      setImageErrorMsg('');
+    const source = imageFile || imagePreview;
+    if (!source || !modalOpen) {
+      setImageDims(null);
+      setDimValidation({ isValid: true, message: null });
       return;
     }
-    const validateCurrentImage = async () => {
-      const source = imageFile || imagePreview;
-      if (!source) {
-        setImageInvalid(false);
-        setImageErrorMsg('');
-        return;
+    checkImageDimensions(source).then(dims => {
+      setImageDims(dims);
+      if (dims) {
+        const val = validateBannerImageDimensions(dims, form.type);
+        setDimValidation(val);
+        if (!val.isValid) {
+          setUploadError(val.message);
+        } else {
+          setUploadError(prev => (prev && prev.includes('Recommended size') ? null : prev));
+        }
+      } else {
+        setDimValidation({ isValid: true, message: null });
       }
-      const dims = await checkImageDimensions(source);
-      if (!dims) {
-        setImageInvalid(false);
-        setImageErrorMsg('');
-        return;
-      }
-
-      const spec = BANNER_SPECS[form.type];
-      if (!spec) return;
-
-      const ratio = dims.width / dims.height;
-
-      if (dims.width < spec.minWidth) {
-        setImageInvalid(true);
-        setImageErrorMsg(`${spec.label} banner requires a ${spec.aspectLabel} image. Minimum required width is ${spec.minWidth}px. Your image is ${dims.width}x${dims.height}px.`);
-        return;
-      }
-
-      if (ratio < spec.minRatio || ratio > spec.maxRatio) {
-        setImageInvalid(true);
-        setImageErrorMsg(`${spec.label} banner requires a ${spec.aspectLabel} image (${ratio.toFixed(2)}:1 aspect ratio looks off). Recommended size is ${spec.recommended} (${spec.aspectLabel}). Your image is ${dims.width}x${dims.height}px.`);
-        return;
-      }
-
-      setImageInvalid(false);
-      setImageErrorMsg('');
-    };
-
-    validateCurrentImage();
-  }, [form.type, imageFile, imagePreview, modalOpen]);
+    });
+  }, [imageFile, imagePreview, modalOpen, form.type]);
 
   const load = async () => {
     try {
@@ -147,6 +159,7 @@ const BannersAdminPage = () => {
       setBanners(res.data.banners || []);
     } catch (err) {
       console.error(err);
+      toast.error('Failed to load banners');
     } finally {
       setLoading(false);
     }
@@ -160,9 +173,20 @@ const BannersAdminPage = () => {
     setUploadError(null);
     setImagePreview(b?.image || null);
     setImageFile(null);
+    setImageDims(null);
     setIsDragging(false);
     setForm(b
-      ? { title: b.title || '', subtitle: b.subtitle || '', type: b.type, ctaText: b.ctaText || '', ctaLink: b.ctaLink || '', position: b.position, isActive: b.isActive, badgeText: b.badgeText || '', countdown: b.countdown ? formatDatetimeLocal(b.countdown) : '' }
+      ? {
+          title: b.title || '',
+          subtitle: b.subtitle || '',
+          type: b.type || 'HERO',
+          ctaText: b.ctaText || '',
+          ctaLink: b.ctaLink || '',
+          position: b.position !== undefined ? b.position : 1,
+          isActive: b.isActive !== false,
+          badgeText: b.badgeText || '',
+          countdown: b.countdown ? formatDatetimeLocal(b.countdown) : ''
+        }
       : { title: '', subtitle: '', type: 'HERO', ctaText: '', ctaLink: '', position: 1, isActive: true, badgeText: '', countdown: '' }
     );
     setModalOpen(true);
@@ -171,11 +195,9 @@ const BannersAdminPage = () => {
 
   const handleFileSelect = (eOrFile) => {
     const file = eOrFile instanceof File ? eOrFile : eOrFile.target.files?.[0];
-    if (!file) {
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError(`File size exceeds 5MB limit. Your image is ${(file.size / (1024 * 1024)).toFixed(1)}MB.`);
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError(`File size exceeds 10MB limit. Your image is ${(file.size / (1024 * 1024)).toFixed(1)}MB.`);
       return;
     }
     setUploadError(null);
@@ -185,13 +207,36 @@ const BannersAdminPage = () => {
     reader.readAsDataURL(file);
   };
 
+  const handleTypeChange = (newType) => {
+    setForm(p => ({ ...p, type: newType }));
+    if (imageDims) {
+      const val = validateBannerImageDimensions(imageDims, newType);
+      setDimValidation(val);
+      if (!val.isValid) {
+        setUploadError(val.message);
+      } else {
+        setUploadError(prev => (prev && (prev.includes('dimensions') || prev.includes('Recommended')) ? null : prev));
+      }
+    }
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
     setUploadProgress(0);
     setUploadError(null);
 
-    // Validate HERO mandatory fields
+    // Image dimension validation check
+    if (imageDims) {
+      const val = validateBannerImageDimensions(imageDims, form.type);
+      setDimValidation(val);
+      if (!val.isValid) {
+        setUploadError(val.message);
+        setSaving(false); setUploadProgress(null); return;
+      }
+    }
+
+    // Form validations
     if (form.type === 'HERO') {
       if (!form.ctaLink?.trim()) {
         setUploadError('CTA Link is required for Hero banners.');
@@ -199,7 +244,6 @@ const BannersAdminPage = () => {
       }
     }
 
-    // Validate COUNTDOWN mandatory fields (ALL fields required)
     if (form.type === 'COUNTDOWN') {
       if (!form.title?.trim()) {
         setUploadError('Title is required for Countdown banner.');
@@ -225,13 +269,8 @@ const BannersAdminPage = () => {
         setUploadError('Offer Ends At date & time is required for Countdown banner.');
         setSaving(false); setUploadProgress(null); return;
       }
-      if (new Date(form.countdown).getTime() <= Date.now()) {
-        setUploadError('Countdown date & time cannot be in the past.');
-        setSaving(false); setUploadProgress(null); return;
-      }
     }
 
-    // Validate PROMO mandatory fields
     if (form.type === 'PROMO') {
       if (!form.title?.trim()) {
         setUploadError('Title is required for Promo banner.');
@@ -247,7 +286,6 @@ const BannersAdminPage = () => {
       }
     }
 
-    // Validate EXCLUSIVE_DEAL mandatory fields (ALL fields required)
     if (form.type === 'EXCLUSIVE_DEAL') {
       if (!form.title?.trim()) {
         setUploadError('Title is required for Exclusive Deal.');
@@ -271,45 +309,14 @@ const BannersAdminPage = () => {
       }
     }
 
+    const file = imageFile || fileInputRef.current?.files?.[0];
+    if (!file && !editing) {
+      setUploadError('Please select a banner image file.');
+      setSaving(false); setUploadProgress(null); return;
+    }
+
     try {
-      if (imageInvalid) {
-        setUploadError(imageErrorMsg || `Image does not match size requirements for ${form.type} banner.`);
-        setSaving(false);
-        setUploadProgress(null);
-        return;
-      }
-      const file = imageFile || fileInputRef.current?.files?.[0];
-      if (file) {
-        if (file.size > 5 * 1024 * 1024) {
-          setUploadError(`File size exceeds 5MB limit. Your image is ${(file.size / (1024 * 1024)).toFixed(1)}MB.`);
-          setSaving(false);
-          setUploadProgress(null);
-          return;
-        }
-      }
-      if (file) {
-        const dims = await checkImageDimensions(file);
-        if (dims) {
-          const spec = BANNER_SPECS[form.type];
-          if (spec) {
-            const ratio = dims.width / dims.height;
-            if (dims.width < spec.minWidth) {
-              setUploadError(`${spec.label} banner image too small. Minimum required width is ${spec.minWidth}px. Your image is ${dims.width}x${dims.height}px.`);
-              setSaving(false); setUploadProgress(null); return;
-            }
-            if (ratio < spec.minRatio || ratio > spec.maxRatio) {
-              setUploadError(`${spec.label} banner aspect ratio looks off (${ratio.toFixed(2)}:1). Recommended size is ${spec.recommended} (${spec.aspectLabel}). Your image is ${dims.width}x${dims.height}px.`);
-              setSaving(false); setUploadProgress(null); return;
-            }
-          }
-        }
-      }
       const fd = new FormData();
-      if (!file && !editing) {
-        setUploadError('Please select an image file');
-        setSaving(false);
-        return;
-      }
       fd.append('title', form.title);
       fd.append('subtitle', form.subtitle);
       fd.append('type', form.type);
@@ -323,20 +330,25 @@ const BannersAdminPage = () => {
 
       const config = {
         onUploadProgress: (pe) => {
-          const pct = Math.round((pe.loaded / pe.total) * 100);
-          setUploadProgress(pct);
+          if (pe.total) {
+            const pct = Math.round((pe.loaded / pe.total) * 100);
+            setUploadProgress(pct);
+          }
         },
       };
 
       if (editing) {
         await api.put(`/banners/${editing.id}`, fd, config);
+        toast.success('Banner updated successfully.');
       } else {
         await api.post('/banners', fd, config);
+        toast.success('Banner created successfully.');
       }
 
       setModalOpen(false);
       load();
     } catch (err) {
+      console.error(err);
       setUploadError(err.response?.data?.message || err.message || 'Upload failed. Please retry.');
     } finally {
       setSaving(false);
@@ -378,15 +390,22 @@ const BannersAdminPage = () => {
           </button>
         </div>
       </div>
-    ), {
-      duration: 10000,
-      position: 'top-center'
-    });
+    ), { duration: 10000, position: 'top-center' });
   };
 
   const handleToggle = async (b) => {
     try {
-      await api.put(`/banners/${b.id}`, { ...b, isActive: !b.isActive });
+      await api.put(`/banners/${b.id}`, {
+        title: b.title,
+        subtitle: b.subtitle,
+        type: b.type,
+        ctaText: b.ctaText,
+        ctaLink: b.ctaLink,
+        position: b.position,
+        badgeText: b.badgeText,
+        countdown: b.countdown || '',
+        isActive: !b.isActive
+      });
       toast.success(`Banner ${!b.isActive ? 'activated' : 'deactivated'}`);
       load();
     } catch (err) {
@@ -395,21 +414,27 @@ const BannersAdminPage = () => {
     }
   };
 
+  // Tabs order matching homepage display sequence: Hero (1st) -> CountDown (2nd) -> Exclusive Deal (3rd) -> Promo (4th)
+  const TABS = ['All', 'Hero', 'CountDown', 'Exclusive Deal', 'Promo'];
+
   const filteredBanners = activeTab === 'All'
     ? banners
-    : banners.filter(b => b.type === (activeTab === 'Exclusive Deal' ? 'EXCLUSIVE_DEAL' : activeTab.toUpperCase()));
+    : banners.filter(b => {
+        if (activeTab === 'Exclusive Deal') return b.type === 'EXCLUSIVE_DEAL';
+        return b.type === activeTab.toUpperCase();
+      });
 
   return (
     <AdminLayout title="Banners">
       {/* Tabs Nav Bar */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-hide" role="tablist">
-        {['All', 'Hero', 'CountDown', 'Promo', 'Exclusive Deal'].map(tab => (
+        {TABS.map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             role="tab"
             aria-selected={activeTab === tab}
-            id={`banners-tab-${tab.toLowerCase()}`}
+            id={`banners-tab-${tab.toLowerCase().replace(/\s+/g, '-')}`}
             className={`flex-shrink-0 px-4 py-2 text-xs font-medium rounded-lg border transition-all ${
               activeTab === tab
                 ? 'bg-brand-gold border-brand-gold text-white'
@@ -435,38 +460,48 @@ const BannersAdminPage = () => {
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredBanners.map(banner => (
-            <div key={banner.id} className="bg-white rounded-xl shadow-sm overflow-hidden group">
-              <div className="relative h-40 bg-brand-light">
-                {banner.image ? (
-                  <img src={banner.image} alt={banner.title} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-brand-grey text-xs">No image</div>
-                )}
-                <div className="absolute top-2 left-2 flex gap-1.5">
-                  <span className="bg-brand-gold text-white text-[10px] font-bold px-2 py-0.5 rounded">
-                    {banner.type === 'EXCLUSIVE_DEAL' ? 'EXCLUSIVE DEAL' : banner.type}
-                  </span>
-                  <span className="bg-white/90 text-brand-text text-[10px] font-bold px-2 py-0.5 rounded">Pos: {banner.position}</span>
-                  {!banner.isActive && (
-                    <span className="bg-red-400 text-white text-[10px] font-bold px-2 py-0.5 rounded">Inactive</span>
+            <div key={banner.id} className="bg-white rounded-xl shadow-sm overflow-hidden group border border-brand-light flex flex-col justify-between">
+              <div>
+                <div className="relative h-44 bg-brand-light/50">
+                  {banner.image ? (
+                    <img src={banner.image} alt={banner.title || 'Banner'} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-brand-grey text-xs">No image</div>
+                  )}
+                  <div className="absolute top-2 left-2 flex gap-1.5 flex-wrap">
+                    <span className="bg-brand-gold text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-2xs">
+                      {banner.type === 'EXCLUSIVE_DEAL' ? 'EXCLUSIVE DEAL' : banner.type}
+                    </span>
+                    <span className="bg-white/90 text-brand-text text-[10px] font-bold px-2 py-0.5 rounded border border-brand-light">Pos: {banner.position}</span>
+                    {!banner.isActive && (
+                      <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded">Inactive</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-4 space-y-1">
+                  <p className="font-medium text-sm text-brand-text line-clamp-1">{banner.title || 'Untitled Banner'}</p>
+                  <p className="text-xs text-brand-grey line-clamp-2">{banner.subtitle || 'No subtitle provided'}</p>
+                  {banner.badgeText && (
+                    <span className="inline-block text-[10px] bg-amber-50 text-amber-700 font-semibold px-2 py-0.5 rounded mt-1">
+                      Badge: {banner.badgeText}
+                    </span>
                   )}
                 </div>
               </div>
-              <div className="p-4">
-                <p className="font-medium text-sm mb-1 line-clamp-1">{banner.title}</p>
-                <p className="text-xs text-brand-grey line-clamp-1">{banner.subtitle}</p>
-                <div className="flex items-center justify-between mt-3">
-                  <div className="flex items-center">
-                    <Switch
-                      checked={banner.isActive}
-                      onChange={() => handleToggle(banner)}
-                      id={`toggle-banner-${banner.id}`}
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => openModal(banner)} className="p-1.5 text-brand-grey hover:text-brand-gold focus-visible:outline-brand-gold" id={`edit-banner-${banner.id}`}><Edit2 size={14} /></button>
-                    <button onClick={() => handleDelete(banner.id)} className="p-1.5 text-brand-grey hover:text-red-400 focus-visible:outline-brand-gold" id={`del-banner-${banner.id}`}><Trash2 size={14} /></button>
-                  </div>
+
+              <div className="p-4 pt-0 flex items-center justify-between border-t border-brand-light/60 mt-3">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={banner.isActive}
+                    onChange={() => handleToggle(banner)}
+                    id={`toggle-banner-${banner.id}`}
+                  />
+                  <span className="text-xs text-brand-grey font-medium">{banner.isActive ? 'Active' : 'Hidden'}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => openModal(banner)} className="p-1.5 text-brand-grey hover:text-brand-gold transition-colors" title="Edit" id={`edit-banner-${banner.id}`}><Edit2 size={14} /></button>
+                  <button onClick={() => handleDelete(banner.id)} className="p-1.5 text-brand-grey hover:text-red-500 transition-colors" title="Delete" id={`del-banner-${banner.id}`}><Trash2 size={14} /></button>
                 </div>
               </div>
             </div>
@@ -474,40 +509,48 @@ const BannersAdminPage = () => {
         </div>
       )}
 
+      {/* Add / Edit Banner Modal */}
       <AnimatePresence>
         {modalOpen && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && setModalOpen(false)}>
-            <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
               <div className="flex items-center justify-between px-6 py-4 border-b border-brand-light sticky top-0 bg-white z-10">
                 <h2 className="font-playfair text-lg font-semibold">{editing ? 'Edit Banner' : 'Add Banner'}</h2>
                 <button onClick={() => setModalOpen(false)} className="p-1.5 hover:text-brand-gold"><X size={18} /></button>
               </div>
 
               <form onSubmit={handleSave} className="p-6 space-y-4">
-                {/* Type + Position (Placed at top so specs update first) */}
+                {/* Banner Type select dropdown — ordered exactly like homepage display (1st Hero, 2nd Countdown, 3rd Exclusive Deal, 4th Promo) */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-brand-grey mb-1.5" htmlFor="ban-type">Banner Type *</label>
-                    <select id="ban-type" value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold bg-white rounded-sm font-medium">
+                    <label className="block text-xs font-semibold text-brand-grey mb-1.5" htmlFor="ban-type">
+                      Banner Type (Section Order) *
+                    </label>
+                    <select
+                      id="ban-type"
+                      value={form.type}
+                      onChange={e => handleTypeChange(e.target.value)}
+                      className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold bg-white rounded-sm font-medium text-brand-text"
+                    >
                       <option value="HERO">HERO</option>
+                      <option value="COUNTDOWN">COUNTDOWN</option>
                       <option value="EXCLUSIVE_DEAL">EXCLUSIVE DEAL</option>
                       <option value="PROMO">PROMO</option>
-                      <option value="COUNTDOWN">COUNTDOWN</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-brand-grey mb-1.5" htmlFor="ban-pos">Position (order)</label>
-                    <input id="ban-pos" type="number" value={form.position} onChange={e => setForm(p => ({ ...p, position: Number(e.target.value) }))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm" />
+                    <label className="block text-xs font-semibold text-brand-grey mb-1.5" htmlFor="ban-pos">Position Order</label>
+                    <input id="ban-pos" type="number" min="1" value={form.position} onChange={e => setForm(p => ({ ...p, position: Number(e.target.value) }))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm" />
                   </div>
                 </div>
 
-                {/* Image upload — file input only, no URL */}
+                {/* Banner Image Upload & Live Dimension Inspector */}
                 <div>
-                  <label className="block text-xs font-semibold text-brand-grey mb-1.5">Banner Image *</label>
+                  <label className="block text-xs font-semibold text-brand-grey mb-1.5">Banner Image {!editing && '*'}</label>
                   <div
                     className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${
-                      imageInvalid
-                        ? 'border-red-500 bg-red-50/40'
+                      !dimValidation.isValid
+                        ? 'border-red-500 bg-red-50/20'
                         : isDragging
                         ? 'border-brand-gold bg-brand-gold/5'
                         : 'border-brand-light hover:border-brand-gold'
@@ -526,82 +569,107 @@ const BannersAdminPage = () => {
                   >
                     {imagePreview ? (
                       <div className="relative">
-                        <img src={imagePreview} alt="Preview" className="max-h-36 mx-auto object-contain rounded" />
-                        <button type="button" onClick={(e) => { e.stopPropagation(); setImagePreview(null); setImageFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} className="absolute top-1 right-1 bg-white/80 p-0.5 rounded hover:bg-white"><X size={14} /></button>
+                        <img src={imagePreview} alt="Preview" className="max-h-40 mx-auto object-contain rounded" />
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setImagePreview(null); setImageFile(null); setImageDims(null); setDimValidation({ isValid: true, message: null }); if (fileInputRef.current) fileInputRef.current.value = ''; }} className="absolute top-1 right-1 bg-white/90 p-1 rounded-full shadow hover:bg-white"><X size={14} /></button>
                       </div>
                     ) : (
-                      <div className="py-6">
+                      <div className="py-4">
                         <Upload size={28} className="mx-auto text-brand-grey mb-2" />
                         <p className="text-sm text-brand-grey font-medium">Drag & drop image here, or click to upload</p>
-                        <p className="text-xs text-brand-grey mt-1">JPEG, PNG, WebP — max 5MB</p>
-                        <p className="text-[11px] text-brand-gold font-semibold mt-1.5">
-                          Recommended size for {form.type}: <span className="underline">{BANNER_SPECS[form.type]?.recommended}</span>
+                        <p className="text-xs text-brand-grey mt-1">JPEG, PNG, WebP — max 10MB</p>
+                        <p className="text-xs text-red-500 mt-1">
+                          (Recommended size {BANNER_SPECS[form.type]?.width} * {BANNER_SPECS[form.type]?.height})
                         </p>
                       </div>
                     )}
                   </div>
                   <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileSelect} />
-
-                  {/* Red Note for Image Size Mismatch */}
-                  {imageInvalid && (
-                    <div className="mt-2.5 p-3 bg-red-50 border border-red-300 rounded-lg text-red-700 text-xs flex items-start gap-2 shadow-2xs">
-                      <AlertCircle size={16} className="mt-0.5 flex-shrink-0 text-red-600" />
-                      <div className="flex-1 font-medium leading-relaxed">
-                        {imageErrorMsg}
+                  
+                  {/* Validation feedback below image input field */}
+                  {!dimValidation.isValid && (
+                    <div className="mt-2.5 p-3 rounded-lg border bg-red-50 border-red-200 text-xs text-red-900 flex items-start gap-2">
+                      <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-semibold text-red-700">Improper Image Size Detected</p>
+                        <p className="text-xs text-red-700 font-medium mt-1">
+                          Please upload a proper image matching the recommended dimensions: {BANNER_SPECS[form.type]?.width} × {BANNER_SPECS[form.type]?.height} px.
+                        </p>
                       </div>
                     </div>
                   )}
+                  {dimValidation.isValid && imageDims && (
+                    <div className="mt-2.5 p-2.5 rounded-lg border bg-green-50/60 border-green-200 text-xs text-green-900 flex items-center justify-between font-medium">
+                      <span>Current Image Size: <strong>{imageDims.width} × {imageDims.height} px</strong></span>
+                      <span className="flex items-center gap-1 text-green-700 font-bold bg-white px-2 py-0.5 rounded border border-green-200 text-[10px]">
+                        <CheckCircle2 size={12} /> Dimensions Valid
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Title & Subtitle */}
+                <div>
+                  <label className="block text-xs font-semibold text-brand-grey mb-1.5" htmlFor="ban-title">Title {(form.type !== 'HERO') && '*'}</label>
+                  <input id="ban-title" type="text" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm" placeholder="e.g. Midnight Luxury Sale" />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-brand-grey mb-1.5" htmlFor="ban-sub">Subtitle {(form.type !== 'HERO') && '*'}</label>
+                  <input id="ban-sub" type="text" value={form.subtitle} onChange={e => setForm(p => ({ ...p, subtitle: e.target.value }))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm" placeholder="e.g. Up to 50% Off Luxury Watches & Apparel" />
                 </div>
 
                 {/* Countdown Time */}
                 {form.type === 'COUNTDOWN' && (
                   <div>
-                    <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-countdown">Offer Ends At (Date & Time) *</label>
-                    <input id="ban-countdown" type="datetime-local" min={formatDatetimeLocal(new Date().toISOString())} value={form.countdown} onChange={e => setForm(p => ({ ...p, countdown: e.target.value }))} required className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
+                    <label className="block text-xs font-semibold text-brand-grey mb-1.5" htmlFor="ban-countdown">Offer Ends At (Date & Time) *</label>
+                    <input id="ban-countdown" type="datetime-local" value={form.countdown} onChange={e => setForm(p => ({ ...p, countdown: e.target.value }))} required className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm" />
                   </div>
                 )}
 
-                {/* CTA */}
-                <div>
-                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-ctaText">CTA Button Text {(form.type === 'EXCLUSIVE_DEAL' || form.type === 'COUNTDOWN') && '*'}</label>
-                  <input id="ban-ctaText" type="text" value={form.ctaText} onChange={e => setForm(p => ({ ...p, ctaText: e.target.value }))} required={form.type === 'EXCLUSIVE_DEAL' || form.type === 'COUNTDOWN'} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
-                </div>
-                 <div>
-                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-ctaLink">CTA Link *</label>
-                  <input id="ban-ctaLink" type="text" value={form.ctaLink} onChange={e => setForm(p => ({ ...p, ctaLink: e.target.value }))} required className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
-                </div>
-
-                {/* Badge + Active */}
+                {/* CTA text & link */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-badge">Badge Text {(form.type === 'EXCLUSIVE_DEAL' || form.type === 'COUNTDOWN') && '*'}</label>
-                    <input id="ban-badge" type="text" value={form.badgeText} onChange={e => setForm(p => ({ ...p, badgeText: e.target.value }))} required={form.type === 'EXCLUSIVE_DEAL' || form.type === 'COUNTDOWN'} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
+                    <label className="block text-xs font-semibold text-brand-grey mb-1.5" htmlFor="ban-ctaText">CTA Button Text {(form.type === 'EXCLUSIVE_DEAL' || form.type === 'COUNTDOWN') && '*'}</label>
+                    <input id="ban-ctaText" type="text" value={form.ctaText} onChange={e => setForm(p => ({ ...p, ctaText: e.target.value }))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm" placeholder="e.g. SHOP NOW" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-brand-grey mb-1.5" htmlFor="ban-ctaLink">CTA Link *</label>
+                    <input id="ban-ctaLink" type="text" value={form.ctaLink} onChange={e => setForm(p => ({ ...p, ctaLink: e.target.value }))} required className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm" placeholder="e.g. /products" />
+                  </div>
+                </div>
+
+                {/* Badge + Active Toggle */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-brand-grey mb-1.5" htmlFor="ban-badge">Badge Text {(form.type === 'EXCLUSIVE_DEAL' || form.type === 'COUNTDOWN') && '*'}</label>
+                    <input id="ban-badge" type="text" value={form.badgeText} onChange={e => setForm(p => ({ ...p, badgeText: e.target.value }))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm" placeholder="e.g. 50% OFF" />
                   </div>
                   <div className="flex items-end pb-2">
                     <label className="flex items-center gap-2 text-sm cursor-pointer select-none" htmlFor="ban-active">
                       <Switch checked={form.isActive} onChange={val => setForm(p => ({ ...p, isActive: typeof val === 'boolean' ? val : val?.target?.checked }))} id="ban-active" />
-                      Active
+                      Active Banner
                     </label>
                   </div>
                 </div>
 
+                {uploadError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-600 flex items-center gap-2">
+                    <AlertCircle size={15} />
+                    <span>{uploadError}</span>
+                  </div>
+                )}
+
                 {/* Buttons */}
                 <div className="flex gap-3 pt-2 border-t border-brand-light">
                   <button type="button" onClick={() => setModalOpen(false)} className="btn-outline flex-1" id="ban-cancel" disabled={saving}>Cancel</button>
-                  <button type="submit" className="btn-primary flex-1 flex items-center justify-center gap-2" id="ban-save" disabled={saving || uploadProgress !== null || imageInvalid}>
+                  <button type="submit" className="btn-primary flex-1 flex items-center justify-center gap-2" id="ban-save" disabled={saving}>
                     {saving ? (
-                      <><RefreshCw size={14} className="animate-spin" /> {uploadProgress !== null ? `${uploadProgress}%` : 'Saving...'}</>
+                      <><RefreshCw size={14} className="animate-spin" /> {uploadProgress !== null && uploadProgress > 0 ? `${uploadProgress}%` : 'Saving...'}</>
                     ) : (
                       editing ? 'Update Banner' : 'Save Banner'
                     )}
                   </button>
                 </div>
-
-                {uploadError && (
-                  <button type="button" onClick={handleSave} className="w-full text-sm text-brand-gold hover:underline flex items-center justify-center gap-1">
-                    <RefreshCw size={14} /> Retry Upload
-                  </button>
-                )}
               </form>
             </motion.div>
           </div>
@@ -610,4 +678,5 @@ const BannersAdminPage = () => {
     </AdminLayout>
   );
 };
+
 export default BannersAdminPage;
