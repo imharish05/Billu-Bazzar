@@ -185,17 +185,9 @@ const CartDrawer = () => {
                 </div>
                 <p className="text-xs text-brand-grey mb-4">Shipping & taxes calculated at checkout</p>
                 <Link
-                  to="/checkout"
-                  onClick={() => dispatch(closeCart())}
-                  className="btn-primary w-full text-center block mb-3"
-                  id="cart-checkout-btn"
-                >
-                  Proceed to Checkout
-                </Link>
-                <Link
                   to="/cart"
                   onClick={() => dispatch(closeCart())}
-                  className="btn-outline w-full text-center block"
+                  className="btn-primary w-full text-center block"
                   id="cart-view-btn"
                 >
                   View Cart

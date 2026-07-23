@@ -23,6 +23,7 @@ const CartPage = () => {
   const [giftWrap, setGiftWrap] = useState(false);
   const [giftMessage, setGiftMessage] = useState('');
   const [redeemPoints, setRedeemPoints] = useState(false);
+  const [giftService, setGiftService] = useState(null);
 
   const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
 
@@ -47,15 +48,29 @@ const CartPage = () => {
     return 0;
   };
 
+  const isGiftServiceActive = giftService ? giftService.isActive !== false : true;
+  const giftWrapAmount = giftService ? Number(giftService.amount || 0) : 99;
+  const giftWrapVal = (giftWrap && isGiftServiceActive) ? giftWrapAmount : 0;
+
   const shipping = subtotal >= FREE_SHIP ? 0 : 99;
   const couponDiscountVal = couponApplied ? getCouponDiscount(couponApplied, subtotal) : 0;
   const loyaltyDiscountVal = redeemPoints && customer ? Math.min(Number(customer.loyaltyPoints) * 0.1, subtotal * 0.2) : 0;
-  const giftWrapVal = giftWrap ? 99 : 0;
   
   const total = subtotal - couponDiscountVal - loyaltyDiscountVal + giftWrapVal + shipping;
 
   useEffect(() => { 
     document.title = 'Your Cart — Billu Bazaar'; 
+  }, []);
+
+  // Fetch gift service config
+  useEffect(() => {
+    api.get('/gift-service')
+      .then(res => {
+        if (res.data?.success) {
+          setGiftService(res.data.giftService);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Fetch active coupons
@@ -267,53 +282,59 @@ const CartPage = () => {
             </button>
 
             {/* Gift wrapping option block */}
-            <div className="bg-white border border-brand-light p-6 shadow-sm space-y-4 mt-6">
-              <h3 className="font-playfair text-base font-semibold flex items-center gap-2 text-brand-text">
-                🎁 Premium Gift Services
-              </h3>
-              
-              <div className="flex flex-col gap-3">
-                <label className="flex items-start gap-3 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={giftWrap}
-                    onChange={(e) => {
-                      setGiftWrap(e.target.checked);
-                      if (!e.target.checked) setGiftMessage('');
-                    }}
-                    className="w-4 h-4 mt-0.5 accent-brand-gold rounded border-brand-light"
-                  />
-                  <div className="text-xs">
-                    <p className="font-medium text-brand-text">Add Premium Gift Wrapping (+{fmt(99)})</p>
-                    <p className="text-brand-grey mt-0.5">Meticulously wrapped in our signature gold foil box with a silk ribbon casing.</p>
-                  </div>
-                </label>
-
-                {giftWrap && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="space-y-2 pt-2"
-                  >
-                    <label className="block text-xs font-semibold text-brand-grey" htmlFor="gift-msg">
-                      Personalized Message (Complimentary)
-                    </label>
-                    <textarea
-                      id="gift-msg"
-                      rows={3}
-                      value={giftMessage}
-                      onChange={(e) => setGiftMessage(e.target.value)}
-                      placeholder="Write your special message here... (e.g. Happy Anniversary! With love, Priya)"
-                      className="w-full border border-brand-light p-3 text-xs focus:outline-none focus:border-brand-gold bg-transparent resize-none rounded-sm placeholder-brand-grey/40"
-                      maxLength={200}
+            {isGiftServiceActive && (
+              <div className="bg-white border border-brand-light p-6 shadow-sm space-y-4 mt-6">
+                <h3 className="font-playfair text-base font-semibold flex items-center gap-2 text-brand-text">
+                  🎁 Premium Gift Services
+                </h3>
+                
+                <div className="flex flex-col gap-3">
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={giftWrap}
+                      onChange={(e) => {
+                        setGiftWrap(e.target.checked);
+                        if (!e.target.checked) setGiftMessage('');
+                      }}
+                      className="w-4 h-4 mt-0.5 accent-brand-gold rounded border-brand-light"
                     />
-                    <div className="text-right text-[10px] text-brand-grey">
-                      {200 - giftMessage.length} characters remaining
+                    <div className="text-xs">
+                      <p className="font-medium text-brand-text">
+                        {giftService?.label || 'Add Premium Gift Wrapping'} (+{fmt(giftWrapAmount)})
+                      </p>
+                      <p className="text-brand-grey mt-0.5">
+                        {giftService?.description || 'Meticulously wrapped in our signature gold foil box with a silk ribbon casing.'}
+                      </p>
                     </div>
-                  </motion.div>
-                )}
+                  </label>
+
+                  {giftWrap && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="space-y-2 pt-2"
+                    >
+                      <label className="block text-xs font-semibold text-brand-grey" htmlFor="gift-msg">
+                        Personalized Message (Complimentary)
+                      </label>
+                      <textarea
+                        id="gift-msg"
+                        rows={3}
+                        value={giftMessage}
+                        onChange={(e) => setGiftMessage(e.target.value)}
+                        placeholder="Write your special message here... (e.g. Happy Anniversary! With love, Priya)"
+                        className="w-full border border-brand-light p-3 text-xs focus:outline-none focus:border-brand-gold bg-transparent resize-none rounded-sm placeholder-brand-grey/40"
+                        maxLength={200}
+                      />
+                      <div className="text-right text-[10px] text-brand-grey">
+                        {200 - giftMessage.length} characters remaining
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Order Summary */}
@@ -324,14 +345,14 @@ const CartPage = () => {
                 <div className="flex justify-between"><span className="text-brand-grey">Subtotal</span><span>{fmt(subtotal)}</span></div>
                 {couponDiscountVal > 0 && <div className="flex justify-between text-green-600"><span>Coupon Discount ({couponApplied?.code})</span><span>−{fmt(couponDiscountVal)}</span></div>}
                 {loyaltyDiscountVal > 0 && <div className="flex justify-between text-green-600"><span>Loyalty Discount</span><span>−{fmt(loyaltyDiscountVal)}</span></div>}
-                {giftWrap && <div className="flex justify-between text-brand-text"><span>Gift Wrapping</span><span>{fmt(99)}</span></div>}
+                {giftWrap && isGiftServiceActive && <div className="flex justify-between text-brand-text"><span>Gift Wrapping</span><span>{fmt(giftWrapAmount)}</span></div>}
                 <div className="flex justify-between"><span className="text-brand-grey">Shipping</span><span>{shipping === 0 ? <span className="text-green-600">Free</span> : fmt(shipping)}</span></div>
                 <div className="border-t border-brand-light pt-3 flex justify-between font-semibold text-base">
                   <span>Total</span><span className="text-brand-gold">{fmt(total)}</span>
                 </div>
               </div>
 
-              <Link to="/checkout" state={{ giftWrap, giftMessage, redeemPoints }} className="btn-primary w-full text-center block mt-6" id="cart-checkout">
+              <Link to="/checkout" state={{ giftWrap: giftWrap && isGiftServiceActive, giftMessage, giftWrapPrice: giftWrapAmount, redeemPoints }} className="btn-primary w-full text-center block mt-6" id="cart-checkout">
                 Proceed to Checkout
               </Link>
               <Link to="/products" className="btn-outline w-full text-center block mt-3" id="cart-continue">

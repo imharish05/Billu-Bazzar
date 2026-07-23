@@ -23,6 +23,7 @@ const NAV_SECTIONS = [
       { to: '/slider-messages', label: 'Slider Messages', icon: MessageSquare },
       { to: '/banners', label: 'Banners', icon: Image },
       { to: '/coupons', label: 'Coupons', icon: Ticket },
+      { to: '/gift-services', label: 'Gift Services', icon: Gift },
       { to: '/affiliates', label: 'Affiliates', icon: UserCheck },
       { to: '/loyalty', label: 'Loyalty', icon: Gift },
     ],

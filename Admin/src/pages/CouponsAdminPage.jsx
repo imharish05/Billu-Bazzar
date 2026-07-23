@@ -100,7 +100,7 @@ const CouponsAdminPage = () => {
     }
   };
 
-  // Seed fallback data if API returns empty (coupon route may not be mounted yet)
+  // Seed fallback data if API returns empty
   const displayCoupons = coupons.length ? coupons : [
     { id: 1, code: 'WELCOME20', type: 'PERCENT', value: 20, minOrderValue: 500, usageCount: 142, usageLimit: 1000, validTo: '2025-12-31', isActive: true },
     { id: 2, code: 'LUXE15', type: 'PERCENT', value: 15, minOrderValue: 2000, usageCount: 67, usageLimit: 500, validTo: '2025-10-31', isActive: true },
@@ -173,7 +173,6 @@ const CouponsAdminPage = () => {
                 <button onClick={()=>setModalOpen(false)} className="p-1.5 hover:text-brand-gold"><X size={18}/></button>
               </div>
               <div className="flex flex-col md:flex-row">
-                {/* Form Area */}
                 <form onSubmit={handleSave} className="flex-1 p-6 space-y-4">
                   <div>
                     <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="coup-code">Coupon Code *</label>
@@ -222,14 +221,9 @@ const CouponsAdminPage = () => {
                   </div>
                 </form>
 
-                {/* Live Preview Area */}
                 <div className="w-full md:w-[320px] bg-brand-light/35 p-6 border-t md:border-t-0 md:border-l border-brand-light flex flex-col justify-center items-center min-h-[260px] md:min-h-auto select-none">
-                  {/* Coupon Card */}
                   <div className="w-full max-w-[280px] bg-white border border-brand-light shadow-md rounded-xl flex relative overflow-hidden transition-all duration-300 hover:shadow-lg">
-                    {/* Left vertical color strip */}
                     <div className="w-3.5 bg-[#E55B32] flex-shrink-0" />
-                    
-                    {/* Card Content */}
                     <div className="flex-1 p-5 flex flex-col">
                       <span className="text-[10px] font-bold text-[#E55B32] tracking-widest uppercase block mb-1">
                         Offer Preview
@@ -240,18 +234,12 @@ const CouponsAdminPage = () => {
                       <p className="text-2xl font-bold text-[#E55B32]">
                         {form.value ? (form.type === 'PERCENT' ? `${Number(form.value).toFixed(2)}% OFF` : `₹${Number(form.value).toFixed(2)} OFF`) : '10.00% OFF'}
                       </p>
-                      
-                      {/* Max discount */}
                       {form.type === 'PERCENT' && (
                         <p className="text-xs text-green-600 font-medium mt-1">
                           {form.maxDiscount ? `Up to ₹${Number(form.maxDiscount).toFixed(2)}` : 'No Max Discount'}
                         </p>
                       )}
-
-                      {/* Dashed divider */}
                       <div className="border-t border-dashed border-neutral-200 my-4" />
-
-                      {/* Min order */}
                       <p className="text-xs text-neutral-500">
                         Min Order: ₹{form.minOrderValue ? Number(form.minOrderValue).toFixed(2) : '0.00'}
                       </p>
@@ -266,4 +254,5 @@ const CouponsAdminPage = () => {
     </AdminLayout>
   );
 };
+
 export default CouponsAdminPage;

@@ -13,6 +13,7 @@ import BannersAdminPage from './pages/BannersAdminPage';
 import VendorsAdminPage from './pages/VendorsAdminPage';
 import WarehousesAdminPage from './pages/WarehousesAdminPage';
 import CouponsAdminPage from './pages/CouponsAdminPage';
+import GiftServicesAdminPage from './pages/GiftServicesAdminPage';
 import AffiliatesAdminPage from './pages/AffiliatesAdminPage';
 import LoyaltyAdminPage from './pages/LoyaltyAdminPage';
 import PaymentsAdminPage from './pages/PaymentsAdminPage';
@@ -52,6 +53,7 @@ const App = () => (
       <Route path="/vendors"     element={<Protected><VendorsAdminPage /></Protected>} />
       <Route path="/warehouses"  element={<Protected><WarehousesAdminPage /></Protected>} />
       <Route path="/coupons"     element={<Protected><CouponsAdminPage /></Protected>} />
+      <Route path="/gift-services" element={<Protected><GiftServicesAdminPage /></Protected>} />
       <Route path="/affiliates"  element={<Protected><AffiliatesAdminPage /></Protected>} />
       <Route path="/loyalty"     element={<Protected><LoyaltyAdminPage /></Protected>} />
       <Route path="/payments"    element={<Protected><PaymentsAdminPage /></Protected>} />

@@ -285,10 +285,12 @@ const CheckoutPage = () => {
     toast.success('Coupon removed.');
   };
 
+  const isGiftWrap = Boolean(location.state?.giftWrap);
+  const giftWrapPrice = isGiftWrap ? Number(location.state?.giftWrapPrice || 99) : 0;
   const shipping = subtotal >= 1499 ? 0 : 99;
   const taxableSubtotal = Math.max(0, subtotal - couponDiscount);
   const tax = taxableSubtotal * 0.05;
-  const total = taxableSubtotal + shipping + tax;
+  const total = taxableSubtotal + shipping + tax + giftWrapPrice;
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -1081,6 +1083,12 @@ const CheckoutPage = () => {
                   <span>-{fmt(couponDiscount)}</span>
                 </div>
               )}
+              {isGiftWrap && (
+                <div className="flex justify-between text-brand-text font-medium">
+                  <span>Gift Wrapping</span>
+                  <span>{fmt(giftWrapPrice)}</span>
+                </div>
+              )}
               <div className="flex justify-between"><span className="text-brand-grey">Shipping</span><span>{shipping === 0 ? <span className="text-green-600">Free</span> : fmt(shipping)}</span></div>
               <div className="flex justify-between"><span className="text-brand-grey">GST (5%)</span><span>{fmt(tax)}</span></div>
               <div className="border-t border-neutral-100 pt-3 flex justify-between font-bold text-base">
@@ -1088,9 +1096,9 @@ const CheckoutPage = () => {
               </div>
             </div>
 
-            {/* Coupon Code Input on Checkout */}
-            <div className="mt-4 pt-4 border-t border-neutral-100">
-              {appliedCoupon ? (
+            {/* Applied Coupon Badge (if applied prior in Cart/Product page) */}
+            {appliedCoupon && (
+              <div className="mt-4 pt-4 border-t border-neutral-100">
                 <div className="flex items-center justify-between bg-green-50 border border-green-200 p-2.5 rounded text-xs">
                   <div className="flex items-center gap-1.5 font-medium text-green-700">
                     <Tag size={14} />
@@ -1098,26 +1106,8 @@ const CheckoutPage = () => {
                   </div>
                   <button onClick={handleRemoveCheckoutCoupon} className="text-red-500 hover:underline font-semibold text-[11px]">Remove</button>
                 </div>
-              ) : (
-                <div className="flex gap-1.5">
-                  <input
-                    type="text"
-                    value={couponCodeInput}
-                    onChange={e => setCouponCodeInput(e.target.value.toUpperCase())}
-                    placeholder="Coupon code"
-                    className="flex-1 border border-neutral-200 rounded px-2.5 py-1.5 text-xs uppercase font-mono focus:outline-none focus:border-brand-gold"
-                  />
-                  <button
-                    type="button"
-                    disabled={validatingCoupon || !couponCodeInput.trim()}
-                    onClick={handleApplyCheckoutCoupon}
-                    className="bg-neutral-900 text-white text-xs px-3 py-1.5 rounded font-medium hover:bg-neutral-700 transition-colors disabled:opacity-50"
-                  >
-                    Apply
-                  </button>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Delivery estimate in sidebar */}
             <div className="mt-4 pt-4 border-t border-neutral-100">
