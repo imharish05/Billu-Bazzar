@@ -869,7 +869,10 @@ const Navbar = () => {
                     </span>
                   </button>
                 </div>
-                 <Link to="/account/wishlist" className="relative p-2 text-white hover:text-brand-gold transition-colors" aria-label={`Wishlist — ${wishlistCount} items`}>
+                <Link to="/account" className="p-2 text-white hover:text-brand-gold transition-colors" aria-label="Account">
+                  <User size={18} strokeWidth={1.5} />
+                </Link>
+                <Link to="/account/wishlist" className="relative p-2 text-white hover:text-brand-gold transition-colors" aria-label={`Wishlist — ${wishlistCount} items`}>
                   <Heart size={18} strokeWidth={1.5} />
                   {wishlistCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-brand-gold text-white text-[9px] font-bold rounded-full flex items-center justify-center">{wishlistCount}</span>

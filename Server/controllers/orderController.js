@@ -166,6 +166,12 @@ const placeOrder = async (req, res) => {
       }
     }
 
+    // 2. Validate Order Basics
+    const isCod = paymentMethod === 'COD' || paymentMethod === 'Cash on Delivery (COD)' || paymentMethod?.includes('Cash on Delivery');
+    if (!billingAddress || !shippingAddress) {
+      return res.status(400).json({ success: false, message: 'Billing and shipping addresses are required' });
+    }
+
     if (!cart || !cart.items || cart.items.length === 0) {
       await transaction.rollback();
       return res.status(400).json({ success: false, message: 'Cart is empty' });
@@ -316,8 +322,6 @@ const placeOrder = async (req, res) => {
     }
 
     const totalAmount = subtotal - discountAmount - loyaltyDiscount + shippingAmount + taxAmount;
-
-    const isCod = paymentMethod === 'COD';
 
     // Guard: Enforce currency uniformity and resolve correct currency code
     let orderCurrency = 'INR';

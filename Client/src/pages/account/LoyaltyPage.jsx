@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import { Wallet, TrendingUp, TrendingDown } from 'lucide-react';
-import { mockCustomer, mockLoyaltyLedger, loyaltyEarnRules as defaultEarnRules } from '../../data/mockAccountData';
+import { loyaltyEarnRules as defaultEarnRules } from '../../data/mockAccountData';
 import { formatPrice } from '../../utils/currency';
 import api from '../../services/api';
 
@@ -12,25 +13,58 @@ import api from '../../services/api';
  * all hardcoded; swap for real balance + ledger endpoints once available.
  */
 const LoyaltyPage = () => {
-  const { loyaltyPoints, loyaltyTier, cashbackBalance } = mockCustomer;
+  const customer = useSelector((state) => state.auth.customer);
+
   const [earnRules, setEarnRules] = useState(defaultEarnRules);
   const [loadingRules, setLoadingRules] = useState(true);
+  const [redeemRate, setRedeemRate] = useState(0.2); // Default 0.2
+
+  const [ledger, setLedger] = useState([]);
+  const [balance, setBalance] = useState(customer?.loyaltyPoints || 0);
+  const [loadingLedger, setLoadingLedger] = useState(true);
 
   useEffect(() => {
-    const fetchLoyaltySettings = async () => {
+    const fetchLoyaltyData = async () => {
       try {
-        const res = await api.get('/site-settings/loyalty');
-        if (res.data?.success && res.data?.data?.earnRules?.length > 0) {
-          setEarnRules(res.data.data.earnRules);
+        const [settingsRes, ledgerRes] = await Promise.all([
+          api.get('/site-settings/loyalty'),
+          api.get('/customers/loyalty')
+        ]);
+        
+        if (settingsRes.data?.success && settingsRes.data?.data) {
+          if (settingsRes.data.data.earnRules?.length > 0) {
+            setEarnRules(settingsRes.data.data.earnRules);
+          }
+          if (settingsRes.data.data.redeemRate) {
+            setRedeemRate(settingsRes.data.data.redeemRate);
+          }
+        }
+
+        if (ledgerRes.data?.success) {
+          setLedger(ledgerRes.data.ledger || []);
+          if (ledgerRes.data.balance !== undefined) {
+            setBalance(ledgerRes.data.balance);
+          }
         }
       } catch (err) {
-        console.error('Failed to fetch loyalty settings:', err);
+        console.error('Failed to fetch loyalty data:', err);
       } finally {
         setLoadingRules(false);
+        setLoadingLedger(false);
       }
     };
-    fetchLoyaltySettings();
-  }, []);
+
+    if (customer) {
+      fetchLoyaltyData();
+    } else {
+      setLoadingRules(false);
+      setLoadingLedger(false);
+    }
+  }, [customer]);
+
+  const loyaltyTier = balance >= 1000 ? 'Gold' : balance >= 500 ? 'Silver' : 'Bronze';
+  const worth = balance * redeemRate;
+  const cashbackBalance = 0;
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
@@ -39,8 +73,8 @@ const LoyaltyPage = () => {
       <div className="grid sm:grid-cols-2 gap-4 mb-6">
         <div className="bg-gradient-to-r from-brand-gold to-yellow-500 text-white p-6">
           <p className="text-sm opacity-80 mb-1 text-white">Loyalty Points · {loyaltyTier} Tier</p>
-          <p className="font-playfair text-5xl font-bold text-white">{loyaltyPoints}</p>
-          <p className="text-sm opacity-80 mt-1 text-white">Worth {formatPrice(loyaltyPoints * 0.5)}</p>
+          <p className="font-playfair text-5xl font-bold text-white">{balance}</p>
+          <p className="text-sm opacity-80 mt-1 text-white">Worth {formatPrice(worth)}</p>
         </div>
         <div className="bg-brand-text text-white p-6">
           <p className="text-sm opacity-70 mb-1 flex items-center gap-1.5 text-white"><Wallet size={14} /> Cashback Wallet</p>
@@ -71,24 +105,30 @@ const LoyaltyPage = () => {
         <div className="bg-white shadow-sm p-6">
           <h2 className="font-medium text-sm mb-4">Recent Activity</h2>
           <div className="space-y-3">
-            {mockLoyaltyLedger.map(tx => (
-              <div key={tx.id} className="flex items-center justify-between text-sm py-2 border-b border-brand-light last:border-0">
-                <div className="flex items-center gap-2 min-w-0">
-                  {tx.type === 'earn'
-                    ? <TrendingUp size={14} className="text-green-600 flex-shrink-0" />
-                    : <TrendingDown size={14} className="text-red-500 flex-shrink-0" />}
-                  <div className="min-w-0">
-                    <p className="truncate">{tx.label}</p>
-                    <p className="text-[11px] text-brand-grey">
-                      {new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                    </p>
+            {loadingLedger ? (
+              <div className="text-sm text-brand-grey py-2">Loading activity...</div>
+            ) : ledger.length > 0 ? (
+              ledger.map(tx => (
+                <div key={tx.id} className="flex items-center justify-between text-sm py-2 border-b border-brand-light last:border-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {tx.type === 'EARN' || tx.type === 'BONUS'
+                      ? <TrendingUp size={14} className="text-green-600 flex-shrink-0" />
+                      : <TrendingDown size={14} className="text-red-500 flex-shrink-0" />}
+                    <div className="min-w-0">
+                      <p className="truncate">{tx.description || tx.type}</p>
+                      <p className="text-[11px] text-brand-grey">
+                        {new Date(tx.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      </p>
+                    </div>
                   </div>
+                  <span className={`font-medium flex-shrink-0 ${tx.points > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                    {tx.points > 0 ? '+' : ''}{tx.points}
+                  </span>
                 </div>
-                <span className={`font-medium flex-shrink-0 ${tx.points > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                  {tx.points > 0 ? '+' : ''}{tx.points}
-                </span>
-              </div>
-            ))}
+              ))
+            ) : (
+              <div className="text-sm text-brand-grey py-2">No recent activity found.</div>
+            )}
           </div>
         </div>
       </div>
