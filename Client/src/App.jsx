@@ -21,6 +21,7 @@ import WishlistPage from './pages/account/WishlistPage';
 import LoyaltyPage from './pages/account/LoyaltyPage';
 import PersonalShopperPage from './pages/account/PersonalShopperPage';
 import SupportPage from './pages/account/SupportPage';
+import MyReviewsPage from './pages/account/MyReviewsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoaderPreviewPage from './pages/LoaderPreviewPage';
 import ContactPage from './pages/ContactPage';
@@ -31,6 +32,7 @@ import CancellationPage from './pages/CancellationPage';
 import ReturnsPage from './pages/ReturnsPage';
 import api from './services/api';
 import { fetchProfile } from './redux/slices/authSlice';
+import { fetchWishlist } from './redux/slices/wishlistSlice';
 import { getAccessToken } from './utils/tokenStorage';
 
 const App = () => {
@@ -69,9 +71,11 @@ const App = () => {
   // ── Bootstrap: fetch profile whenever a token exists ────────────────────────
   // Runs once on mount. If a token is in localStorage, call /getme to load
   // fresh customer data into Redux — covers page refresh, new tab, etc.
+  // ── Bootstrap: fetch profile & wishlist whenever a token exists ─────────────
   useEffect(() => {
     if (getAccessToken()) {
       dispatch(fetchProfile());
+      dispatch(fetchWishlist());
     }
   }, [dispatch]);
 
@@ -133,6 +137,7 @@ const App = () => {
             <Route path="loyalty" element={<LoyaltyPage />} />
             <Route path="personal-shopper" element={<PersonalShopperPage />} />
             <Route path="support" element={<SupportPage />} />
+            <Route path="reviews" element={<MyReviewsPage />} />
           </Route>
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

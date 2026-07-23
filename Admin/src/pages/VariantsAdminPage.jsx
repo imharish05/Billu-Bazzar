@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Edit2, Trash2, X, Upload, ChevronDown, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, Upload, ChevronDown, Check, ChevronLeft, ChevronRight, Camera } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import currencyJs from 'currency.js';
 import toast from 'react-hot-toast';
@@ -112,9 +112,14 @@ const VariantModal = ({ variant, onClose, onSave, products, warehouses }) => {
   const [warehouseId, setWarehouseId] = useState(variant?.warehouseId || '');
   const [attributes, setAttributes] = useState(variant?.attributes || {});
   
-  // Multi-Image Upload States (Up to 10 Images per Variant)
+  const [lowStockThreshold, setLowStockThreshold] = useState(variant?.lowStockThreshold !== undefined ? String(variant.lowStockThreshold) : '10');
+  const [gstRate, setGstRate] = useState(variant?.gstRate || '18%');
+  const [mainImageFile, setMainImageFile] = useState(null);
+  const [mainImagePreview, setMainImagePreview] = useState(variant?.image || '');
+
+  // Multi-Image Upload States (Up to 5 Images per Variant)
   const [existingImages, setExistingImages] = useState(() => {
-    if (Array.isArray(variant?.images) && variant.images.length > 0) return variant.images;
+    if (Array.isArray(variant?.images) && variant.images.length > 0) return variant.images.slice(0, 5);
     if (variant?.image) return [variant.image];
     return [];
   });
@@ -188,11 +193,19 @@ const VariantModal = ({ variant, onClose, onSave, products, warehouses }) => {
     }));
   };
 
+  const handleMainImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setMainImageFile(file);
+      setMainImagePreview(URL.createObjectURL(file));
+    }
+  };
+
   const handleMultipleFilesSelect = (e) => {
     const files = Array.from(e.target.files || []);
-    const remainingSlots = 10 - (existingImages.length + newImageFiles.length);
+    const remainingSlots = 5 - (existingImages.length + newImageFiles.length);
     if (remainingSlots <= 0) {
-      toast.error('Maximum 10 variant images allowed');
+      toast.error('Maximum 5 variant gallery images allowed');
       return;
     }
     const selected = files.slice(0, remainingSlots).map(file => {
@@ -234,7 +247,8 @@ const VariantModal = ({ variant, onClose, onSave, products, warehouses }) => {
       });
 
       if (isConflict) {
-        toast.error('A variant with this combination of attributes already exists for this product.');
+        const comboStr = Object.entries(attributes).map(([k, v]) => `${k}: ${v}`).join(', ');
+        toast.error(`Variant combination '${comboStr}' already exists for this product!`);
         return;
       }
     }
@@ -245,10 +259,16 @@ const VariantModal = ({ variant, onClose, onSave, products, warehouses }) => {
     fd.append('price', price);
     fd.append('mrp', mrp);
     fd.append('stock', stock);
+    fd.append('lowStockThreshold', lowStockThreshold);
+    fd.append('gstRate', gstRate);
     fd.append('warehouseId', warehouseId || '');
     fd.append('attributes', JSON.stringify(attributes));
     fd.append('existingImages', JSON.stringify(existingImages));
     
+    if (mainImageFile) {
+      fd.append('variantImages', mainImageFile);
+    }
+
     newImageFiles.forEach(file => {
       fd.append('variantImages', file);
     });
@@ -356,44 +376,107 @@ const VariantModal = ({ variant, onClose, onSave, products, warehouses }) => {
                   required
                   value={price}
                   onChange={e => setPrice(e.target.value)}
-                  className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-md"
+                  placeholder="0.00"
+                  className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-md font-sans"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-brand-grey mb-1.5" htmlFor="var-mrp">MRP Compare Price (₹)</label>
+                <label className="block text-xs font-semibold text-brand-grey mb-1.5" htmlFor="var-mrp">MRP (₹)</label>
                 <input
                   id="var-mrp"
                   type="number"
                   value={mrp}
                   onChange={e => setMrp(e.target.value)}
-                  className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-md"
+                  placeholder="0.00"
+                  className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-md font-sans"
                 />
               </div>
 
-              <div className="col-span-2">
-                <label className="block text-xs font-semibold text-brand-grey mb-1.5" htmlFor="var-stock">Stock Qty *</label>
+              <div>
+                <label className="block text-xs font-semibold text-brand-grey mb-1.5" htmlFor="var-stock">Stock QTY *</label>
                 <input
                   id="var-stock"
                   type="number"
                   required
                   value={stock}
                   onChange={e => setStock(e.target.value)}
-                  className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-md"
+                  placeholder="0"
+                  className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-md font-sans"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-brand-grey mb-1.5" htmlFor="var-threshold">Low Stock Threshold</label>
+                <input
+                  id="var-threshold"
+                  type="number"
+                  value={lowStockThreshold}
+                  onChange={e => setLowStockThreshold(e.target.value)}
+                  placeholder="10"
+                  className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-md font-sans"
+                />
+              </div>
+
+              <div className="col-span-2">
+                <label className="block text-xs font-semibold text-brand-grey mb-1.5" htmlFor="var-gst">GST Percentage</label>
+                <select
+                  id="var-gst"
+                  value={gstRate}
+                  onChange={e => setGstRate(e.target.value)}
+                  className="w-full border border-brand-light bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-gold transition-colors rounded-md font-medium"
+                >
+                  <option value="0%">0% (Exempt)</option>
+                  <option value="5%">5% (SGST 2.5% + CGST 2.5%)</option>
+                  <option value="12%">12% (SGST 6% + CGST 6%)</option>
+                  <option value="18%">18% (SGST 9% + CGST 9%)</option>
+                  <option value="28%">28% (SGST 14% + CGST 14%)</option>
+                </select>
               </div>
             </div>
 
-            {/* Variant Images Grid (Up to 10 Images) */}
+            {/* Main Variant Image Input (Dashed Dropzone & Rounded Preview Card) */}
+            <div className="pt-2 border-t border-neutral-200 space-y-1.5">
+              <label className="block text-xs font-semibold text-neutral-700">
+                Main Variant Image • Recommended 400×400px (1:1) • Max: 3MB
+              </label>
+
+              {mainImagePreview ? (
+                <div className="relative w-28 h-28 border border-neutral-300 rounded-2xl overflow-hidden shadow-md group bg-neutral-900">
+                  <img src={mainImagePreview} alt="Main Variant" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMainImageFile(null);
+                      setMainImagePreview('');
+                    }}
+                    className="absolute top-2 right-2 bg-black/80 hover:bg-red-600 text-white p-1 rounded-full shadow-lg transition-colors"
+                    title="Remove Main Image"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <label className="border-2 border-dashed border-neutral-300 hover:border-brand-gold bg-white hover:bg-neutral-50/50 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition-all group">
+                  <div className="flex items-center gap-1.5 text-xs text-neutral-500 font-medium group-hover:text-neutral-800">
+                    <Camera size={16} className="text-neutral-400 group-hover:text-brand-gold" />
+                    <span>Click to <strong>browse</strong> or <strong>drag & drop</strong></span>
+                  </div>
+                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleMainImageChange} className="hidden" />
+                </label>
+              )}
+            </div>
+
+            {/* Variant Gallery (Up to 5 Images) */}
             <div className="pt-2 border-t border-neutral-200 space-y-2">
               <div className="flex justify-between items-center">
-                <label className="block text-xs font-bold text-neutral-800">Variant Images (Max 10)</label>
+                <label className="block text-xs font-bold text-neutral-800">Variant Gallery (Max 5 Images)</label>
                 <span className="text-xs font-mono font-semibold text-brand-gold bg-brand-gold/10 px-2 py-0.5 rounded">
-                  {existingImages.length + newImageFiles.length} / 10
+                  {existingImages.length + newImageFiles.length} / 5
                 </span>
               </div>
 
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-5 gap-3">
                 {existingImages.map((imgUrl, idx) => (
                   <div key={`existing-${idx}`} className="relative aspect-square border border-neutral-300 rounded-md overflow-hidden bg-neutral-100 shadow-sm">
                     <img src={imgUrl} alt={`Variant ${idx + 1}`} className="w-full h-full object-cover" />
@@ -429,7 +512,7 @@ const VariantModal = ({ variant, onClose, onSave, products, warehouses }) => {
                   );
                 })}
 
-                {existingImages.length + newImageFiles.length < 10 && (
+                {existingImages.length + newImageFiles.length < 5 && (
                   <label className="aspect-square border-2 border-dashed border-neutral-300 hover:border-brand-gold flex flex-col items-center justify-center text-neutral-400 hover:text-brand-gold cursor-pointer rounded-md bg-neutral-50 transition-colors">
                     <Plus size={20} />
                     <span className="text-[10px] font-semibold mt-1">Add Photo</span>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, MapPin, CreditCard, Package, ChevronRight, Eye, EyeOff } from 'lucide-react';
+import { Check, MapPin, CreditCard, Package, ChevronRight, Eye, EyeOff, Tag } from 'lucide-react';
 import { placeOrder } from '../redux/slices/ordersSlice';
 import { clearLocal, syncCart, clearBuyNowItem } from '../redux/slices/cartSlice';
 import { loginCustomer, registerCustomer } from '../redux/slices/authSlice';
@@ -236,9 +236,59 @@ const CheckoutPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length]);
 
+  const [appliedCoupon, setAppliedCoupon] = useState(() => {
+    try {
+      const saved = localStorage.getItem('bb_applied_coupon');
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+  const [couponCodeInput, setCouponCodeInput] = useState('');
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+
+  const couponDiscount = appliedCoupon ? (() => {
+    const value = Number(appliedCoupon.value || 0);
+    if (subtotal < Number(appliedCoupon.minOrderValue || 0)) return 0;
+    if (appliedCoupon.type === 'PERCENT') {
+      const maxD = Number(appliedCoupon.maxDiscount || Infinity);
+      return Math.min((subtotal * value) / 100, maxD);
+    }
+    if (appliedCoupon.type === 'FLAT') {
+      return Math.min(value, subtotal);
+    }
+    return 0;
+  })() : 0;
+
+  const handleApplyCheckoutCoupon = async () => {
+    const code = couponCodeInput.trim().toUpperCase();
+    if (!code) return;
+    setValidatingCoupon(true);
+    try {
+      const res = await api.post('/coupons/validate', { code, subtotal });
+      if (res.data?.success && res.data?.valid) {
+        setAppliedCoupon(res.data.coupon);
+        localStorage.setItem('bb_applied_coupon', JSON.stringify(res.data.coupon));
+        toast.success(`Coupon ${res.data.coupon.code} applied!`);
+        setCouponCodeInput('');
+      } else {
+        toast.error(res.data?.message || 'Invalid coupon code');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Invalid coupon code');
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCheckoutCoupon = () => {
+    setAppliedCoupon(null);
+    localStorage.removeItem('bb_applied_coupon');
+    toast.success('Coupon removed.');
+  };
+
   const shipping = subtotal >= 1499 ? 0 : 99;
-  const tax = subtotal * 0.05;
-  const total = subtotal + shipping + tax;
+  const taxableSubtotal = Math.max(0, subtotal - couponDiscount);
+  const tax = taxableSubtotal * 0.05;
+  const total = taxableSubtotal + shipping + tax;
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -339,10 +389,12 @@ const CheckoutPage = () => {
         shippingAddress: deliverySameAsBilling ? billingAddress : address,
         billingAddress: billingAddress,
         paymentMethod, referralCode,
+        couponCode: appliedCoupon ? appliedCoupon.code : undefined,
       })).unwrap();
 
       const finishOrderClear = () => {
         localStorage.removeItem('bb_referral');
+        localStorage.removeItem('bb_applied_coupon');
         if (isBuyNowMode) {
           dispatch(clearBuyNowItem());
         } else {
@@ -1023,11 +1075,48 @@ const CheckoutPage = () => {
             <h2 className="font-playfair text-lg font-semibold mb-4">Order Summary</h2>
             <div className="space-y-2.5 text-sm">
               <div className="flex justify-between"><span className="text-brand-grey">Subtotal ({items.length} items)</span><span>{fmt(subtotal)}</span></div>
+              {appliedCoupon && couponDiscount > 0 && (
+                <div className="flex justify-between text-green-600 font-medium">
+                  <span className="flex items-center gap-1"><Tag size={12} /> Coupon ({appliedCoupon.code})</span>
+                  <span>-{fmt(couponDiscount)}</span>
+                </div>
+              )}
               <div className="flex justify-between"><span className="text-brand-grey">Shipping</span><span>{shipping === 0 ? <span className="text-green-600">Free</span> : fmt(shipping)}</span></div>
               <div className="flex justify-between"><span className="text-brand-grey">GST (5%)</span><span>{fmt(tax)}</span></div>
               <div className="border-t border-neutral-100 pt-3 flex justify-between font-bold text-base">
                 <span>Total</span><span className="text-brand-gold">{fmt(total)}</span>
               </div>
+            </div>
+
+            {/* Coupon Code Input on Checkout */}
+            <div className="mt-4 pt-4 border-t border-neutral-100">
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between bg-green-50 border border-green-200 p-2.5 rounded text-xs">
+                  <div className="flex items-center gap-1.5 font-medium text-green-700">
+                    <Tag size={14} />
+                    <span>Coupon <strong>{appliedCoupon.code}</strong> Applied</span>
+                  </div>
+                  <button onClick={handleRemoveCheckoutCoupon} className="text-red-500 hover:underline font-semibold text-[11px]">Remove</button>
+                </div>
+              ) : (
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    value={couponCodeInput}
+                    onChange={e => setCouponCodeInput(e.target.value.toUpperCase())}
+                    placeholder="Coupon code"
+                    className="flex-1 border border-neutral-200 rounded px-2.5 py-1.5 text-xs uppercase font-mono focus:outline-none focus:border-brand-gold"
+                  />
+                  <button
+                    type="button"
+                    disabled={validatingCoupon || !couponCodeInput.trim()}
+                    onClick={handleApplyCheckoutCoupon}
+                    className="bg-neutral-900 text-white text-xs px-3 py-1.5 rounded font-medium hover:bg-neutral-700 transition-colors disabled:opacity-50"
+                  >
+                    Apply
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Delivery estimate in sidebar */}
@@ -1039,49 +1128,6 @@ const CheckoutPage = () => {
               <p className="text-xs text-brand-grey font-medium">{getEstimatedDeliveryRange(billingAddress.pincode)}</p>
             </div>
 
-            {/* Item thumbnails */}
-            <div className="mt-4 pt-4 border-t border-neutral-100 space-y-2.5">
-              {(showAllItems ? items : items.slice(0, 3)).map((item, idx) => {
-                const details = getItemDetails(item);
-                return (
-                  <div key={item.productId || item.id || idx} className="flex gap-3 items-center py-2.5 border-b border-neutral-100 last:border-0">
-                    <div className="w-12 h-14 bg-neutral-50 rounded border border-neutral-200 overflow-hidden flex-shrink-0 relative">
-                      <img
-                        src={details.image}
-                        alt={details.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=160';
-                        }}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-neutral-900 truncate leading-tight">{details.name}</p>
-                      {details.variantText && (
-                        <p className="text-[11px] text-brand-gold font-medium mt-0.5 truncate">{details.variantText}</p>
-                      )}
-                      <p className="text-[11px] text-neutral-500 mt-0.5">Qty: {item.quantity}</p>
-                    </div>
-                    <span className="text-xs font-bold text-neutral-900 whitespace-nowrap self-center">
-                      {fmt(details.price * item.quantity)}
-                    </span>
-                  </div>
-                );
-              })}
-              {items.length > 3 && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllItems(!showAllItems)}
-                  className="w-full text-xs text-brand-gold hover:underline text-center pt-2 font-medium focus-visible:outline-brand-gold focus:outline-none cursor-pointer"
-                >
-                  {showAllItems 
-                    ? 'Hide extra items' 
-                    : `+${items.length - 3} more items`
-                  }
-                </button>
-              )}
-            </div>
           </div>
         </div>
       </div>

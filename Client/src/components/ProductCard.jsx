@@ -63,8 +63,18 @@ const ProductCard = ({ product, index = 0 }) => {
   const isWishlisted = wishlist.some(item => {
     const sameProd = Number(item.productId || item.id) === Number(product.id);
     if (!sameProd) return false;
-    if (resolvedDefault.variantId) {
+    if (resolvedDefault.variantId || item.variantId) {
       return Number(item.variantId) === Number(resolvedDefault.variantId);
+    }
+    const hasAttrsA = item.selectedVariant && Object.keys(item.selectedVariant).length > 0;
+    const hasAttrsB = resolvedDefault.attributes && Object.keys(resolvedDefault.attributes).length > 0;
+    if (hasAttrsA || hasAttrsB) {
+      const a = item.selectedVariant || {};
+      const b = resolvedDefault.attributes || {};
+      const keysA = Object.keys(a).sort();
+      const keysB = Object.keys(b).sort();
+      if (keysA.length !== keysB.length) return false;
+      return keysA.every(k => String(a[k]).toLowerCase() === String(b[k]).toLowerCase());
     }
     return true;
   });
@@ -199,12 +209,14 @@ const ProductCard = ({ product, index = 0 }) => {
             {product.name}
           </h3>
         </Link>
-        <div className="flex items-center gap-1 mb-2">
-          {[1,2,3,4,5].map(s => (
-            <Star key={s} size={11} className={s <= Math.round(product.rating || 4) ? 'fill-brand-gold text-brand-gold' : 'fill-brand-light text-brand-light'} />
-          ))}
-          {product.reviewCount > 0 && <span className="text-[11px] text-brand-grey ml-1">({product.reviewCount})</span>}
-        </div>
+        {Number(product.reviewCount) > 0 && Number(product.rating) > 0 && (
+          <div className="flex items-center gap-1 mb-2">
+            {[1,2,3,4,5].map(s => (
+              <Star key={s} size={11} className={s <= Math.round(Number(product.rating)) ? 'fill-brand-gold text-brand-gold' : 'fill-brand-light text-brand-light'} />
+            ))}
+            <span className="text-[11px] text-brand-grey ml-1 font-medium">{parseFloat(product.rating).toFixed(1)} ({product.reviewCount})</span>
+          </div>
+        )}
         {resolvedDefault.attributes && Object.keys(resolvedDefault.attributes).length > 0 && (
           <p className="text-[10px] text-brand-gold/80 font-medium mb-1 truncate">
             Default: {Object.entries(resolvedDefault.attributes).map(([k,v]) => `${k}: ${v}`).join(' · ')}

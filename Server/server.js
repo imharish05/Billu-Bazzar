@@ -2,7 +2,6 @@
 require('dotenv').config();
 const app = require('./app');
 const sequelize = require('./config/db');
-const seedAll = require('./seeders');
 const fs = require('fs');
 const path = require('path');
 
@@ -131,12 +130,23 @@ const start = async () => {
       console.log('⚠️ Manual alter note (Products columns already exist):', alterErr.message);
     }
 
-    // Manual alter to add warehouseId to ProductVariants
+    // Manual alter to add warehouseId, lowStockThreshold, and gstRate to ProductVariants
     try {
       await sequelize.query("ALTER TABLE ProductVariants ADD COLUMN warehouseId INT NULL");
-      console.log('✅ ProductVariants table warehouseId column added');
+      await sequelize.query("ALTER TABLE ProductVariants ADD COLUMN lowStockThreshold INT NULL DEFAULT 10");
+      await sequelize.query("ALTER TABLE ProductVariants ADD COLUMN gstRate VARCHAR(20) NULL DEFAULT '18%'");
+      console.log('✅ ProductVariants table warehouseId, lowStockThreshold, and gstRate columns added');
     } catch (alterErr) {
-      console.log('⚠️ Manual alter note (ProductVariants warehouseId column already exists):', alterErr.message);
+      console.log('⚠️ Manual alter note (ProductVariants columns already exist):', alterErr.message);
+    }
+
+    // Manual alter to add lowStockThreshold and gstRate to Products
+    try {
+      await sequelize.query("ALTER TABLE Products ADD COLUMN lowStockThreshold INT NULL DEFAULT 10");
+      await sequelize.query("ALTER TABLE Products ADD COLUMN gstRate VARCHAR(20) NULL DEFAULT '18%'");
+      console.log('✅ Products table lowStockThreshold and gstRate columns added');
+    } catch (alterErr) {
+      console.log('⚠️ Manual alter note (Products lowStockThreshold/gstRate columns already exist):', alterErr.message);
     }
 
     // Run manual database alters for Warehouses to support isFulfillment
@@ -228,8 +238,10 @@ const start = async () => {
       console.log('⚠️ Failed to sync empty product slugs:', slugErr.message);
     }
 
-    // 3. Run seeders if tables are empty
-    await seedAll();
+
+    // 3.1 Sync real product ratings with Review table entries
+    const { syncAllProductRatings } = require('./controllers/reviewController');
+    await syncAllProductRatings();
 
     // 3.5 Load background cron jobs
     require('./jobs/reminderJob');

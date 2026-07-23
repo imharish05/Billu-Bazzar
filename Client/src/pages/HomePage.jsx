@@ -146,9 +146,14 @@ const HomePage = () => {
   }, []);
 
   const [currentExclusiveSlide, setCurrentExclusiveSlide] = useState(0);
+  const [currentPromoSlide, setCurrentPromoSlide] = useState(0);
 
   const exclusiveBanners = useMemo(() => {
     return banners.filter(b => b.type === 'EXCLUSIVE_DEAL' && b.isActive);
+  }, [banners]);
+
+  const promoBanners = useMemo(() => {
+    return banners.filter(b => b.type === 'PROMO' && b.isActive);
   }, [banners]);
 
   useEffect(() => {
@@ -473,12 +478,12 @@ const HomePage = () => {
               )}
             </div>
 
-            {/* Product Preview */}
-            <div className="relative w-56 h-64 flex-shrink-0 hidden lg:block">
+            {/* Product Preview (Responsive across Mobile, Tablet & Desktop) */}
+            <div className="relative w-48 h-48 sm:w-56 sm:h-56 lg:w-60 lg:h-60 flex-shrink-0 rounded-xl overflow-hidden shadow-xl border border-white/10 bg-neutral-900/60 p-2 my-2 md:my-0">
               <img
                 src={countdownBanner.image}
-                alt={countdownBanner.title}
-                className="w-full h-full object-cover"
+                alt={countdownBanner.title || 'Deal of the week'}
+                className="w-full h-full object-contain rounded-lg"
               />
             </div>
 
@@ -602,43 +607,124 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* ── SECTION 6: Curated Collection Editorial Banner ──────────────── */}
-      {promoBanner && (
-        <section className="py-10 bg-brand-light" aria-label="Curated collection">
-          <div className="max-w-site mx-auto px-6 md:px-8">
-            <div className="grid md:grid-cols-2 gap-0 shadow-lg overflow-hidden">
-              <div className="relative aspect-[4/5] md:aspect-auto">
-                <img
-                  src={promoBanner.image}
-                  alt={promoBanner.title}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
+      {/* ── SECTION 6: Curated Collection Editorial Banner (PROMO Carousel) ── */}
+      {promoBanners.length > 0 && (
+        <section className="py-8 bg-brand-light" aria-label="Curated collection">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-8">
+            {promoBanners.length === 1 ? (
+              <div className="grid md:grid-cols-2 gap-0 shadow-xl rounded-2xl overflow-hidden md:h-[340px] bg-brand-text">
+                <div className="relative h-64 md:h-full bg-neutral-950 overflow-hidden">
+                  <img
+                    src={promoBanners[0].image}
+                    alt={promoBanners[0].title || "Promo Banner"}
+                    className="w-full h-full object-cover object-center"
+                    loading="lazy"
+                  />
+                </div>
+                <ScrollReveal className="bg-brand-text flex items-center p-6 md:p-10">
+                  <div>
+                    {promoBanners[0].badgeText && (
+                      <p className="text-brand-gold text-xs tracking-[0.2em] uppercase mb-2 font-semibold">
+                        {promoBanners[0].badgeText}
+                      </p>
+                    )}
+                    {promoBanners[0].title && (
+                      <h2 className="font-playfair text-2xl md:text-3xl font-bold text-white leading-snug mb-3">
+                        {promoBanners[0].title}
+                      </h2>
+                    )}
+                    {promoBanners[0].subtitle && (
+                      <p className="text-white/75 text-xs md:text-sm leading-relaxed mb-5 line-clamp-2 max-w-md">
+                        {promoBanners[0].subtitle}
+                      </p>
+                    )}
+                    <div className="flex flex-col items-start gap-2.5">
+                      <Link to={promoBanners[0].ctaLink || "/products"} className="btn-primary py-2 px-5 text-xs" id="bridal-cta">
+                        {promoBanners[0].ctaText || "Explore Collection"}
+                      </Link>
+                      <p className="text-white/40 text-[11px] mt-1">Personal styling consultation — <Link to="/account/personal-shopper" className="underline hover:text-brand-gold transition-colors">Book Now</Link></p>
+                    </div>
+                  </div>
+                </ScrollReveal>
               </div>
-              <ScrollReveal className="bg-brand-text flex items-center p-10 md:p-16">
-                <div>
-                  {promoBanner.badgeText && (
-                    <p className="text-brand-gold text-xs tracking-[0.2em] uppercase mb-4">
-                      {promoBanner.badgeText}
-                    </p>
-                  )}
-                  <h2 className="font-playfair text-3xl md:text-5xl font-bold text-white leading-tight mb-6">
-                    {promoBanner.title}
-                  </h2>
-                  {promoBanner.subtitle && (
-                    <p className="text-white/70 text-base leading-relaxed mb-8">
-                      {promoBanner.subtitle}
-                    </p>
-                  )}
-                  <div className="flex flex-col gap-3">
-                    <Link to={promoBanner.ctaLink || "/products"} className="btn-primary" id="bridal-cta">
-                      {promoBanner.ctaText || "Explore Collection"}
-                    </Link>
-                    <p className="text-white/40 text-xs">Personal styling consultation available — <Link to="/account?tab=shopper" className="underline hover:text-brand-gold transition-colors">Book Now</Link></p>
+            ) : (
+              <div className="relative shadow-xl rounded-2xl overflow-hidden bg-brand-text group/promo md:h-[340px]">
+                <div className="relative overflow-hidden h-full">
+                  <div
+                    className="flex transition-transform duration-500 ease-out h-full"
+                    style={{ transform: `translateX(-${currentPromoSlide * 100}%)` }}
+                  >
+                    {promoBanners.map((promo, idx) => (
+                      <div key={promo.id || idx} className="w-full flex-shrink-0 grid md:grid-cols-2 gap-0 h-full">
+                        <div className="relative h-64 md:h-full bg-neutral-950 overflow-hidden">
+                          <img
+                            src={promo.image}
+                            alt={promo.title || "Promo Banner"}
+                            className="w-full h-full object-cover object-center"
+                            loading="lazy"
+                          />
+                        </div>
+                        <div className="bg-brand-text flex items-center p-6 md:p-10 h-full">
+                          <div>
+                            {promo.badgeText && (
+                              <p className="text-brand-gold text-xs tracking-[0.2em] uppercase mb-2 font-semibold">
+                                {promo.badgeText}
+                              </p>
+                            )}
+                            {promo.title && (
+                              <h2 className="font-playfair text-2xl md:text-3xl font-bold text-white leading-snug mb-3">
+                                {promo.title}
+                              </h2>
+                            )}
+                            {promo.subtitle && (
+                              <p className="text-white/75 text-xs md:text-sm leading-relaxed mb-5 line-clamp-2 max-w-md">
+                                {promo.subtitle}
+                              </p>
+                            )}
+                            <div className="flex flex-col items-start gap-2.5">
+                              <Link to={promo.ctaLink || "/products"} className="btn-primary py-2 px-5 text-xs" id={`promo-cta-${promo.id}`}>
+                                {promo.ctaText || "Explore Collection"}
+                              </Link>
+                              <p className="text-white/40 text-[11px] mt-1">Personal styling consultation — <Link to="/account/personal-shopper" className="underline hover:text-brand-gold transition-colors">Book Now</Link></p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </ScrollReveal>
-            </div>
+
+                {/* Left/Right Carousel Controls */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentPromoSlide(prev => prev === 0 ? promoBanners.length - 1 : prev - 1)}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-black/60 text-white hover:bg-brand-gold hover:text-black transition-colors"
+                  aria-label="Previous promo"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPromoSlide(prev => prev >= promoBanners.length - 1 ? 0 : prev + 1)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-black/60 text-white hover:bg-brand-gold hover:text-black transition-colors"
+                  aria-label="Next promo"
+                >
+                  <ChevronRight size={18} />
+                </button>
+
+                {/* Indicators */}
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+                  {promoBanners.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentPromoSlide(idx)}
+                      className={`h-1.5 rounded-full transition-all ${currentPromoSlide === idx ? 'w-6 bg-brand-gold' : 'w-1.5 bg-white/40'}`}
+                      aria-label={`Go to slide ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </section>
       )}
@@ -671,81 +757,85 @@ const HomePage = () => {
 
       {/* ── SECTION 8: Dual Promo Tiles / Exclusive Collection Banner ───── */}
       {exclusiveBanners.length === 1 && (
-        <section className="py-10 bg-white" aria-label="Promotional offers">
-          <div className="max-w-site mx-auto px-6 md:px-8 flex justify-center">
-            <ScrollReveal className="relative overflow-hidden w-full max-w-5xl aspect-[16/9] sm:aspect-[2.4/1] md:aspect-[3/1] group">
+        <section className="py-8 bg-white" aria-label="Promotional offers">
+          <div className="max-w-site mx-auto px-4 sm:px-6 md:px-8 flex justify-center">
+            <ScrollReveal className="relative overflow-hidden w-full max-w-5xl aspect-[16/9] sm:aspect-[2/1] rounded-2xl shadow-xl border border-neutral-100 bg-neutral-950 group">
               <img
                 src={exclusiveBanners[0].image}
                 alt={exclusiveBanners[0].title || 'Exclusive Collection'}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 transform-gpu"
+                className="w-full h-full object-contain sm:object-cover object-center transition-transform duration-500 transform-gpu"
                 loading="lazy"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-              <div className="absolute inset-0 flex flex-col justify-end p-8 md:p-12 promo-card-overlay">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
+              <div className="absolute inset-0 flex flex-col justify-end p-6 md:p-10 promo-card-overlay pointer-events-auto">
                 {exclusiveBanners[0].badgeText && (
-                  <span className="bg-brand-gold text-white text-sm font-bold px-3 py-1 self-start mb-3">
+                  <span className="bg-brand-gold text-white text-xs font-bold px-3 py-1 self-start mb-2 rounded-sm shadow-xs">
                     {exclusiveBanners[0].badgeText}
                   </span>
                 )}
                 {exclusiveBanners[0].title && (
-                  <h3 className="font-playfair text-2xl md:text-4xl font-bold text-white mb-2 max-w-2xl">
+                  <h3 className="font-playfair text-xl sm:text-2xl md:text-3xl font-bold text-white mb-1.5 max-w-2xl">
                     {exclusiveBanners[0].title}
                   </h3>
                 )}
                 {exclusiveBanners[0].subtitle && (
-                  <p className="text-white/70 text-sm md:text-base mb-6 max-w-xl">
+                  <p className="text-white/80 text-xs md:text-sm mb-4 max-w-xl">
                     {exclusiveBanners[0].subtitle}
                   </p>
                 )}
-                <Link
-                  to={exclusiveBanners[0].ctaLink}
-                  className="text-brand-gold font-medium text-sm md:text-base flex items-center gap-2 hover:gap-3 transition-all focus-visible:outline-white self-start"
-                  id={`promo-deal-${exclusiveBanners[0].id}`}
-                >
-                  {exclusiveBanners[0].ctaText || 'Shop Now'} <ArrowRight size={16} />
-                </Link>
+                {exclusiveBanners[0].ctaText && (
+                  <Link
+                    to={exclusiveBanners[0].ctaLink || '/products'}
+                    className="text-brand-gold font-medium text-xs md:text-sm flex items-center gap-2 hover:gap-3 transition-all focus-visible:outline-white self-start"
+                    id={`promo-deal-${exclusiveBanners[0].id}`}
+                  >
+                    {exclusiveBanners[0].ctaText} <ArrowRight size={15} />
+                  </Link>
+                )}
               </div>
             </ScrollReveal>
           </div>
         </section>
       )}
 
-      {exclusiveBanners.length === 2 && (
-        <section className="py-10 bg-white" aria-label="Promotional offers">
-          <div className="max-w-site mx-auto px-6 md:px-8">
+      {exclusiveBanners.length >= 2 && (
+        <section className="py-8 bg-white" aria-label="Promotional offers">
+          <div className="max-w-site mx-auto px-4 sm:px-6 md:px-8">
             <div className="grid md:grid-cols-2 gap-6">
               {exclusiveBanners.map((banner, idx) => (
-                <ScrollReveal key={banner.id} delay={idx * 0.15} className="relative overflow-hidden aspect-[16/9] group">
+                <ScrollReveal key={banner.id} delay={idx * 0.15} className="relative overflow-hidden aspect-[16/9] sm:aspect-[2/1] rounded-2xl shadow-xl border border-neutral-100 bg-neutral-950 group">
                   <img
                     src={banner.image}
                     alt={banner.title || 'Exclusive Collection'}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 transform-gpu"
+                    className="w-full h-full object-contain sm:object-cover object-center transition-transform duration-500 transform-gpu"
                     loading="lazy"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-                  <div className="absolute inset-0 flex flex-col justify-end p-8 promo-card-overlay">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
+                  <div className="absolute inset-0 flex flex-col justify-end p-6 md:p-8 promo-card-overlay pointer-events-auto">
                     {banner.badgeText && (
-                      <span className="bg-brand-gold text-white text-sm font-bold px-3 py-1 self-start mb-3">
+                      <span className="bg-brand-gold text-white text-xs font-bold px-3 py-1 self-start mb-2 rounded-sm shadow-xs">
                         {banner.badgeText}
                       </span>
                     )}
                     {banner.title && (
-                      <h3 className="font-playfair text-2xl md:text-3xl font-bold text-white mb-2">
+                      <h3 className="font-playfair text-xl md:text-2xl font-bold text-white mb-1.5">
                         {banner.title}
                       </h3>
                     )}
                     {banner.subtitle && (
-                      <p className="text-white/70 text-sm mb-4">
+                      <p className="text-white/80 text-xs mb-3">
                         {banner.subtitle}
                       </p>
                     )}
-                    <Link
-                      to={banner.ctaLink}
-                      className="text-brand-gold font-medium text-sm flex items-center gap-2 hover:gap-3 transition-all focus-visible:outline-white self-start"
-                      id={`promo-deal-${banner.id}`}
-                    >
-                      {banner.ctaText || 'Shop Now'} <ArrowRight size={16} />
-                    </Link>
+                    {banner.ctaText && (
+                      <Link
+                        to={banner.ctaLink || '/products'}
+                        className="text-brand-gold font-medium text-xs flex items-center gap-2 hover:gap-3 transition-all focus-visible:outline-white self-start"
+                        id={`promo-deal-${banner.id}`}
+                      >
+                        {banner.ctaText} <ArrowRight size={15} />
+                      </Link>
+                    )}
                   </div>
                 </ScrollReveal>
               ))}

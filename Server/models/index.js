@@ -121,11 +121,13 @@ InventoryMovementLog.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
 InventoryMovementLog.belongsTo(Warehouse, { foreignKey: 'warehouseId', as: 'warehouse' });
 InventoryMovementLog.belongsTo(Warehouse, { foreignKey: 'toWarehouseId', as: 'toWarehouse' });
 
-// Wishlist ↔ Customer / Product
+// Wishlist ↔ Customer / Product / ProductVariant
 Customer.hasMany(Wishlist,    { foreignKey: 'customerId', as: 'wishlists' });
 Wishlist.belongsTo(Customer,  { foreignKey: 'customerId', as: 'customer' });
 Wishlist.belongsTo(Product,   { foreignKey: 'productId', as: 'product' });
 Product.hasMany(Wishlist,     { foreignKey: 'productId', as: 'wishlistedBy' });
+Wishlist.belongsTo(ProductVariant, { foreignKey: 'variantId', as: 'variant' });
+ProductVariant.hasMany(Wishlist,   { foreignKey: 'variantId', as: 'wishlists' });
 
 // Review gates verified-purchase product feedback.
 Product.hasMany(Review,     { foreignKey: 'productId', as: 'reviews' });

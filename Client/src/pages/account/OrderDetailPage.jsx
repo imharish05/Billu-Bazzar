@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Check, Circle, MapPin, Truck, CreditCard, FileText, Phone, MessageSquare, RefreshCw, XCircle } from 'lucide-react';
+import { ArrowLeft, Check, Circle, MapPin, Truck, CreditCard, FileText, Phone, MessageSquare, RefreshCw, XCircle, Star, X } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchOrderById, cancelCustomerOrder } from '../../redux/slices/ordersSlice';
+import { createReview } from '../../redux/slices/reviewsSlice';
 import { formatPrice } from '../../utils/currency';
 import toast from 'react-hot-toast';
 
@@ -40,6 +41,47 @@ const OrderDetailPage = () => {
   const dispatch = useDispatch();
   const { current: order, loading, error } = useSelector(s => s.orders);
   const [isCancelling, setIsCancelling] = useState(false);
+
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [targetItem, setTargetItem] = useState(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewTitle, setReviewTitle] = useState('');
+  const [reviewBody, setReviewBody] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
+  const handleOpenReviewModal = (item) => {
+    setTargetItem(item);
+    setReviewRating(5);
+    setReviewTitle('');
+    setReviewBody('');
+    setReviewModalOpen(true);
+  };
+
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault();
+    if (!reviewBody.trim() || !targetItem) return;
+    setIsSubmittingReview(true);
+    try {
+      const res = await dispatch(createReview({
+        productId: targetItem.productId,
+        orderId: order.id,
+        rating: reviewRating,
+        title: reviewTitle,
+        body: reviewBody,
+      }));
+      if (createReview.fulfilled.match(res)) {
+        toast.success('Thank you! Your product review has been submitted.');
+        setReviewModalOpen(false);
+        dispatch(fetchOrderById(id));
+      } else {
+        toast.error(res.payload || 'Failed to submit review');
+      }
+    } catch (err) {
+      toast.error('Failed to submit review');
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
 
   useEffect(() => {
     if (id) {
@@ -337,13 +379,16 @@ const OrderDetailPage = () => {
         <div className="space-y-4">
           {(order.items || []).map((item, idx) => {
             const variantObj = parseVariant(item.selectedVariant);
-            const variantEntries = variantObj ? Object.entries(variantObj).filter(([k, v]) => v !== undefined && v !== null && v !== '') : [];
+            const EXCLUDE_KEYS = new Set(['id', 'sku', 'variantId', 'productId', 'stock', 'price', 'mrp']);
+            const variantEntries = variantObj
+              ? Object.entries(variantObj).filter(([k, v]) => !EXCLUDE_KEYS.has(k) && v !== undefined && v !== null && v !== '')
+              : [];
             const variantInfo = variantEntries.length > 0
               ? variantEntries.map(([k, v]) => `${k}: ${v}`).join(' · ')
               : null;
 
             return (
-              <div key={item.id || idx} className="flex items-center gap-4 py-3 border-b border-neutral-100 last:border-0">
+              <div key={item.id || idx} className="flex items-center gap-4 py-3 border-b border-neutral-100 last:border-0 flex-wrap sm:flex-nowrap">
                 <img
                   src={item.productImage || item.image || '/placeholder.jpg'}
                   alt={item.productName || item.name || 'Product'}
@@ -358,9 +403,11 @@ const OrderDetailPage = () => {
                     Qty: {item.quantity} × {formatPrice(item.unitPrice || item.price, currency)}
                   </p>
                 </div>
-                <span className="text-sm font-bold text-brand-gold">
-                  {formatPrice(item.totalPrice || (item.quantity * (item.unitPrice || item.price)), currency)}
-                </span>
+                <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                  <span className="text-sm font-bold text-brand-gold">
+                    {formatPrice(item.totalPrice || (item.quantity * (item.unitPrice || item.price)), currency)}
+                  </span>
+                </div>
               </div>
             );
           })}
@@ -421,6 +468,95 @@ const OrderDetailPage = () => {
           </a>
         </div>
       </div>
+
+      {/* Review Modal Form */}
+      {reviewModalOpen && targetItem && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setReviewModalOpen(false)}>
+          <div
+            className="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl relative"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setReviewModalOpen(false)}
+              className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-neutral-700 transition-colors rounded-full"
+            >
+              <X size={18} />
+            </button>
+
+            <h3 className="font-playfair text-xl font-bold mb-1 text-neutral-900">
+              Review {targetItem.productName || targetItem.name}
+            </h3>
+            <p className="text-xs text-neutral-500 mb-5">
+              Share your feedback for your delivered purchase (Order #{order.orderNumber})
+            </p>
+
+            <form onSubmit={handleReviewSubmit} className="space-y-4">
+              {/* Rating Stars Picker */}
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 mb-1.5 uppercase tracking-wider">Rating</label>
+                <div className="flex items-center gap-2">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setReviewRating(star)}
+                      className="p-1 hover:scale-110 transition-transform focus:outline-none"
+                    >
+                      <Star
+                        size={26}
+                        className={star <= reviewRating ? 'fill-brand-gold text-brand-gold' : 'fill-neutral-200 text-neutral-300'}
+                      />
+                    </button>
+                  ))}
+                  <span className="text-xs font-bold text-brand-gold ml-2">{reviewRating} / 5 Stars</span>
+                </div>
+              </div>
+
+              {/* Title */}
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 mb-1 uppercase tracking-wider">Review Title (Optional)</label>
+                <input
+                  type="text"
+                  value={reviewTitle}
+                  onChange={e => setReviewTitle(e.target.value)}
+                  placeholder="e.g. Absolutely loved it!"
+                  className="w-full px-3 py-2 border border-neutral-200 rounded text-sm focus:border-brand-gold focus:outline-none"
+                />
+              </div>
+
+              {/* Body */}
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 mb-1 uppercase tracking-wider">Review Comments *</label>
+                <textarea
+                  rows={4}
+                  value={reviewBody}
+                  onChange={e => setReviewBody(e.target.value)}
+                  placeholder="Describe what you liked or disliked about the product..."
+                  className="w-full px-3 py-2 border border-neutral-200 rounded text-sm focus:border-brand-gold focus:outline-none resize-none"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setReviewModalOpen(false)}
+                  className="px-4 py-2 border border-neutral-200 text-neutral-600 text-xs font-semibold rounded hover:bg-neutral-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingReview}
+                  className="btn-primary text-xs py-2 px-5 disabled:opacity-50"
+                >
+                  {isSubmittingReview ? 'Submitting...' : 'Submit Review'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 };

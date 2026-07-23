@@ -142,14 +142,16 @@ const QuickViewModal = () => {
                 </h3>
 
                 {/* Rating */}
-                <div className="flex items-center gap-2 mb-3 md:mb-4">
-                  <div className="flex">
-                    {[1,2,3,4,5].map(s => (
-                      <Star key={s} size={14} className={s <= Math.round(product.rating) ? 'fill-brand-gold text-brand-gold' : 'text-brand-light'} />
-                    ))}
+                {Number(product.reviewCount) > 0 && Number(product.rating) > 0 && (
+                  <div className="flex items-center gap-2 mb-3 md:mb-4">
+                    <div className="flex">
+                      {[1,2,3,4,5].map(s => (
+                        <Star key={s} size={14} className={s <= Math.round(Number(product.rating)) ? 'fill-brand-gold text-brand-gold' : 'text-brand-light'} />
+                      ))}
+                    </div>
+                    <span className="text-xs text-brand-grey font-medium">{parseFloat(product.rating).toFixed(1)} ({product.reviewCount} reviews)</span>
                   </div>
-                  <span className="text-xs text-brand-grey">({product.reviewCount} reviews)</span>
-                </div>
+                )}
 
                 {/* Price */}
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3 md:mb-4">

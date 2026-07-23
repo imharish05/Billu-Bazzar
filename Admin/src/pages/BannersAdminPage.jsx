@@ -13,18 +13,66 @@ const formatDatetimeLocal = (dateStr) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-const checkImageDimensions = (file) => {
+const checkImageDimensions = (fileOrUrl) => {
   return new Promise((resolve) => {
+    if (!fileOrUrl) {
+      resolve(null);
+      return;
+    }
     const img = new Image();
-    img.src = URL.createObjectURL(file);
+    if (typeof fileOrUrl === 'string') {
+      img.crossOrigin = 'anonymous';
+      img.src = fileOrUrl;
+    } else if (fileOrUrl instanceof File) {
+      img.src = URL.createObjectURL(fileOrUrl);
+    } else {
+      resolve(null);
+      return;
+    }
     img.onload = () => {
-      URL.revokeObjectURL(img.src);
+      if (fileOrUrl instanceof File) URL.revokeObjectURL(img.src);
       resolve({ width: img.width, height: img.height });
     };
     img.onerror = () => {
+      if (fileOrUrl instanceof File) URL.revokeObjectURL(img.src);
       resolve(null);
     };
   });
+};
+
+const BANNER_SPECS = {
+  HERO: {
+    label: 'HERO',
+    recommended: '1920x1080px',
+    aspectLabel: '16:9 Landscape',
+    minWidth: 1200,
+    minRatio: 1.60,
+    maxRatio: 2.00,
+  },
+  EXCLUSIVE_DEAL: {
+    label: 'EXCLUSIVE DEAL',
+    recommended: '1600x800px',
+    aspectLabel: '2:1 Wide Landscape',
+    minWidth: 1000,
+    minRatio: 1.80,
+    maxRatio: 2.30,
+  },
+  PROMO: {
+    label: 'PROMO',
+    recommended: '1080x1350px',
+    aspectLabel: '4:5 Portrait',
+    minWidth: 600,
+    minRatio: 0.75,
+    maxRatio: 0.85,
+  },
+  COUNTDOWN: {
+    label: 'COUNTDOWN',
+    recommended: '1080x1350px',
+    aspectLabel: '4:5 Portrait',
+    minWidth: 600,
+    minRatio: 0.75,
+    maxRatio: 0.85,
+  },
 };
 
 const BannersAdminPage = () => {
@@ -39,12 +87,58 @@ const BannersAdminPage = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [imageInvalid, setImageInvalid] = useState(false);
+  const [imageErrorMsg, setImageErrorMsg] = useState('');
   const fileInputRef = useRef(null);
 
   const [form, setForm] = useState({
     title: '', subtitle: '', type: 'HERO', ctaText: '', ctaLink: '',
     position: 1, isActive: true, badgeText: '', countdown: '',
   });
+
+  useEffect(() => {
+    if (!modalOpen) {
+      setImageInvalid(false);
+      setImageErrorMsg('');
+      return;
+    }
+    const validateCurrentImage = async () => {
+      const source = imageFile || imagePreview;
+      if (!source) {
+        setImageInvalid(false);
+        setImageErrorMsg('');
+        return;
+      }
+      const dims = await checkImageDimensions(source);
+      if (!dims) {
+        setImageInvalid(false);
+        setImageErrorMsg('');
+        return;
+      }
+
+      const spec = BANNER_SPECS[form.type];
+      if (!spec) return;
+
+      const ratio = dims.width / dims.height;
+
+      if (dims.width < spec.minWidth) {
+        setImageInvalid(true);
+        setImageErrorMsg(`${spec.label} banner requires a ${spec.aspectLabel} image. Minimum required width is ${spec.minWidth}px. Your image is ${dims.width}x${dims.height}px.`);
+        return;
+      }
+
+      if (ratio < spec.minRatio || ratio > spec.maxRatio) {
+        setImageInvalid(true);
+        setImageErrorMsg(`${spec.label} banner requires a ${spec.aspectLabel} image (${ratio.toFixed(2)}:1 aspect ratio looks off). Recommended size is ${spec.recommended} (${spec.aspectLabel}). Your image is ${dims.width}x${dims.height}px.`);
+        return;
+      }
+
+      setImageInvalid(false);
+      setImageErrorMsg('');
+    };
+
+    validateCurrentImage();
+  }, [form.type, imageFile, imagePreview, modalOpen]);
 
   const load = async () => {
     try {
@@ -80,6 +174,11 @@ const BannersAdminPage = () => {
     if (!file) {
       return;
     }
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError(`File size exceeds 5MB limit. Your image is ${(file.size / (1024 * 1024)).toFixed(1)}MB.`);
+      return;
+    }
+    setUploadError(null);
     setImageFile(file);
     const reader = new FileReader();
     reader.onloadend = () => setImagePreview(reader.result);
@@ -92,52 +191,151 @@ const BannersAdminPage = () => {
     setUploadProgress(0);
     setUploadError(null);
 
-    // Validate EXCLUSIVE_DEAL mandatory fields
-    if (form.type === 'EXCLUSIVE_DEAL') {
-      if (!form.ctaText?.trim()) {
-        setUploadError('CTA Button Text is required for Exclusive Deal.');
-        setSaving(false);
-        setUploadProgress(null);
-        return;
-      }
-      if (!form.ctaLink?.trim()) {
-        setUploadError('CTA Link is required for Exclusive Deal.');
-        setSaving(false);
-        setUploadProgress(null);
-        return;
-      }
-    }
-
     // Validate HERO mandatory fields
     if (form.type === 'HERO') {
       if (!form.ctaLink?.trim()) {
         setUploadError('CTA Link is required for Hero banners.');
-        setSaving(false);
-        setUploadProgress(null);
-        return;
+        setSaving(false); setUploadProgress(null); return;
+      }
+    }
+
+    // Validate COUNTDOWN mandatory fields (ALL fields required)
+    if (form.type === 'COUNTDOWN') {
+      if (!form.title?.trim()) {
+        setUploadError('Title is required for Countdown banner.');
+        setSaving(false); setUploadProgress(null); return;
+      }
+      if (!form.subtitle?.trim()) {
+        setUploadError('Subtitle is required for Countdown banner.');
+        setSaving(false); setUploadProgress(null); return;
+      }
+      if (!form.ctaText?.trim()) {
+        setUploadError('CTA Button Text is required for Countdown banner.');
+        setSaving(false); setUploadProgress(null); return;
+      }
+      if (!form.ctaLink?.trim()) {
+        setUploadError('CTA Link is required for Countdown banner.');
+        setSaving(false); setUploadProgress(null); return;
+      }
+      if (!form.badgeText?.trim()) {
+        setUploadError('Badge Text is required for Countdown banner.');
+        setSaving(false); setUploadProgress(null); return;
+      }
+      if (!form.countdown) {
+        setUploadError('Offer Ends At date & time is required for Countdown banner.');
+        setSaving(false); setUploadProgress(null); return;
+      }
+      if (new Date(form.countdown).getTime() <= Date.now()) {
+        setUploadError('Countdown date & time cannot be in the past.');
+        setSaving(false); setUploadProgress(null); return;
+      }
+    }
+
+    // Validate PROMO mandatory fields
+    if (form.type === 'PROMO') {
+      if (!form.title?.trim()) {
+        setUploadError('Title is required for Promo banner.');
+        setSaving(false); setUploadProgress(null); return;
+      }
+      if (!form.subtitle?.trim()) {
+        setUploadError('Subtitle is required for Promo banner.');
+        setSaving(false); setUploadProgress(null); return;
+      }
+      if (!form.ctaLink?.trim()) {
+        setUploadError('CTA Link is required for Promo banner.');
+        setSaving(false); setUploadProgress(null); return;
+      }
+    }
+
+    // Validate EXCLUSIVE_DEAL mandatory fields (ALL fields required)
+    if (form.type === 'EXCLUSIVE_DEAL') {
+      if (!form.title?.trim()) {
+        setUploadError('Title is required for Exclusive Deal.');
+        setSaving(false); setUploadProgress(null); return;
+      }
+      if (!form.subtitle?.trim()) {
+        setUploadError('Subtitle is required for Exclusive Deal.');
+        setSaving(false); setUploadProgress(null); return;
+      }
+      if (!form.ctaText?.trim()) {
+        setUploadError('CTA Button Text is required for Exclusive Deal.');
+        setSaving(false); setUploadProgress(null); return;
+      }
+      if (!form.ctaLink?.trim()) {
+        setUploadError('CTA Link is required for Exclusive Deal.');
+        setSaving(false); setUploadProgress(null); return;
+      }
+      if (!form.badgeText?.trim()) {
+        setUploadError('Badge Text is required for Exclusive Deal.');
+        setSaving(false); setUploadProgress(null); return;
       }
     }
 
     try {
+      if (imageInvalid) {
+        setUploadError(imageErrorMsg || `Image does not match size requirements for ${form.type} banner.`);
+        setSaving(false);
+        setUploadProgress(null);
+        return;
+      }
       const file = imageFile || fileInputRef.current?.files?.[0];
-      if (file && form.type === 'HERO') {
+      if (file) {
+        if (file.size > 5 * 1024 * 1024) {
+          setUploadError(`File size exceeds 5MB limit. Your image is ${(file.size / (1024 * 1024)).toFixed(1)}MB.`);
+          setSaving(false);
+          setUploadProgress(null);
+          return;
+        }
+      }
+      if (file) {
         const dims = await checkImageDimensions(file);
         if (dims) {
           const ratio = dims.width / dims.height;
-          const MIN_RATIO = 1.6;   // e.g. 1600x1000
-          const MAX_RATIO = 2.2;   // e.g. 1980x900
-          const MIN_WIDTH = 1200;
-          if (dims.width < MIN_WIDTH) {
-            setUploadError(`Hero banner image too small. Minimum width is ${MIN_WIDTH}px. Your image is ${dims.width}x${dims.height}px.`);
-            setSaving(false);
-            setUploadProgress(null);
-            return;
+
+          // HERO (Landscape 16:9)
+          if (form.type === 'HERO') {
+            const MIN_WIDTH = 1200;
+            const MIN_RATIO = 1.6;
+            const MAX_RATIO = 2.2;
+            if (dims.width < MIN_WIDTH) {
+              setUploadError(`Hero banner image too small. Minimum width is ${MIN_WIDTH}px. Your image is ${dims.width}x${dims.height}px.`);
+              setSaving(false); setUploadProgress(null); return;
+            }
+            if (ratio < MIN_RATIO || ratio > MAX_RATIO) {
+              setUploadError(`Hero banner aspect ratio looks off (${ratio.toFixed(2)}:1). Recommended size is 1920x1080px (Landscape 16:9). Your image is ${dims.width}x${dims.height}px.`);
+              setSaving(false); setUploadProgress(null); return;
+            }
           }
-          if (ratio < MIN_RATIO || ratio > MAX_RATIO) {
-            setUploadError(`Hero banner image aspect ratio looks off (${ratio.toFixed(2)}:1). Use something close to 16:9-2:1, e.g. 1920x1080 or 1980x1020. Your image is ${dims.width}x${dims.height}px.`);
-            setSaving(false);
-            setUploadProgress(null);
-            return;
+
+          // COUNTDOWN & PROMO (Portrait 4:5)
+          if (form.type === 'COUNTDOWN' || form.type === 'PROMO') {
+            const MIN_WIDTH = 400;
+            const MIN_RATIO = 0.65;
+            const MAX_RATIO = 0.95;
+            const label = form.type === 'COUNTDOWN' ? 'Countdown' : 'Promo';
+            if (dims.width < MIN_WIDTH) {
+              setUploadError(`${label} banner image too small. Minimum width is ${MIN_WIDTH}px. Your image is ${dims.width}x${dims.height}px.`);
+              setSaving(false); setUploadProgress(null); return;
+            }
+            if (ratio < MIN_RATIO || ratio > MAX_RATIO) {
+              setUploadError(`${label} banner requires a Portrait image (${ratio.toFixed(2)}:1 aspect ratio looks off). Recommended size is 1080x1350px (Portrait 4:5 ratio). Your image is ${dims.width}x${dims.height}px.`);
+              setSaving(false); setUploadProgress(null); return;
+            }
+          }
+
+          // EXCLUSIVE_DEAL (Landscape 16:9 / 2:1)
+          if (form.type === 'EXCLUSIVE_DEAL') {
+            const MIN_WIDTH = 1000;
+            const MIN_RATIO = 1.5;
+            const MAX_RATIO = 2.2;
+            if (dims.width < MIN_WIDTH) {
+              setUploadError(`Exclusive deal banner image too small. Minimum width is ${MIN_WIDTH}px. Your image is ${dims.width}x${dims.height}px.`);
+              setSaving(false); setUploadProgress(null); return;
+            }
+            if (ratio < MIN_RATIO || ratio > MAX_RATIO) {
+              setUploadError(`Exclusive deal banner aspect ratio looks off (${ratio.toFixed(2)}:1). Recommended size is 1920x1080px (Landscape 16:9). Your image is ${dims.width}x${dims.height}px.`);
+              setSaving(false); setUploadProgress(null); return;
+            }
           }
         }
       }
@@ -233,7 +431,7 @@ const BannersAdminPage = () => {
     <AdminLayout title="Banners">
       {/* Tabs Nav Bar */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-hide" role="tablist">
-        {['All', 'Hero', 'CountDown', 'Promo', 'Exclusive Deal', 'Brand'].map(tab => (
+        {['All', 'Hero', 'CountDown', 'Promo', 'Exclusive Deal'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -319,7 +517,9 @@ const BannersAdminPage = () => {
                   <label className="block text-xs font-medium text-brand-grey mb-1.5">Banner Image *</label>
                   <div
                     className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${
-                      isDragging
+                      imageInvalid
+                        ? 'border-red-500 bg-red-50/40'
+                        : isDragging
                         ? 'border-brand-gold bg-brand-gold/5'
                         : 'border-brand-light hover:border-brand-gold'
                     }`}
@@ -344,12 +544,24 @@ const BannersAdminPage = () => {
                       <div className="py-6">
                         <Upload size={28} className="mx-auto text-brand-grey mb-2" />
                         <p className="text-sm text-brand-grey">Drag & drop image here, or click to upload</p>
-                        <p className="text-xs text-brand-grey mt-1">JPEG, PNG, WebP — max 50MB</p>
-                        <p className="text-[10px] text-brand-gold mt-1">For HERO: recommended 1920x1080px, 1980x1020px also fine (~16:9-2:1 ratio, min width 1200px)</p>
+                        <p className="text-xs text-brand-grey mt-1">JPEG, PNG, WebP — max 5MB</p>
+                        <p className="text-[10px] text-brand-gold mt-1">
+                          For {form.type}: recommended size is {BANNER_SPECS[form.type]?.recommended}
+                        </p>
                       </div>
                     )}
                   </div>
                   <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileSelect} />
+
+                  {/* Red Note for Image Size Mismatch */}
+                  {imageInvalid && (
+                    <div className="mt-2.5 p-3 bg-red-50 border border-red-300 rounded-lg text-red-700 text-xs flex items-start gap-2 shadow-2xs">
+                      <AlertCircle size={16} className="mt-0.5 flex-shrink-0 text-red-600" />
+                      <div className="flex-1 font-medium leading-relaxed">
+                        {imageErrorMsg}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Upload progress */}
@@ -370,14 +582,14 @@ const BannersAdminPage = () => {
 
                 {/* Title */}
                 <div>
-                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-title">Title {form.type !== 'EXCLUSIVE_DEAL' && form.type !== 'HERO' && '*'}</label>
-                  <input id="ban-title" type="text" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} required={form.type !== 'EXCLUSIVE_DEAL' && form.type !== 'HERO'} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
+                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-title">Title {form.type !== 'HERO' && '*'}</label>
+                  <input id="ban-title" type="text" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} required={form.type !== 'HERO'} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
                 </div>
 
                 {/* Subtitle */}
                 <div>
-                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-subtitle">Subtitle</label>
-                  <input id="ban-subtitle" type="text" value={form.subtitle} onChange={e => setForm(p => ({ ...p, subtitle: e.target.value }))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
+                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-subtitle">Subtitle {form.type !== 'HERO' && '*'}</label>
+                  <input id="ban-subtitle" type="text" value={form.subtitle} onChange={e => setForm(p => ({ ...p, subtitle: e.target.value }))} required={form.type !== 'HERO'} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
                 </div>
 
                 {/* Type + Position */}
@@ -389,7 +601,6 @@ const BannersAdminPage = () => {
                       <option value="COUNTDOWN">COUNTDOWN</option>
                       <option value="PROMO">PROMO</option>
                       <option value="EXCLUSIVE_DEAL">EXCLUSIVE DEAL</option>
-                      {/* <option value="BRAND">BRAND</option> */}
                     </select>
                   </div>
                   <div>
@@ -402,29 +613,29 @@ const BannersAdminPage = () => {
                 {form.type === 'COUNTDOWN' && (
                   <div>
                     <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-countdown">Offer Ends At (Date & Time) *</label>
-                    <input id="ban-countdown" type="datetime-local" value={form.countdown} onChange={e => setForm(p => ({ ...p, countdown: e.target.value }))} required className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
+                    <input id="ban-countdown" type="datetime-local" min={formatDatetimeLocal(new Date().toISOString())} value={form.countdown} onChange={e => setForm(p => ({ ...p, countdown: e.target.value }))} required className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
                   </div>
                 )}
 
                 {/* CTA */}
                 <div>
-                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-ctaText">CTA Button Text {form.type === 'EXCLUSIVE_DEAL' && '*'}</label>
-                  <input id="ban-ctaText" type="text" value={form.ctaText} onChange={e => setForm(p => ({ ...p, ctaText: e.target.value }))} required={form.type === 'EXCLUSIVE_DEAL'} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
+                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-ctaText">CTA Button Text {(form.type === 'EXCLUSIVE_DEAL' || form.type === 'COUNTDOWN') && '*'}</label>
+                  <input id="ban-ctaText" type="text" value={form.ctaText} onChange={e => setForm(p => ({ ...p, ctaText: e.target.value }))} required={form.type === 'EXCLUSIVE_DEAL' || form.type === 'COUNTDOWN'} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
                 </div>
                  <div>
-                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-ctaLink">CTA Link {(form.type === 'EXCLUSIVE_DEAL' || form.type === 'HERO') && '*'}</label>
-                  <input id="ban-ctaLink" type="text" value={form.ctaLink} onChange={e => setForm(p => ({ ...p, ctaLink: e.target.value }))} required={form.type === 'EXCLUSIVE_DEAL' || form.type === 'HERO'} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
+                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-ctaLink">CTA Link *</label>
+                  <input id="ban-ctaLink" type="text" value={form.ctaLink} onChange={e => setForm(p => ({ ...p, ctaLink: e.target.value }))} required className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
                 </div>
 
                 {/* Badge + Active */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-badge">Badge Text</label>
-                    <input id="ban-badge" type="text" value={form.badgeText} onChange={e => setForm(p => ({ ...p, badgeText: e.target.value }))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
+                    <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-badge">Badge Text {(form.type === 'EXCLUSIVE_DEAL' || form.type === 'COUNTDOWN') && '*'}</label>
+                    <input id="ban-badge" type="text" value={form.badgeText} onChange={e => setForm(p => ({ ...p, badgeText: e.target.value }))} required={form.type === 'EXCLUSIVE_DEAL' || form.type === 'COUNTDOWN'} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
                   </div>
                   <div className="flex items-end pb-2">
                     <label className="flex items-center gap-2 text-sm cursor-pointer select-none" htmlFor="ban-active">
-                      <Switch checked={form.isActive} onChange={e => setForm(p => ({ ...p, isActive: e.target.checked }))} id="ban-active" />
+                      <Switch checked={form.isActive} onChange={val => setForm(p => ({ ...p, isActive: typeof val === 'boolean' ? val : val?.target?.checked }))} id="ban-active" />
                       Active
                     </label>
                   </div>
@@ -433,7 +644,7 @@ const BannersAdminPage = () => {
                 {/* Buttons */}
                 <div className="flex gap-3 pt-2 border-t border-brand-light">
                   <button type="button" onClick={() => setModalOpen(false)} className="btn-outline flex-1" id="ban-cancel" disabled={saving}>Cancel</button>
-                  <button type="submit" className="btn-primary flex-1 flex items-center justify-center gap-2" id="ban-save" disabled={saving || uploadProgress !== null}>
+                  <button type="submit" className="btn-primary flex-1 flex items-center justify-center gap-2" id="ban-save" disabled={saving || uploadProgress !== null || imageInvalid}>
                     {saving ? (
                       <><RefreshCw size={14} className="animate-spin" /> {uploadProgress !== null ? `${uploadProgress}%` : 'Saving...'}</>
                     ) : (

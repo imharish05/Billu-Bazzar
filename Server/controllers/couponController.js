@@ -1,5 +1,6 @@
 'use strict';
-const { Coupon } = require('../models');
+const { Coupon, Order } = require('../models');
+const { Op } = require('sequelize');
 
 const normalizeCode = (code = '') => String(code).trim().toUpperCase();
 
@@ -16,7 +17,7 @@ const isUsable = (coupon, subtotal) => {
   if (new Date(coupon.validFrom) > now) return 'Coupon is not active yet';
   if (new Date(coupon.validUntil) < now) return 'Coupon has expired';
   if (Number(coupon.usageCount) >= Number(coupon.usageLimit)) return 'Coupon usage limit reached';
-  if (subtotal < Number(coupon.minOrderValue || 0)) return `Minimum order value is ${coupon.minOrderValue}`;
+  if (subtotal < Number(coupon.minOrderValue || 0)) return `Minimum order value is ₹${coupon.minOrderValue}`;
   return null;
 };
 
@@ -73,6 +74,22 @@ const validate = async (req, res) => {
     const coupon = await Coupon.findOne({ where: { code: normalizeCode(req.body.code) } });
     const reason = isUsable(coupon, subtotal);
     if (reason) return res.status(400).json({ success: false, valid: false, message: reason });
+
+    // Per-user redemption check
+    const customerId = req.user?.id || req.body.customerId;
+    if (customerId && coupon) {
+      const existingUsage = await Order.count({
+        where: { customerId, couponId: coupon.id, status: { [Op.ne]: 'CANCELLED' } }
+      });
+      if (existingUsage > 0) {
+        return res.status(400).json({
+          success: false,
+          valid: false,
+          message: `You have already redeemed coupon '${coupon.code}' on a previous order.`
+        });
+      }
+    }
+
     const discountAmount = calculateDiscount(coupon, subtotal);
     res.json({ success: true, valid: true, coupon, discountAmount, freeShipping: coupon.type === 'FREE_SHIPPING' });
   } catch (err) {

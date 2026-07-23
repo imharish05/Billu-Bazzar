@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingBag, Heart, Star, ChevronRight, ChevronLeft, Share2, Shield, Truck, RotateCcw, ZoomIn, Play, Mail, CheckCircle2, X } from 'lucide-react';
+import { ShoppingBag, Heart, Star, ChevronRight, ChevronLeft, Share2, Shield, Truck, RotateCcw, ZoomIn, Play, Mail, CheckCircle2, X, Tag, Copy } from 'lucide-react';
 import { fetchProduct, fetchProducts } from '../redux/slices/productsSlice';
 import { addLocal, openCart, setBuyNowItem } from '../redux/slices/cartSlice';
 import { toggleItem } from '../redux/slices/wishlistSlice';
@@ -12,15 +12,10 @@ import ProductCard from '../components/ProductCard';
 import Product360Viewer from '../components/Product360Viewer';
 import { formatPrice } from '../utils/currency';
 import { getPlaceholderSvg } from '../utils/placeholder';
+import api from '../services/api';
 import toast from 'react-hot-toast';
 
-/* Seeded review data — displayed per product */
-const mockReviews = [
-  { id: 1, name: 'Priya N.', rating: 5, date: 'June 15, 2025', text: 'Absolutely stunning quality! The fabric feels luxurious and the embroidery is exquisite. Received so many compliments at the event.', verified: true },
-  { id: 2, name: 'Aisha S.', rating: 5, date: 'May 28, 2025', text: 'Worth every rupee. The packaging was beautiful too — felt like opening a gift. Will definitely order again.', verified: true },
-  { id: 3, name: 'Kavya R.', rating: 4, date: 'May 10, 2025', text: 'Beautiful piece, sizing runs slightly large so I recommend going one size down. Customer service was very helpful.', verified: true },
-  { id: 4, name: 'Sunita P.', rating: 5, date: 'April 22, 2025', text: 'My go-to for all festive occasions. The quality is consistently excellent and delivery was faster than expected!', verified: true },
-];
+import { fetchProductReviews, createReview, updateReview, deleteReview } from '../redux/slices/reviewsSlice';
 
 const ProductDetailsPage = () => {
   const { slug } = useParams();
@@ -47,6 +42,122 @@ const ProductDetailsPage = () => {
   const [notifySuccess, setNotifySuccess] = useState(false);
   const videoRef = useRef(null);
   const [videoSpeed, setVideoSpeed] = useState(0.8);
+
+  const reviewsState = useSelector(s => s.reviews);
+
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewTitle, setReviewTitle] = useState('');
+  const [reviewBody, setReviewBody] = useState('');
+  const [editingReviewId, setEditingReviewId] = useState(null);
+
+  const [availableCoupons, setAvailableCoupons] = useState([]);
+
+  useEffect(() => {
+    api.get('/coupons')
+      .then(res => {
+        if (res.data?.success) {
+          const active = (res.data.coupons || []).filter(c => c.isActive);
+          setAvailableCoupons(active);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleApplyProductCoupon = (coupon) => {
+    localStorage.setItem('bb_applied_coupon', JSON.stringify(coupon));
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(coupon.code).catch(() => {});
+    }
+    toast.success(`Coupon '${coupon.code}' saved & code copied!`);
+  };
+
+  useEffect(() => {
+    if (product && product.id) {
+      dispatch(fetchProductReviews(product.id));
+    }
+  }, [product?.id, dispatch]);
+
+  const handleOpenWriteReview = () => {
+    if (reviewsState.userReview) {
+      setEditingReviewId(reviewsState.userReview.id);
+      setReviewRating(reviewsState.userReview.rating || 5);
+      setReviewTitle(reviewsState.userReview.title || '');
+      setReviewBody(reviewsState.userReview.body || '');
+    } else {
+      setEditingReviewId(null);
+      setReviewRating(5);
+      setReviewTitle('');
+      setReviewBody('');
+    }
+    setReviewModalOpen(true);
+  };
+
+  const handleOpenEditReview = (rev) => {
+    setEditingReviewId(rev.id);
+    setReviewRating(rev.rating || 5);
+    setReviewTitle(rev.title || '');
+    setReviewBody(rev.body || '');
+    setReviewModalOpen(true);
+  };
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    if (!reviewBody.trim()) {
+      toast.error('Please write a review comment.');
+      return;
+    }
+    try {
+      if (editingReviewId) {
+        const res = await dispatch(updateReview({
+          id: editingReviewId,
+          rating: reviewRating,
+          title: reviewTitle,
+          body: reviewBody,
+          productId: product.id,
+        }));
+        if (updateReview.fulfilled.match(res)) {
+          toast.success('Your review has been updated!');
+          setReviewModalOpen(false);
+          if (product?.slug) dispatch(fetchProduct(product.slug));
+        } else {
+          toast.error(res.payload || 'Failed to update review');
+        }
+      } else {
+        const res = await dispatch(createReview({
+          productId: product.id,
+          orderId: reviewsState.eligibleOrderId,
+          rating: reviewRating,
+          title: reviewTitle,
+          body: reviewBody,
+        }));
+        if (createReview.fulfilled.match(res)) {
+          toast.success('Thank you! Your review has been published.');
+          setReviewModalOpen(false);
+          if (product?.slug) dispatch(fetchProduct(product.slug));
+        } else {
+          toast.error(res.payload || 'Failed to submit review');
+        }
+      }
+    } catch (err) {
+      toast.error('An unexpected error occurred.');
+    }
+  };
+
+  const handleDeleteReview = async (reviewId) => {
+    if (!window.confirm('Are you sure you want to delete your review?')) return;
+    try {
+      const res = await dispatch(deleteReview({ id: reviewId, productId: product.id }));
+      if (deleteReview.fulfilled.match(res)) {
+        toast.success('Review deleted successfully.');
+        if (product?.slug) dispatch(fetchProduct(product.slug));
+      } else {
+        toast.error(res.payload || 'Failed to delete review');
+      }
+    } catch (err) {
+      toast.error('An error occurred while deleting.');
+    }
+  };
 
   useEffect(() => {
     if (videoRef.current) {
@@ -130,11 +241,28 @@ const ProductDetailsPage = () => {
     });
   }, [parsedVariants, selectedAttributes, variantAttributeKeys]);
 
+  const currentSelectedAttrs = useMemo(() => {
+    if (selectedVariant && selectedVariant.attributes) return selectedVariant.attributes;
+    if (selectedSize) return { size: selectedSize };
+    return {};
+  }, [selectedVariant, selectedSize]);
+
   const isWishlisted = product ? wishlist.some(item => {
     const sameProd = Number(item.productId || item.id) === Number(product.id);
     if (!sameProd) return false;
-    if (selectedVariant) {
-      return Number(item.variantId) === Number(selectedVariant.id);
+    const targetVarId = selectedVariant ? selectedVariant.id : null;
+    if (targetVarId || item.variantId) {
+      return Number(item.variantId) === Number(targetVarId);
+    }
+    const hasAttrsA = item.selectedVariant && Object.keys(item.selectedVariant).length > 0;
+    const hasAttrsB = currentSelectedAttrs && Object.keys(currentSelectedAttrs).length > 0;
+    if (hasAttrsA || hasAttrsB) {
+      const a = item.selectedVariant || {};
+      const b = currentSelectedAttrs || {};
+      const keysA = Object.keys(a).sort();
+      const keysB = Object.keys(b).sort();
+      if (keysA.length !== keysB.length) return false;
+      return keysA.every(k => String(a[k]).toLowerCase() === String(b[k]).toLowerCase());
     }
     return true;
   }) : false;
@@ -456,15 +584,20 @@ const ProductDetailsPage = () => {
             </h1>
 
             {/* Rating */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <div className="flex">
-                {[1,2,3,4,5].map(s => (
-                  <Star key={s} size={16} className={s <= Math.round(product.rating || 4) ? 'fill-brand-gold text-brand-gold' : 'fill-brand-light text-brand-light'} />
-                ))}
+            {/* Rating — shown ONLY if product has real reviews */}
+            {Number(reviewsState.totalCount || product.reviewCount) > 0 && Number(reviewsState.averageRating || product.rating) > 0 && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <div className="flex">
+                  {[1,2,3,4,5].map(s => (
+                    <Star key={s} size={16} className={s <= Math.round(Number(reviewsState.averageRating || product.rating)) ? 'fill-brand-gold text-brand-gold' : 'fill-brand-light text-brand-light'} />
+                  ))}
+                </div>
+                <span className="text-sm text-brand-grey font-medium">
+                  {parseFloat(reviewsState.averageRating || product.rating).toFixed(1)} ({reviewsState.totalCount || product.reviewCount} {Number(reviewsState.totalCount || product.reviewCount) === 1 ? 'review' : 'reviews'})
+                </span>
+                <a href="#reviews" onClick={() => setActiveTab('reviews')} className="text-sm text-brand-gold hover:underline font-medium">Read reviews</a>
               </div>
-              <span className="text-sm text-brand-grey">{product.reviewCount || mockReviews.length} reviews</span>
-              <a href="#reviews" className="text-sm text-brand-gold hover:underline">Read reviews</a>
-            </div>
+            )}
 
             {/* Price — React Bits price reveal pattern (inline motion) */}
             <motion.div
@@ -484,6 +617,42 @@ const ProductDetailsPage = () => {
             </motion.div>
 
             <p className="text-brand-grey text-sm leading-relaxed">{product.shortDescription}</p>
+
+            {/* Available Coupons Card */}
+            {availableCoupons.length > 0 && (
+              <div className="bg-amber-50/50 border border-amber-200/80 rounded-xl p-4 space-y-3 shadow-2xs">
+                <div className="flex items-center gap-2 text-xs font-bold text-amber-900 uppercase tracking-wider">
+                  <Tag size={15} className="text-brand-gold" />
+                  <span>Available Offers & Coupons</span>
+                </div>
+                <div className="grid gap-2">
+                  {availableCoupons.slice(0, 3).map(c => (
+                    <div key={c.id} className="flex items-center justify-between bg-white border border-amber-200/60 rounded-lg p-2.5">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded">
+                            {c.code}
+                          </span>
+                          <span className="text-xs font-bold text-emerald-700">
+                            {c.type === 'PERCENT' ? `${c.value}% OFF` : `₹${c.value} OFF`}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-neutral-500 mt-1">
+                          Min Order: ₹{c.minOrderValue || 0} {c.maxDiscount ? `· Max Disc: ₹${c.maxDiscount}` : ''}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyProductCoupon(c)}
+                        className="flex items-center gap-1 text-xs font-semibold bg-neutral-900 text-white hover:bg-brand-gold px-3 py-1.5 rounded-md transition-colors"
+                      >
+                        <Copy size={12} /> Apply
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Dynamic Variant Attributes selectors (Amazon-Style Variant Matrix) */}
             {product.variants && product.variants.length > 0 && variantAttributeKeys.map(key => {
@@ -693,7 +862,7 @@ const ProductDetailsPage = () => {
         {/* Tabs — Description / Reviews */}
         <div className="mt-16 border-t border-brand-light" id="reviews">
           <div className="flex" role="tablist">
-            {['description', 'reviews'/*, 'care'*/].map(tab => (
+            {['description', 'reviews'].map(tab => (
               <button
                 key={tab}
                 role="tab"
@@ -702,56 +871,207 @@ const ProductDetailsPage = () => {
                 id={`pdp-tab-${tab}`}
                 className={`px-6 py-4 text-sm font-medium capitalize border-b-2 transition-colors ${activeTab === tab ? 'border-brand-gold text-brand-gold' : 'border-transparent text-brand-grey hover:text-brand-text'}`}
               >
-                {tab === 'reviews' ? `Reviews (${mockReviews.length})` : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {tab === 'reviews' ? `Reviews (${reviewsState.totalCount || 0})` : tab.charAt(0).toUpperCase() + tab.slice(1)}
               </button>
             ))}
           </div>
 
           <div className="py-8">
             {activeTab === 'description' && (
-              <div className="max-w-2xl">
-                <p className="text-brand-grey leading-relaxed">{product.description}</p>
+              <div className="w-full">
+                {product.description ? (
+                  <div
+                    className="prose-description text-brand-grey leading-relaxed w-full"
+                    dangerouslySetInnerHTML={{ __html: product.description }}
+                  />
+                ) : (
+                  <p className="text-brand-grey leading-relaxed text-sm italic">No description available.</p>
+                )}
               </div>
             )}
             {activeTab === 'reviews' && (
-              <div className="space-y-6">
-                {mockReviews.map(review => (
-                  <motion.div
-                    key={review.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex gap-4 pb-6 border-b border-brand-light last:border-0"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-brand-gold flex items-center justify-center flex-shrink-0">
-                      <span className="text-white font-bold text-sm">{review.name[0]}</span>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-3 mb-1">
-                        <span className="font-medium text-sm">{review.name}</span>
-                        {review.verified && <span className="text-[10px] bg-green-50 text-green-600 px-2 py-0.5">Verified Purchase</span>}
-                        <span className="text-xs text-brand-grey">{review.date}</span>
+              <div className="space-y-8 w-full">
+                {/* Summary & Rating Breakdown Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+                  {/* Review Summary Card */}
+                  <div className="bg-neutral-50 p-6 rounded-lg border border-neutral-200/60 flex flex-col justify-center">
+                    <h3 className="font-playfair text-xl font-bold text-neutral-900 mb-2">Customer Reviews</h3>
+                    {reviewsState.totalCount > 0 ? (
+                      <div className="flex items-center gap-4">
+                        <span className="text-4xl font-bold text-brand-gold">{parseFloat(reviewsState.averageRating).toFixed(1)}</span>
+                        <div>
+                          <div className="flex gap-0.5 mb-1">
+                            {[1, 2, 3, 4, 5].map(s => (
+                              <Star key={s} size={16} className={s <= Math.round(reviewsState.averageRating) ? 'fill-brand-gold text-brand-gold' : 'fill-brand-light text-brand-light'} />
+                            ))}
+                          </div>
+                          <span className="text-xs text-neutral-500">Based on {reviewsState.totalCount} {reviewsState.totalCount === 1 ? 'review' : 'reviews'}</span>
+                        </div>
                       </div>
-                      <div className="flex mb-2">
-                        {[1,2,3,4,5].map(s => <Star key={s} size={12} className={s <= review.rating ? 'fill-brand-gold text-brand-gold' : 'fill-brand-light text-brand-light'} />)}
-                      </div>
-                      <p className="text-sm text-brand-grey leading-relaxed">{review.text}</p>
+                    ) : (
+                      <p className="text-xs text-neutral-500">No reviews yet for this product.</p>
+                    )}
+                  </div>
+
+                  {/* Star Breakdown */}
+                  {reviewsState.totalCount > 0 && (
+                    <div className="space-y-2 bg-white p-5 border border-neutral-200/60 rounded-lg shadow-sm flex flex-col justify-center">
+                      {[5, 4, 3, 2, 1].map((star) => {
+                        const count = reviewsState.ratingBreakdown?.[star] || 0;
+                        const percentage = reviewsState.totalCount > 0 ? Math.round((count / reviewsState.totalCount) * 100) : 0;
+                        return (
+                          <div key={star} className="flex items-center gap-3 text-xs text-neutral-600">
+                            <span className="w-14 font-medium">{star} Stars</span>
+                            <div className="flex-1 h-1.5 bg-neutral-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-brand-gold transition-all duration-500 rounded-full" style={{ width: `${percentage}%` }} />
+                            </div>
+                            <span className="w-10 text-right font-mono text-[11px] text-neutral-400">{count}</span>
+                          </div>
+                        );
+                      })}
                     </div>
-                  </motion.div>
-                ))}
+                  )}
+                </div>
+
+                {/* Reviews List */}
+                <div className="space-y-6 pt-2">
+                  {reviewsState.reviews.length === 0 ? (
+                    <p className="text-sm text-neutral-500 italic">No reviews yet. Customers who buy this product will be able to review it after delivery!</p>
+                  ) : (
+                    reviewsState.reviews.map(review => (
+                      <motion.div
+                        key={review.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-white p-6 rounded-lg border border-neutral-200/60 shadow-sm relative w-full"
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-brand-gold/10 text-brand-gold font-bold flex items-center justify-center text-sm border border-brand-gold/20">
+                              {(review.reviewerName || 'U')[0].toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-sm text-neutral-900">{review.reviewerName}</span>
+                                {review.isVerifiedPurchase && (
+                                  <span className="text-[10px] bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded border border-emerald-100">Verified Buyer</span>
+                                )}
+                              </div>
+                              <span className="text-[11px] text-neutral-400">{new Date(review.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 my-2">
+                          {[1, 2, 3, 4, 5].map(s => (
+                            <Star key={s} size={13} className={s <= review.rating ? 'fill-brand-gold text-brand-gold' : 'fill-neutral-200 text-neutral-200'} />
+                          ))}
+                        </div>
+
+                        {review.title && <h4 className="font-semibold text-sm text-neutral-900 mb-1">{review.title}</h4>}
+                        <p className="text-sm text-neutral-600 leading-relaxed whitespace-pre-line">{review.body}</p>
+                      </motion.div>
+                    ))
+                  )}
+                </div>
               </div>
             )}
-            {/* {activeTab === 'care' && (
-              <div className="max-w-lg space-y-3">
-                {['Dry clean recommended', 'Store in a cool, dry place', 'Do not bleach', 'Iron on low heat with cloth cover', 'Avoid direct sunlight for extended periods'].map(tip => (
-                  <div key={tip} className="flex items-start gap-3 text-sm text-brand-grey">
-                    <span className="w-1.5 h-1.5 rounded-full bg-brand-gold mt-2 flex-shrink-0" />
-                    {tip}
-                  </div>
-                ))}
-              </div>
-            )} */}
           </div>
         </div>
+
+        {/* Review Modal Form */}
+        <AnimatePresence>
+          {reviewModalOpen && (
+            <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setReviewModalOpen(false)}>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                className="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl relative"
+                onClick={e => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => setReviewModalOpen(false)}
+                  className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-neutral-700 transition-colors rounded-full"
+                >
+                  <X size={18} />
+                </button>
+
+                <h3 className="font-playfair text-xl font-bold mb-1 text-neutral-900">
+                  {editingReviewId ? 'Edit Your Review' : 'Write a Product Review'}
+                </h3>
+                <p className="text-xs text-neutral-500 mb-5">
+                  Share your experience with <span className="font-semibold text-neutral-800">{product.name}</span>
+                </p>
+
+                <form onSubmit={handleSubmitReview} className="space-y-4">
+                  {/* Rating Stars Picker */}
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-700 mb-1.5 uppercase tracking-wider">Rating</label>
+                    <div className="flex items-center gap-2">
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setReviewRating(star)}
+                          className="p-1 hover:scale-110 transition-transform focus:outline-none"
+                        >
+                          <Star
+                            size={26}
+                            className={star <= reviewRating ? 'fill-brand-gold text-brand-gold' : 'fill-neutral-200 text-neutral-300'}
+                          />
+                        </button>
+                      ))}
+                      <span className="text-xs font-bold text-brand-gold ml-2">{reviewRating} / 5 Stars</span>
+                    </div>
+                  </div>
+
+                  {/* Title */}
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-700 mb-1 uppercase tracking-wider">Review Title (Optional)</label>
+                    <input
+                      type="text"
+                      value={reviewTitle}
+                      onChange={e => setReviewTitle(e.target.value)}
+                      placeholder="e.g. Excellent quality, perfect fit!"
+                      className="w-full px-3 py-2 border border-neutral-200 rounded text-sm focus:border-brand-gold focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Body */}
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-700 mb-1 uppercase tracking-wider">Review Comments *</label>
+                    <textarea
+                      rows={4}
+                      value={reviewBody}
+                      onChange={e => setReviewBody(e.target.value)}
+                      placeholder="Tell us what you liked or disliked about this product after your purchase..."
+                      className="w-full px-3 py-2 border border-neutral-200 rounded text-sm focus:border-brand-gold focus:outline-none resize-none"
+                      required
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setReviewModalOpen(false)}
+                      className="px-4 py-2 border border-neutral-200 text-neutral-600 text-xs font-semibold rounded hover:bg-neutral-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={reviewsState.submitting}
+                      className="btn-primary text-xs py-2 px-5 disabled:opacity-50"
+                    >
+                      {reviewsState.submitting ? 'Saving...' : (editingReviewId ? 'Update Review' : 'Submit Review')}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Related Creations */}

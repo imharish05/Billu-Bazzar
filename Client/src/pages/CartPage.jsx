@@ -92,9 +92,12 @@ const CartPage = () => {
     if (bestCoupon) {
       setCouponApplied(bestCoupon);
       setCouponCode(bestCoupon.code);
+      localStorage.setItem('bb_applied_coupon', JSON.stringify(bestCoupon));
     } else {
-      setCouponApplied(null);
-      setCouponCode('');
+      const saved = localStorage.getItem('bb_applied_coupon');
+      if (saved) {
+        try { setCouponApplied(JSON.parse(saved)); } catch {}
+      }
     }
   }, [availableCoupons, subtotal]);
 
@@ -119,6 +122,7 @@ const CartPage = () => {
         if (disc > 0) {
           setCouponApplied(matched);
           setCouponCode(matched.code);
+          localStorage.setItem('bb_applied_coupon', JSON.stringify(matched));
           toast.success(`Coupon ${matched.code} applied successfully!`);
         } else {
           if (subtotal < Number(matched.minOrderValue || 0)) {
@@ -132,6 +136,7 @@ const CartPage = () => {
         if (res.data?.success && res.data?.valid) {
           setCouponApplied(res.data.coupon);
           setCouponCode(res.data.coupon.code);
+          localStorage.setItem('bb_applied_coupon', JSON.stringify(res.data.coupon));
           toast.success(`Coupon ${res.data.coupon.code} applied successfully!`);
         } else {
           toast.error(res.data?.message || 'Invalid coupon code');
@@ -440,7 +445,7 @@ const CartPage = () => {
               {couponApplied && (
                 <div className="mt-3 flex items-center justify-between bg-green-50/70 border border-green-200/60 p-2.5 rounded-sm">
                   <p className="text-green-700 text-xs font-medium">✓ Coupon {couponApplied.code} applied!</p>
-                  <button onClick={() => { setCouponApplied(null); setCouponCode(''); }} className="text-green-700 hover:text-red-500 text-xs font-semibold underline">Remove</button>
+                  <button onClick={() => { setCouponApplied(null); setCouponCode(''); localStorage.removeItem('bb_applied_coupon'); }} className="text-green-700 hover:text-red-500 text-xs font-semibold underline">Remove</button>
                 </div>
               )}
             </div>

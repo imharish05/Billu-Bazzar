@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Edit2, Trash2, X, Upload, ChevronLeft, ChevronRight, ChevronDown, Check, Eye, Play, Pause, RotateCw, Sparkles, Box, ShieldCheck, Tag } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, Upload, ChevronLeft, ChevronRight, ChevronDown, Check, Eye, Play, Pause, RotateCw, Sparkles, Box, ShieldCheck, Tag, Camera } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import Switch from '../components/Switch';
 import { fetchAdminProducts, createProduct, updateProduct, deleteProduct } from '../redux/slices/productsSlice';
@@ -12,6 +12,15 @@ import api from '../services/api';
 const fmt = (v) => currencyJs(v, { symbol: '₹', precision: 0 }).format();
 
 const PRESET_OPTION_NAMES = ['Size', 'Color', 'Material', 'Fabric', 'Style', 'Metal Purity', 'Pattern', 'Weight'];
+
+const PRESET_VALUES_BY_OPTION = {
+  Size: ['FREE SIZE', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'],
+  Color: ['Red', 'Blue', 'Green', 'Black', 'White', 'Gold', 'Silver', 'Maroon', 'Navy', 'Pink'],
+  Material: ['Silk', 'Cotton', 'Denim', 'Leather', 'Wool', 'Linen', 'Velvet'],
+  Fabric: ['Georgette', 'Chiffon', 'Organza', 'Satin', 'Crepe', 'Rayon'],
+  Style: ['Casual', 'Ethnic', 'Party', 'Formal', 'Boho'],
+  'Metal Purity': ['24K Gold', '22K Gold', '18K Gold', '925 Silver', 'Platinum'],
+};
 
 // ── Custom Searchable Combobox Dropdown for Option Type ─────────────────────
 const OptionTypeSelect = ({ value, onChange, usedOptions = [] }) => {
@@ -635,6 +644,41 @@ const ProductModal = ({ product, onClose, onSave }) => {
   // 360 Spin Images
   const [existingSpinImages, setExistingSpinImages] = useState(product ? [...(product.spin_images || [])] : []);
   const [newSpinImageFiles, setNewSpinImageFiles] = useState([]);
+  const [draggedSpinIdx, setDraggedSpinIdx] = useState(null);
+
+  const handleSpinDragStart = (e, index) => {
+    setDraggedSpinIdx(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleSpinDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleSpinDrop = (e, targetIdx) => {
+    e.preventDefault();
+    if (draggedSpinIdx === null || draggedSpinIdx === targetIdx) return;
+
+    if (draggedSpinIdx < existingSpinImages.length && targetIdx < existingSpinImages.length) {
+      setExistingSpinImages(prev => {
+        const updated = [...prev];
+        const [moved] = updated.splice(draggedSpinIdx, 1);
+        updated.splice(targetIdx, 0, moved);
+        return updated;
+      });
+    } else if (draggedSpinIdx >= existingSpinImages.length && targetIdx >= existingSpinImages.length) {
+      const relStart = draggedSpinIdx - existingSpinImages.length;
+      const relTarget = targetIdx - existingSpinImages.length;
+      setNewSpinImageFiles(prev => {
+        const updated = [...prev];
+        const [moved] = updated.splice(relStart, 1);
+        updated.splice(relTarget, 0, moved);
+        return updated;
+      });
+    }
+    setDraggedSpinIdx(null);
+  };
 
   // Video File
   const [videoFile, setVideoFile] = useState(null);
@@ -680,9 +724,104 @@ const ProductModal = ({ product, onClose, onSave }) => {
     setForm(p => ({ ...p, subCategoryId: val, subSubCategoryId: '' }));
   };
 
-  // Rich Text Editor Command Helper
+  // Rich Text Editor Ref & Helpers
+  const richEditorRef = useRef(null);
+
+  // Seed editor content when editing an existing product
+  useEffect(() => {
+    if (richEditorRef.current && form.description) {
+      richEditorRef.current.innerHTML = form.description;
+    }
+    // Only run on mount — we don't want to reset on every form change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const applyRichTextCommand = (command, value = null) => {
+    richEditorRef.current?.focus();
+
+    // Smart "Normal" — exit any active list before switching to paragraph
+    if (command === 'formatBlock' && value === 'P') {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount) {
+        let node = selection.getRangeAt(0).startContainer;
+        if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+        let cursor = node;
+        while (cursor && cursor !== richEditorRef.current) {
+          if (cursor.tagName === 'UL') {
+            document.execCommand('insertUnorderedList'); // toggles UL off
+            break;
+          }
+          if (cursor.tagName === 'OL') {
+            document.execCommand('insertOrderedList'); // toggles OL off
+            break;
+          }
+          cursor = cursor.parentNode;
+        }
+      }
+    }
+
     document.execCommand(command, false, value);
+    // Sync HTML back to form state after command
+    if (richEditorRef.current) {
+      set('description', richEditorRef.current.innerHTML);
+    }
+  };
+
+  // Exit list on Enter when current <li> is empty
+  const handleEditorKeyDown = (e) => {
+    if (e.key !== 'Enter') return;
+
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return;
+
+    // Walk up from cursor to find the nearest <li>
+    let node = selection.getRangeAt(0).startContainer;
+    if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+
+    let li = null;
+    let cursor = node;
+    while (cursor && cursor !== richEditorRef.current) {
+      if (cursor.tagName === 'LI') { li = cursor; break; }
+      cursor = cursor.parentNode;
+    }
+
+    if (li && li.textContent.trim() === '') {
+      // Empty list item — break out of the list and insert a normal paragraph
+      e.preventDefault();
+      const parentList = li.parentNode; // UL or OL
+      const listParent = parentList?.parentNode;
+
+      // Remove the empty <li>
+      parentList.removeChild(li);
+
+      // Remove the list element too if it became empty
+      if (parentList && parentList.children.length === 0) {
+        listParent?.removeChild(parentList);
+      }
+
+      // Insert a fresh <p> after the list
+      const p = document.createElement('p');
+      p.innerHTML = '<br>'; // keeps the block focusable
+
+      if (listParent) {
+        // Insert after the list (or after where it was)
+        const refNode = parentList.parentNode ? parentList.nextSibling : null;
+        richEditorRef.current.insertBefore(p, refNode);
+      } else {
+        richEditorRef.current.appendChild(p);
+      }
+
+      // Move cursor into the new paragraph
+      const range = document.createRange();
+      range.setStart(p, 0);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+
+      if (richEditorRef.current) {
+        set('description', richEditorRef.current.innerHTML);
+      }
+    }
   };
 
   // Option Row Handlers
@@ -982,7 +1121,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.96 }}
-        className="bg-white rounded-xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden"
+        className="bg-white rounded-xl w-full max-w-6xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-brand-light bg-neutral-900 text-white">
@@ -1008,7 +1147,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-8 overflow-y-auto flex-1 text-neutral-800">
           
-          {/* SECTION 1: BASIC INFO */}
+          {/* SECTION 1: BASIC INFORMATION */}
           <div className="bg-neutral-50 p-5 rounded-lg border border-brand-light space-y-4">
             <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-brand-gold">1. Basic Information</h3>
@@ -1016,6 +1155,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
             </div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Product Name */}
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 mb-1">Product Name *</label>
                 <input
@@ -1028,55 +1168,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 mb-1">SKU *</label>
-                <input
-                  type="text"
-                  value={form.sku}
-                  onChange={e => set('sku', e.target.value)}
-                  required
-                  placeholder="e.g. KFT-001"
-                  className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 mb-1">Selling Price (₹) *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={form.price}
-                  onChange={e => set('price', e.target.value)}
-                  required
-                  placeholder="0.00"
-                  className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm bg-white font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 mb-1">Compare Price / MRP (₹)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={form.comparePrice}
-                  onChange={e => set('comparePrice', e.target.value)}
-                  placeholder="0.00"
-                  className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm bg-white font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 mb-1">Stock Quantity *</label>
-                <input
-                  type="number"
-                  value={form.stock}
-                  onChange={e => set('stock', e.target.value)}
-                  required
-                  placeholder="0"
-                  className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm bg-white font-mono"
-                />
-              </div>
-
+              {/* Vendor */}
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 mb-1">Vendor</label>
                 <select
@@ -1091,6 +1183,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                 </select>
               </div>
 
+              {/* Warehouse */}
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 mb-1">Warehouse Location</label>
                 <select
@@ -1105,26 +1198,27 @@ const ProductModal = ({ product, onClose, onSave }) => {
                 </select>
               </div>
 
+              {/* Root Category */}
               <div>
-                <label className="block text-xs font-semibold text-neutral-700 mb-1">Category *</label>
+                <label className="block text-xs font-semibold text-neutral-700 mb-1">Root Category *</label>
                 <select
                   value={form.categoryId}
                   onChange={e => handleCategoryChange(e.target.value)}
                   required
                   className="w-full border border-brand-light bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm"
                 >
-                  <option value="">Select Category</option>
+                  <option value="">Select Root Category</option>
                   {categories.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Subcategory */}
+              {/* Parent Category */}
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <label className="block text-xs font-semibold text-neutral-700">
-                    Subcategory {filteredSubCategories.length > 0 ? '*' : '(Custom)'}
+                    Parent Category {filteredSubCategories.length > 0 ? '*' : '(Custom)'}
                   </label>
                   {form.categoryId && (
                     <button
@@ -1146,7 +1240,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                     value={customSubCategoryName}
                     onChange={e => setCustomSubCategoryName(e.target.value)}
                     disabled={!form.categoryId}
-                    placeholder={!form.categoryId ? '— Select Category First —' : 'Type new subcategory name...'}
+                    placeholder={!form.categoryId ? '— Select Root Category First —' : 'Type new parent category name...'}
                     className="w-full border border-amber-400 px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm bg-amber-50/60 font-semibold text-amber-950 placeholder:text-amber-800/50"
                   />
                 ) : (
@@ -1158,7 +1252,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                     className="w-full border border-brand-light bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm disabled:bg-neutral-100 disabled:text-neutral-400 font-medium text-neutral-800"
                   >
                     <option value="">
-                      {!form.categoryId ? '— Select Parent Category First —' : 'Select Subcategory'}
+                      {!form.categoryId ? '— Select Root Category First —' : 'Select Parent Category'}
                     </option>
                     {filteredSubCategories.map(s => (
                       <option key={s.id} value={s.id}>{s.name}</option>
@@ -1167,11 +1261,11 @@ const ProductModal = ({ product, onClose, onSave }) => {
                 )}
               </div>
 
-              {/* Sub-Subcategory */}
+              {/* Child Category */}
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <label className="block text-xs font-semibold text-neutral-700">
-                    Sub-Subcategory (Optional)
+                    Child Category (Optional)
                   </label>
                   {(form.subCategoryId || customSubCategoryName.trim()) && (
                     <button
@@ -1193,7 +1287,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                     value={customSubSubCategoryName}
                     onChange={e => setCustomSubSubCategoryName(e.target.value)}
                     disabled={!form.subCategoryId && !customSubCategoryName.trim()}
-                    placeholder={(!form.subCategoryId && !customSubCategoryName.trim()) ? '— Select Subcategory First —' : 'Type new sub-subcategory name...'}
+                    placeholder={(!form.subCategoryId && !customSubCategoryName.trim()) ? '— Select Parent Category First —' : 'Type new child category name...'}
                     className="w-full border border-amber-400 px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm bg-amber-50/60 font-semibold text-amber-950 placeholder:text-amber-800/50"
                   />
                 ) : (
@@ -1204,7 +1298,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                     className="w-full border border-brand-light bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm disabled:bg-neutral-100 disabled:text-neutral-400 font-medium text-neutral-800"
                   >
                     <option value="">
-                      {!form.subCategoryId ? '— Select Subcategory First —' : 'Select Sub-Subcategory'}
+                      {!form.subCategoryId ? '— Select Parent Category First —' : 'Select Child Category'}
                     </option>
                     {filteredSubSubCategories.map(ss => (
                       <option key={ss.id} value={ss.id}>{ss.name}</option>
@@ -1215,9 +1309,96 @@ const ProductModal = ({ product, onClose, onSave }) => {
             </div>
           </div>
 
-          {/* SECTION 2: SHIPPING & PACKAGE DIMENSIONS */}
+          {/* SECTION 2: DESCRIPTION */}
           <div className="bg-neutral-50 p-5 rounded-lg border border-brand-light space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-brand-gold border-b border-neutral-200 pb-2">2. Shipping Specs & Package Dimensions</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-brand-gold border-b border-neutral-200 pb-2">2. Description</h3>
+            
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-semibold text-neutral-700">Short Description (Cards/Listings)</label>
+                <span className={`text-[11px] font-mono font-semibold ${form.shortDescription.length > 160 ? 'text-red-500' : 'text-neutral-500'}`}>
+                  {form.shortDescription.length} / 160 chars
+                </span>
+              </div>
+              <textarea
+                rows={2}
+                maxLength={200}
+                value={form.shortDescription}
+                onChange={e => set('shortDescription', e.target.value)}
+                placeholder="Brief excerpt shown on product cards."
+                className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm bg-white resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1">Long Description (Product Detail Page)</label>
+              <div className="border border-brand-light rounded-sm bg-white overflow-hidden">
+                {/* Toolbar */}
+                <div className="flex flex-wrap items-center gap-1 p-2 bg-neutral-100 border-b border-brand-light text-xs font-semibold text-neutral-700">
+                  {/* Heading buttons */}
+                  <button
+                    type="button"
+                    title="Heading 1"
+                    onClick={() => applyRichTextCommand('formatBlock', 'H1')}
+                    className="px-2.5 py-1 bg-white border border-neutral-300 rounded text-[11px] font-extrabold hover:bg-brand-gold hover:text-white hover:border-brand-gold transition-colors"
+                  >H1</button>
+                  <button
+                    type="button"
+                    title="Heading 2"
+                    onClick={() => applyRichTextCommand('formatBlock', 'H2')}
+                    className="px-2.5 py-1 bg-white border border-neutral-300 rounded text-[11px] font-bold hover:bg-brand-gold hover:text-white hover:border-brand-gold transition-colors"
+                  >H2</button>
+                  <button
+                    type="button"
+                    title="Heading 3"
+                    onClick={() => applyRichTextCommand('formatBlock', 'H3')}
+                    className="px-2.5 py-1 bg-white border border-neutral-300 rounded text-[11px] font-semibold hover:bg-brand-gold hover:text-white hover:border-brand-gold transition-colors"
+                  >H3</button>
+
+                  <span className="w-px h-4 bg-neutral-300 mx-0.5" />
+
+                  {/* List buttons */}
+                  <button
+                    type="button"
+                    title="Bullet List"
+                    onClick={() => applyRichTextCommand('insertUnorderedList')}
+                    className="px-2.5 py-1 bg-white border border-neutral-300 rounded hover:bg-brand-gold hover:text-white hover:border-brand-gold transition-colors"
+                  >• List</button>
+
+                  <span className="w-px h-4 bg-neutral-300 mx-0.5" />
+
+                  {/* Reset to paragraph */}
+                  <button
+                    type="button"
+                    title="Normal Paragraph"
+                    onClick={() => applyRichTextCommand('formatBlock', 'P')}
+                    className="px-2.5 py-1 bg-white border border-neutral-300 rounded text-[11px] hover:bg-neutral-200 transition-colors"
+                  >¶ Normal</button>
+                </div>
+
+                {/* Contenteditable editor */}
+                <div
+                  ref={richEditorRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onKeyDown={handleEditorKeyDown}
+                  onInput={() => {
+                    if (richEditorRef.current) {
+                      set('description', richEditorRef.current.innerHTML);
+                    }
+                  }}
+                  data-placeholder="Detailed rich text description..."
+                  className="w-full p-3 text-sm focus:outline-none min-h-[120px] font-sans rich-editor-area"
+                  style={{ lineHeight: '1.6' }}
+                />
+              </div>
+              <p className="text-[11px] text-neutral-400 mt-1">Use the toolbar to add headings, bullet points, and text formatting. Content renders as-is on the product page.</p>
+            </div>
+          </div>
+
+          {/* SECTION 3: SHIPPING SPECS & PACKAGE DIMENSIONS */}
+          <div className="bg-neutral-50 p-5 rounded-lg border border-brand-light space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-brand-gold border-b border-neutral-200 pb-2">3. Shipping Specs & Package Dimensions</h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
@@ -1270,108 +1451,172 @@ const ProductModal = ({ product, onClose, onSave }) => {
             </div>
           </div>
 
-          {/* SECTION 3: DESCRIPTIONS */}
+          {/* SECTION 4: PRODUCT IMAGE & GALLERY */}
           <div className="bg-neutral-50 p-5 rounded-lg border border-brand-light space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-brand-gold border-b border-neutral-200 pb-2">3. Descriptions</h3>
-            
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="text-xs font-semibold text-neutral-700">Short Description (Cards/Listings)</label>
-                <span className={`text-[11px] font-mono font-semibold ${form.shortDescription.length > 160 ? 'text-red-500' : 'text-neutral-500'}`}>
-                  {form.shortDescription.length} / 160 chars
-                </span>
-              </div>
-              <textarea
-                rows={2}
-                maxLength={200}
-                value={form.shortDescription}
-                onChange={e => set('shortDescription', e.target.value)}
-                placeholder="Brief excerpt shown on product cards."
-                className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm bg-white resize-none"
-              />
-            </div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-brand-gold border-b border-neutral-200 pb-2">4. Product Image & Gallery</h3>
 
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 mb-1">Long Description (Product Detail Page)</label>
-              <div className="border border-brand-light rounded-sm bg-white overflow-hidden">
-                <div className="flex items-center gap-1 p-2 bg-neutral-100 border-b border-brand-light text-xs font-semibold text-neutral-700">
-                  <button type="button" onClick={() => applyRichTextCommand('bold')} className="px-2.5 py-1 bg-white border border-neutral-300 rounded font-bold">B</button>
-                  <button type="button" onClick={() => applyRichTextCommand('italic')} className="px-2.5 py-1 bg-white border border-neutral-300 rounded italic">I</button>
-                  <button type="button" onClick={() => applyRichTextCommand('underline')} className="px-2.5 py-1 bg-white border border-neutral-300 rounded underline">U</button>
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-neutral-700">
+                Default Listing Image • Recommended 400×400px (1:1) • Max: 3MB
+              </label>
+
+              {defaultProductImagePreview ? (
+                <div className="relative w-32 h-32 border border-neutral-300 rounded-2xl overflow-hidden shadow-md group bg-neutral-900">
+                  <img src={defaultProductImagePreview} alt="Default Thumbnail" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => { setDefaultProductImageFile(null); setDefaultProductImagePreview(null); }}
+                    className="absolute top-2 right-2 bg-black/80 hover:bg-red-600 text-white p-1 rounded-full shadow-lg transition-colors"
+                    title="Remove Image"
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
-                <textarea
-                  rows={4}
-                  value={form.description}
-                  onChange={e => set('description', e.target.value)}
-                  placeholder="Detailed rich text description..."
-                  className="w-full p-3 text-sm focus:outline-none resize-none font-sans"
-                />
-              </div>
+              ) : (
+                <label className="border-2 border-dashed border-neutral-300 hover:border-brand-gold bg-white hover:bg-neutral-50/50 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition-all group">
+                  <div className="flex items-center gap-1.5 text-xs text-neutral-500 font-medium group-hover:text-neutral-800">
+                    <Camera size={16} className="text-neutral-400 group-hover:text-brand-gold" />
+                    <span>Click to <strong>browse</strong> or <strong>drag & drop</strong></span>
+                  </div>
+                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleDefaultImageSelect} className="hidden" />
+                </label>
+              )}
             </div>
           </div>
 
-          {/* SECTION 4: PRE-DETERMINED OPTION TYPES & COLOR PICKER */}
+          {/* SECTION 5: VARIANT OPTIONS & COLOR PICKER */}
           <div className="bg-neutral-50 p-5 rounded-lg border border-brand-light space-y-4">
             <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
               <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-gold">4. Variant Options & Color Picker</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-gold">5. Variant Options & Color Picker</h3>
                 <p className="text-[11px] text-neutral-500">Select pre-determined options (Color, Size, Material) or type custom specs.</p>
               </div>
               <span className="text-xs font-bold text-neutral-600 bg-neutral-200 px-2 py-0.5 rounded">{optionRows.length} Options</span>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               {optionRows.map((row) => {
                 const isColor = row.optionName.toLowerCase() === 'color';
+                const selectedValue = (row.optionValue || '').trim();
+                const presets = PRESET_VALUES_BY_OPTION[row.optionName] || PRESET_VALUES_BY_OPTION['Size'];
+
+                const toggleValue = (valToToggle) => {
+                  const nextValue = selectedValue === valToToggle ? '' : valToToggle;
+                  updateOptionRow(row.id, 'optionValue', nextValue);
+                };
+
                 return (
-                  <div key={row.id} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-white p-3 border border-brand-light rounded-sm shadow-sm">
-                    {/* Option Type Custom Searchable Dropdown */}
-                    <div className="w-full sm:w-1/3">
-                      <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-0.5">Option Type</label>
-                      <OptionTypeSelect
-                        value={row.optionName}
-                        onChange={(newName) => updateOptionRow(row.id, 'optionName', newName)}
-                        usedOptions={optionRows.map(r => r.optionName)}
-                      />
+                  <div key={row.id} className="bg-white p-4 sm:p-5 rounded-2xl border border-neutral-200 shadow-sm space-y-3 hover:border-neutral-300 transition-all">
+                    {/* Header: Icon + Option Name + Red Remove Option */}
+                    <div className="flex items-center justify-between border-b border-neutral-100 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        {isColor ? (
+                          <span className="text-amber-600 font-bold text-sm">🎨</span>
+                        ) : (
+                          <span className="text-neutral-500 font-bold text-sm">📐</span>
+                        )}
+                        <OptionTypeSelect
+                          value={row.optionName}
+                          onChange={(newName) => updateOptionRow(row.id, 'optionName', newName)}
+                          usedOptions={optionRows.map(r => r.optionName)}
+                        />
+                        <span className="text-red-500 font-bold text-xs">*</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => removeOptionRow(row.id)}
+                        className="text-xs font-semibold text-red-600 hover:text-red-700 hover:underline flex items-center gap-1 transition-colors"
+                      >
+                        <X size={14} /> Remove Option
+                      </button>
                     </div>
 
-                    {/* Option Value + Color Picker */}
-                    <div className="flex-1">
-                      <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-0.5">Option Value</label>
-                      <div className="flex items-center gap-2">
-                        {isColor && (
-                          <div className="flex items-center gap-1 bg-neutral-100 p-1 border border-neutral-300 rounded">
+                    {/* Sub-row: Green Dashed Add Pill Button + Value Chips */}
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      {row.showCustomInput ? (
+                        <div className="flex items-center gap-1.5 bg-white border-2 border-emerald-500 rounded-full px-3 py-1 shadow-sm">
+                          {isColor && (
                             <input
                               type="color"
                               value={row.colorHex || '#8B0000'}
-                              onChange={e => {
-                                const hex = e.target.value;
-                                updateOptionRow(row.id, 'colorHex', hex);
-                                if (!row.optionValue) updateOptionRow(row.id, 'optionValue', hex);
-                              }}
-                              className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent"
-                              title="Pick Hex Color"
+                              onChange={e => updateOptionRow(row.id, 'colorHex', e.target.value)}
+                              className="w-5 h-5 rounded-full cursor-pointer border-0 p-0"
                             />
-                            <span className="text-[10px] font-mono font-bold uppercase text-neutral-700">{row.colorHex || '#8B0000'}</span>
-                          </div>
-                        )}
-                        <input
-                          type="text"
-                          placeholder={isColor ? "Color Name (e.g. Royal Emerald)" : "Value (e.g. XL, 925 Silver)"}
-                          value={row.optionValue}
-                          onChange={e => updateOptionRow(row.id, 'optionValue', e.target.value)}
-                          className="w-full border border-neutral-300 px-2.5 py-1.5 text-xs focus:outline-none focus:border-brand-gold rounded-sm"
-                        />
-                      </div>
-                    </div>
+                          )}
+                          <input
+                            type="text"
+                            autoFocus
+                            placeholder={`Type custom ${row.optionName || 'value'}...`}
+                            value={row.customInput || ''}
+                            onChange={e => updateOptionRow(row.id, 'customInput', e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (row.customInput?.trim()) {
+                                  toggleValue(row.customInput.trim());
+                                  updateOptionRow(row.id, 'customInput', '');
+                                  updateOptionRow(row.id, 'showCustomInput', false);
+                                }
+                              }
+                            }}
+                            className="text-xs font-medium focus:outline-none bg-transparent w-32 text-neutral-800"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (row.customInput?.trim()) {
+                                toggleValue(row.customInput.trim());
+                                updateOptionRow(row.id, 'customInput', '');
+                              }
+                              updateOptionRow(row.id, 'showCustomInput', false);
+                            }}
+                            className="text-emerald-700 text-xs font-bold hover:text-emerald-900"
+                          >
+                            Set
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => updateOptionRow(row.id, 'showCustomInput', true)}
+                          className="border-2 border-dashed border-emerald-500 text-emerald-600 bg-emerald-50/40 hover:bg-emerald-50 text-xs font-bold px-3 py-1.5 rounded-full transition-colors flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus size={14} /> Add {row.optionName || 'Option'}
+                        </button>
+                      )}
 
-                    <button
-                      type="button"
-                      onClick={() => removeOptionRow(row.id)}
-                      className="self-center p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
-                    >
-                      <X size={16} />
-                    </button>
+                      {/* Preset Option Values Chips (Single Value Selection) */}
+                      {presets.map(val => {
+                        const isSelected = selectedValue === val;
+                        return (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => toggleValue(val)}
+                            className={`text-xs font-medium px-3.5 py-1.5 rounded-full border transition-all cursor-pointer ${
+                              isSelected
+                                ? 'border-2 border-emerald-500 bg-emerald-50 text-emerald-950 font-bold shadow-sm'
+                                : 'border-neutral-200 bg-white hover:bg-neutral-100 text-neutral-700'
+                            }`}
+                          >
+                            {val}
+                          </button>
+                        );
+                      })}
+
+                      {/* Custom Added Value Chip (if custom value selected and not in presets) */}
+                      {selectedValue && !presets.includes(selectedValue) && (
+                        <button
+                          type="button"
+                          onClick={() => toggleValue(selectedValue)}
+                          className="text-xs font-bold px-3 py-1.5 rounded-full border-2 border-emerald-500 bg-emerald-50 text-emerald-950 flex items-center gap-1 shadow-sm"
+                        >
+                          <span>{selectedValue}</span>
+                          <X size={12} className="text-emerald-700 hover:text-red-600" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -1384,39 +1629,20 @@ const ProductModal = ({ product, onClose, onSave }) => {
                 <Plus size={14} /> Add Option
               </button>
             </div>
-          </div>
 
-          {/* SECTION 5: PRODUCT VARIANTS & STOCK MATRIX */}
-          <div className="bg-neutral-50 p-5 rounded-lg border border-brand-light space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-neutral-200 pb-3 gap-2">
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-gold">5. Product Variants & Stock Matrix</h3>
-                <p className="text-[11px] text-neutral-500">Variant combinations auto-generated in real-time from Section 4 options with up to 10 images each.</p>
-              </div>
-            </div>
-
-            {productVariants.length === 0 ? (
-              <div className="bg-white p-6 rounded-md border border-dashed border-neutral-300 text-center space-y-2">
-                <Box size={24} className="mx-auto text-neutral-400" />
-                <p className="text-xs text-neutral-500 font-medium">No variants generated yet.</p>
-                <p className="text-[11px] text-neutral-400">Add option types and values in Section 4 above to automatically generate variants!</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
+            {/* Generated Variant Cards */}
+            {productVariants.length > 0 && (
+              <div className="pt-4 border-t border-neutral-200 space-y-4">
                 {productVariants.map((v, vIdx) => {
                   const totalImgs = (v.existingImages?.length || 0) + (v.newFiles?.length || 0);
-                  const attrKeys = optionRows.filter(r => r.optionName.trim() !== '').map(r => r.optionName.trim());
 
                   return (
-                    <div key={v.id} className="bg-white p-4 border border-neutral-200 rounded-lg shadow-sm space-y-3 hover:border-brand-gold transition-colors">
-                      {/* Top Header: Badge + Remove */}
-                      <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
+                    <div key={v.id} className="bg-white p-5 border border-amber-300 rounded-xl shadow-sm space-y-4 hover:border-amber-400 transition-colors">
+                      {/* Top Header: Selected Option Value Tags & Delete Action */}
+                      <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-mono font-bold bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded border border-neutral-200">
-                            Variant #{vIdx + 1}
-                          </span>
                           {Object.entries(v.attributes || {}).map(([k, val]) => (
-                            <span key={k} className="text-xs font-semibold bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded">
+                            <span key={k} className="text-xs font-semibold bg-amber-50 text-amber-900 border border-amber-200 px-2.5 py-1 rounded-md">
                               {k}: <strong className="font-bold">{val}</strong>
                             </span>
                           ))}
@@ -1424,50 +1650,143 @@ const ProductModal = ({ product, onClose, onSave }) => {
                         <button
                           type="button"
                           onClick={() => removeVariantRow(v.id)}
-                          className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                          className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
                           title="Remove Variant"
                         >
                           <Trash2 size={16} />
                         </button>
                       </div>
 
-                      {/* Attribute Selectors using OptionTypeSelect */}
-                      {attrKeys.length > 0 && (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-neutral-50/70 p-2.5 rounded-md border border-neutral-200">
-                          {attrKeys.map(key => (
-                            <div key={key}>
-                              <label className="block text-[10px] font-bold uppercase text-neutral-500 mb-0.5">{key}</label>
-                              <OptionTypeSelect
-                                value={v.attributes?.[key] || ''}
-                                onChange={(val) => updateVariantAttribute(v.id, key, val)}
-                                usedOptions={[]}
-                              />
-                            </div>
-                          ))}
+                      {/* Row 1: SKU CODE & SELLING PRICE (₹) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-600 mb-1">SKU CODE</label>
+                          <input
+                            type="text"
+                            value={v.sku}
+                            onChange={e => updateVariantRow(v.id, 'sku', e.target.value)}
+                            placeholder="SKU Code"
+                            className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-xs font-sans font-medium text-neutral-800 focus:outline-none focus:border-brand-gold bg-white"
+                          />
                         </div>
-                      )}
 
-                      {/* SKU Code Input (Price & Stock Inherited from Section 1) */}
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase text-neutral-500 mb-0.5">SKU Code</label>
-                        <input
-                          type="text"
-                          value={v.sku}
-                          onChange={e => updateVariantRow(v.id, 'sku', e.target.value)}
-                          placeholder="SKU Code"
-                          className="w-full border border-neutral-300 px-3 py-1.5 text-xs font-mono rounded focus:outline-none focus:border-brand-gold font-semibold text-neutral-800"
-                        />
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-600 mb-1">SELLING PRICE (₹)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={v.price !== undefined ? v.price : ''}
+                            onChange={e => updateVariantRow(v.id, 'price', e.target.value)}
+                            placeholder="0.00"
+                            className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-xs font-sans font-medium text-neutral-800 focus:outline-none focus:border-brand-gold bg-white"
+                          />
+                        </div>
                       </div>
 
-                      {/* Multi-Image Gallery per Variant (Up to 10 Images) */}
-                      <div className="pt-2 border-t border-neutral-100 space-y-1.5">
+                      {/* Row 2: MRP (₹), STOCK QTY, LOW STOCK THRESHOLD & GST RATE */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-600 mb-1">MRP (₹)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={v.mrp !== undefined ? v.mrp : ''}
+                            onChange={e => updateVariantRow(v.id, 'mrp', e.target.value)}
+                            placeholder="0.00"
+                            className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-xs font-sans font-medium text-neutral-800 focus:outline-none focus:border-brand-gold bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-600 mb-1">STOCK QTY</label>
+                          <input
+                            type="number"
+                            value={v.stock !== undefined ? v.stock : ''}
+                            onChange={e => updateVariantRow(v.id, 'stock', e.target.value)}
+                            placeholder="0"
+                            className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-xs font-sans font-medium text-neutral-800 focus:outline-none focus:border-brand-gold bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-600 mb-1">LOW STOCK THRESHOLD</label>
+                          <input
+                            type="number"
+                            value={v.lowStockThreshold || '10'}
+                            onChange={e => updateVariantRow(v.id, 'lowStockThreshold', e.target.value)}
+                            placeholder="10"
+                            className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-xs font-sans font-medium text-neutral-800 focus:outline-none focus:border-brand-gold bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-600 mb-1">GST RATE</label>
+                          <select
+                            value={v.gstRate || '18%'}
+                            onChange={e => updateVariantRow(v.id, 'gstRate', e.target.value)}
+                            className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-xs font-sans font-medium text-neutral-800 focus:outline-none focus:border-brand-gold bg-white"
+                          >
+                            <option value="0%">0% (Exempt)</option>
+                            <option value="5%">5% (SGST 2.5% + CGST 2.5%)</option>
+                            <option value="12%">12% (SGST 6% + CGST 6%)</option>
+                            <option value="18%">18% (SGST 9% + CGST 9%)</option>
+                            <option value="28%">28% (SGST 14% + CGST 14%)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Main Variant Image (PDP / Cart / Checkout Display) */}
+                      <div className="space-y-1.5 pt-2 border-t border-neutral-100">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-600">
+                          Main Variant Image (PDP / Cart / Checkout Display)
+                        </label>
+                        {v.mainImagePreview ? (
+                          <div className="relative w-24 h-24 border border-neutral-300 rounded-xl overflow-hidden shadow-md bg-neutral-900">
+                            <img src={v.mainImagePreview} alt="Main Variant" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                updateVariantRow(v.id, 'mainImagePreview', '');
+                                updateVariantRow(v.id, 'mainImageFile', null);
+                              }}
+                              className="absolute top-1.5 right-1.5 bg-black/80 hover:bg-red-600 text-white p-1 rounded-full shadow transition-colors"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        ) : (
+                          <label className="border-2 border-dashed border-neutral-300 hover:border-brand-gold bg-white hover:bg-neutral-50/50 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all group">
+                            <div className="flex items-center gap-1.5 text-xs text-neutral-500 font-medium group-hover:text-neutral-800">
+                              <Camera size={16} className="text-neutral-400 group-hover:text-brand-gold" />
+                              <span>Click to <strong>browse</strong> main image</span>
+                            </div>
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              onChange={e => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  updateVariantRow(v.id, 'mainImageFile', file);
+                                  updateVariantRow(v.id, 'mainImagePreview', URL.createObjectURL(file));
+                                }
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
+                      </div>
+
+                      {/* Variant Gallery (Max 5 Images) */}
+                      <div className="space-y-1.5 pt-2 border-t border-neutral-100">
                         <div className="flex justify-between items-center">
-                          <label className="block text-[10px] font-bold uppercase text-neutral-600">Variant Images (Max 10)</label>
-                          <span className="text-[10px] font-mono font-bold text-brand-gold">{totalImgs} / 10</span>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-600">
+                            VARIANT GALLERY (MAX 5 IMAGES)
+                          </label>
+                          <span className="text-[10px] font-mono font-bold text-amber-600">{totalImgs} / 5</span>
                         </div>
                         <div className="flex items-center gap-2 overflow-x-auto py-1 custom-scrollbar">
                           {v.existingImages?.map((imgUrl, iIdx) => (
-                            <div key={`exist-${iIdx}`} className="relative w-14 h-14 border border-neutral-300 rounded overflow-hidden flex-shrink-0 bg-neutral-100">
+                            <div key={`exist-${iIdx}`} className="relative w-14 h-14 border border-neutral-300 rounded-lg overflow-hidden flex-shrink-0 bg-neutral-100">
                               <img src={imgUrl} alt={`Variant ${iIdx + 1}`} className="w-full h-full object-cover" />
                               <span className="absolute top-0.5 left-0.5 bg-black/70 text-white text-[8px] font-bold px-1 rounded">#{iIdx + 1}</span>
                               <button
@@ -1482,7 +1801,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                           {v.newFiles?.map((file, iIdx) => {
                             const globalPos = (v.existingImages?.length || 0) + iIdx + 1;
                             return (
-                              <div key={`new-${iIdx}`} className="relative w-14 h-14 border-2 border-brand-gold/60 rounded overflow-hidden flex-shrink-0 bg-neutral-100">
+                              <div key={`new-${iIdx}`} className="relative w-14 h-14 border-2 border-brand-gold/60 rounded-lg overflow-hidden flex-shrink-0 bg-neutral-100">
                                 <img src={file.preview} alt={`Upload ${globalPos}`} className="w-full h-full object-cover" />
                                 <span className="absolute top-0.5 left-0.5 bg-brand-gold text-white text-[8px] font-bold px-1 rounded">#{globalPos}</span>
                                 <button
@@ -1495,8 +1814,8 @@ const ProductModal = ({ product, onClose, onSave }) => {
                               </div>
                             );
                           })}
-                          {totalImgs < 10 && (
-                            <label className="w-14 h-14 border-2 border-dashed border-neutral-300 hover:border-brand-gold flex flex-col items-center justify-center text-neutral-400 hover:text-brand-gold cursor-pointer rounded flex-shrink-0 bg-neutral-50 transition-colors">
+                          {totalImgs < 5 && (
+                            <label className="w-14 h-14 border-2 border-dashed border-neutral-300 hover:border-brand-gold flex flex-col items-center justify-center text-neutral-400 hover:text-brand-gold cursor-pointer rounded-lg bg-neutral-50 transition-colors">
                               <Plus size={16} />
                               <span className="text-[9px] font-semibold">Image</span>
                               <input
@@ -1517,97 +1836,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
             )}
           </div>
 
-          {/* SECTION 6: PRODUCT IMAGES */}
-          <div className="bg-neutral-50 p-5 rounded-lg border border-brand-light space-y-6">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-brand-gold border-b border-neutral-200 pb-2">5. Product Images & Gallery</h3>
-
-            {/* Default Listing Image */}
-            <div className="bg-white p-4 border border-brand-light rounded-sm space-y-3">
-              <label className="block text-xs font-bold text-neutral-800">Default Product Listing Image (Card View) *</label>
-
-              <div className="flex items-center gap-4">
-                {defaultProductImagePreview ? (
-                  <div className="relative w-24 h-24 border border-brand-gold overflow-hidden rounded bg-neutral-100">
-                    <img src={defaultProductImagePreview} alt="Default Thumbnail" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => { setDefaultProductImageFile(null); setDefaultProductImagePreview(null); }}
-                      className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-90"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="w-24 h-24 border-2 border-dashed border-neutral-300 hover:border-brand-gold flex flex-col items-center justify-center text-neutral-400 hover:text-brand-gold cursor-pointer rounded transition-colors bg-neutral-50">
-                    <Upload size={20} />
-                    <span className="text-[10px] font-semibold mt-1">Upload</span>
-                    <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleDefaultImageSelect} className="hidden" />
-                  </label>
-                )}
-              </div>
-            </div>
-
-            {/* Gallery Grid */}
-            <div className="bg-white p-4 border border-brand-light rounded-sm space-y-4">
-              <div className="flex justify-between items-center">
-                <label className="block text-xs font-bold text-neutral-800">Variant Gallery Images (Max 10)</label>
-                <span className="text-xs font-mono font-semibold text-brand-gold bg-brand-gold/10 px-2 py-0.5 rounded">
-                  {existingVariantImages.length + newVariantImageFiles.length} / 10
-                </span>
-              </div>
-
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-                {existingVariantImages.map((imgUrl, idx) => (
-                  <div key={`existing-${idx}`} className="relative aspect-square border border-neutral-200 rounded overflow-hidden bg-neutral-100 shadow-sm">
-                    <img src={imgUrl} alt={`Gallery ${idx + 1}`} className="w-full h-full object-cover" />
-                    <span className="absolute top-1 left-1 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-                      #{idx + 1}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeExistingVariantImage(idx)}
-                      className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-90"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
-
-                {newVariantImageFiles.map((file, idx) => {
-                  const globalPos = existingVariantImages.length + idx + 1;
-                  return (
-                    <div key={`new-${idx}`} className="relative aspect-square border-2 border-brand-gold/50 rounded overflow-hidden bg-neutral-100 shadow-sm">
-                      <img src={file.preview} alt={`Upload ${globalPos}`} className="w-full h-full object-cover" />
-                      <span className="absolute top-1 left-1 bg-brand-gold text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-                        #{globalPos}
-                      </span>
-                      <div className="absolute bottom-1 left-1 right-1 flex justify-between bg-black/60 p-0.5 rounded">
-                        <button type="button" onClick={() => moveNewVariantFile(idx, -1)} disabled={idx === 0} className="p-0.5 text-white disabled:opacity-30"><ChevronLeft size={12} /></button>
-                        <button type="button" onClick={() => moveNewVariantFile(idx, 1)} disabled={idx === newVariantImageFiles.length - 1} className="p-0.5 text-white disabled:opacity-30"><ChevronRight size={12} /></button>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeNewVariantFile(idx)}
-                        className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-90"
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  );
-                })}
-
-                {existingVariantImages.length + newVariantImageFiles.length < 10 && (
-                  <label className="aspect-square border-2 border-dashed border-neutral-300 hover:border-brand-gold flex flex-col items-center justify-center text-neutral-400 hover:text-brand-gold cursor-pointer rounded bg-neutral-50">
-                    <Plus size={24} />
-                    <span className="text-[10px] font-semibold mt-1">Add Image</span>
-                    <input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={handleVariantImagesSelect} className="hidden" />
-                  </label>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* SECTION 6: MEDIA & 360° SPIN REORDERING & VIDEO PREVIEW */}
+          {/* SECTION 6: 360° INTERACTIVE VIEW & VIDEO SHOWCASE */}
           <div className="bg-neutral-50 p-5 rounded-lg border border-brand-light space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-brand-gold border-b border-neutral-200 pb-2">6. 360° Interactive View & Video Showcase</h3>
 
@@ -1624,32 +1853,44 @@ const ProductModal = ({ product, onClose, onSave }) => {
                     <label className="block text-[11px] font-semibold text-neutral-700">Upload 360° Frames ({combinedSpinPreviews.length} frames)</label>
                     <input type="file" multiple accept="image/*" onChange={handleSpinFileSelect} className="text-xs text-neutral-500" />
 
-                    {/* Frame Reordering Grid */}
+                    {/* Frame Reordering Grid (Drag and Drop enabled) */}
                     {combinedSpinPreviews.length > 0 && (
                       <div className="space-y-3">
+                        <p className="text-[10px] text-amber-800 font-semibold bg-amber-50 p-2 rounded border border-amber-200">
+                          💡 Drag & drop frame thumbnails to easily rearrange 360° spin sequence!
+                        </p>
                         <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto p-1 bg-neutral-100 rounded border border-neutral-200">
                           {existingSpinImages.map((src, i) => (
-                            <div key={`expin-${i}`} className="relative aspect-square border border-neutral-300 rounded overflow-hidden bg-white group">
-                              <img src={src} alt={`Spin ${i}`} className="w-full h-full object-cover" />
-                              <span className="absolute top-0.5 left-0.5 bg-black/70 text-white text-[8px] px-1 rounded">#{i + 1}</span>
-                              <div className="absolute bottom-0.5 left-0.5 right-0.5 flex justify-between bg-black/70 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button type="button" onClick={() => moveSpinFrame(i, -1, false)} disabled={i === 0} className="text-white disabled:opacity-30"><ChevronLeft size={10} /></button>
-                                <button type="button" onClick={() => moveSpinFrame(i, 1, false)} disabled={i === existingSpinImages.length - 1} className="text-white disabled:opacity-30"><ChevronRight size={10} /></button>
-                              </div>
+                            <div
+                              key={`expin-${i}`}
+                              draggable
+                              onDragStart={(e) => handleSpinDragStart(e, i)}
+                              onDragOver={(e) => handleSpinDragOver(e, i)}
+                              onDrop={(e) => handleSpinDrop(e, i)}
+                              className="relative aspect-square border border-neutral-300 rounded overflow-hidden bg-white group cursor-grab active:cursor-grabbing hover:border-brand-gold transition-colors"
+                            >
+                              <img src={src} alt={`Spin ${i}`} className="w-full h-full object-cover pointer-events-none" />
+                              <span className="absolute top-0.5 left-0.5 bg-black/70 text-white text-[8px] px-1 rounded font-bold">#{i + 1}</span>
                               <button type="button" onClick={() => removeSpinFrame(i, false)} className="absolute top-0.5 right-0.5 bg-red-600 text-white p-0.5 rounded-full"><X size={8} /></button>
                             </div>
                           ))}
-                          {newSpinImageFiles.map((f, i) => (
-                            <div key={`newspin-${i}`} className="relative aspect-square border-2 border-brand-gold rounded overflow-hidden bg-white group">
-                              <img src={f.preview} alt={`New Spin ${i}`} className="w-full h-full object-cover" />
-                              <span className="absolute top-0.5 left-0.5 bg-brand-gold text-black text-[8px] font-bold px-1 rounded">#{existingSpinImages.length + i + 1}</span>
-                              <div className="absolute bottom-0.5 left-0.5 right-0.5 flex justify-between bg-black/70 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button type="button" onClick={() => moveSpinFrame(i, -1, true)} disabled={i === 0} className="text-white disabled:opacity-30"><ChevronLeft size={10} /></button>
-                                <button type="button" onClick={() => moveSpinFrame(i, 1, true)} disabled={i === newSpinImageFiles.length - 1} className="text-white disabled:opacity-30"><ChevronRight size={10} /></button>
+                          {newSpinImageFiles.map((f, i) => {
+                            const globalIdx = existingSpinImages.length + i;
+                            return (
+                              <div
+                                key={`newspin-${i}`}
+                                draggable
+                                onDragStart={(e) => handleSpinDragStart(e, globalIdx)}
+                                onDragOver={(e) => handleSpinDragOver(e, globalIdx)}
+                                onDrop={(e) => handleSpinDrop(e, globalIdx)}
+                                className="relative aspect-square border-2 border-brand-gold rounded overflow-hidden bg-white group cursor-grab active:cursor-grabbing hover:border-amber-600 transition-colors"
+                              >
+                                <img src={f.preview} alt={`New Spin ${i}`} className="w-full h-full object-cover pointer-events-none" />
+                                <span className="absolute top-0.5 left-0.5 bg-brand-gold text-black text-[8px] font-bold px-1 rounded">#{globalIdx + 1}</span>
+                                <button type="button" onClick={() => removeSpinFrame(i, true)} className="absolute top-0.5 right-0.5 bg-red-600 text-white p-0.5 rounded-full"><X size={8} /></button>
                               </div>
-                              <button type="button" onClick={() => removeSpinFrame(i, true)} className="absolute top-0.5 right-0.5 bg-red-600 text-white p-0.5 rounded-full"><X size={8} /></button>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
 
                         {/* Interactive Rotation Preview */}
@@ -1701,7 +1942,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
             </div>
           </div>
 
-          {/* SECTION 7: STATUS TOGGLES */}
+          {/* SECTION 7: STATUS & STOREFRONT TOGGLES */}
           <div className="bg-neutral-50 p-5 rounded-lg border border-brand-light space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-brand-gold border-b border-neutral-200 pb-2">7. Status & Storefront Toggles</h3>
 

@@ -20,8 +20,18 @@ const pushToShiprocket = async (orderId) => {
 const getAll = async (req, res) => {
   try {
     const { page = 1, limit = 20, status, customerId } = req.query;
+    const { Op } = require('sequelize');
     const where = {};
-    if (status) where.status = status;
+
+    if (status) {
+      where.status = status;
+    } else {
+      // Exclude payment-initiated-but-not-completed orders from default listing
+      // PENDING_PAYMENT = Razorpay initiated but not paid/cancelled
+      // EXPIRED = Razorpay session timed out
+      where.status = { [Op.notIn]: ['PENDING_PAYMENT', 'EXPIRED'] };
+    }
+
     if (customerId) where.customerId = customerId;
 
     const { count, rows } = await Order.findAndCountAll({
@@ -40,8 +50,13 @@ const getAll = async (req, res) => {
 
 const getMyOrders = async (req, res) => {
   try {
+    const { Op } = require('sequelize');
     const orders = await Order.findAll({
-      where: { customerId: req.customer.id },
+      where: {
+        customerId: req.customer.id,
+        // Exclude incomplete/abandoned payment attempts
+        status: { [Op.notIn]: ['PENDING_PAYMENT', 'EXPIRED'] },
+      },
       order: [['createdAt', 'DESC']],
       include: [{ model: OrderItem, as: 'items' }],
     });
@@ -163,7 +178,8 @@ const placeOrder = async (req, res) => {
       quantity: item.quantity,
       price: parseFloat(item.priceAtAdd),
       name: item.product?.name || 'Product',
-      image: item.product?.images?.[0] || ''
+      image: item.product?.images?.[0] || '',
+      selectedVariant: item.selectedVariant || {} // carry full variant attribute snapshot from cart
     }));
 
     itemsToLock.sort((a, b) => {
@@ -189,6 +205,10 @@ const placeOrder = async (req, res) => {
         }
         currentStock = variant.stock;
         lockedStock[`v_${item.variantId}`] = variant;
+        // If cart item didn't carry variant attributes, fill from the locked variant record
+        if (!item.selectedVariant || Object.keys(item.selectedVariant).length === 0) {
+          item.selectedVariant = variant.attributes || {};
+        }
       } else {
         const product = await Product.findOne({
           where: { id: item.productId },
@@ -229,15 +249,28 @@ const placeOrder = async (req, res) => {
     let couponId = null;
 
     if (couponCode) {
-      const coupon = await Coupon.findOne({ where: { code: couponCode, isActive: true }, transaction });
-      if (coupon && subtotal >= coupon.minOrderValue) {
-        couponId = coupon.id;
-        if (coupon.type === 'PERCENT') {
-          discountAmount = Math.min(subtotal * coupon.value / 100, coupon.maxDiscount || Infinity);
-        } else if (coupon.type === 'FLAT') {
-          discountAmount = Math.min(coupon.value, subtotal);
+      const coupon = await Coupon.findOne({ where: { code: String(couponCode).trim().toUpperCase(), isActive: true }, transaction });
+      if (coupon && Number(subtotal) >= Number(coupon.minOrderValue || 0) && Number(coupon.usageCount) < Number(coupon.usageLimit)) {
+        // Check per-user redemption
+        const customerId = req.user?.id || req.user?.customerId || null;
+        let alreadyUsed = false;
+        if (customerId) {
+          const priorUsageCount = await Order.count({
+            where: { customerId, couponId: coupon.id, status: { [Op.ne]: 'CANCELLED' } },
+            transaction
+          });
+          if (priorUsageCount > 0) alreadyUsed = true;
         }
-        await coupon.increment('usageCount', { transaction });
+
+        if (!alreadyUsed) {
+          couponId = coupon.id;
+          if (coupon.type === 'PERCENT') {
+            discountAmount = Math.min((subtotal * Number(coupon.value)) / 100, Number(coupon.maxDiscount || Infinity));
+          } else if (coupon.type === 'FLAT') {
+            discountAmount = Math.min(Number(coupon.value), subtotal);
+          }
+          await coupon.increment('usageCount', { transaction });
+        }
       }
     }
 
@@ -319,7 +352,10 @@ const placeOrder = async (req, res) => {
       quantity: item.quantity,
       unitPrice: item.price,
       totalPrice: item.price * item.quantity,
-      selectedVariant: item.variantId ? { id: item.variantId } : {}
+      // Store the full variant attributes snapshot (e.g. { color: 'Red', size: 'L' })
+      selectedVariant: item.selectedVariant && Object.keys(item.selectedVariant).length > 0
+        ? item.selectedVariant
+        : {}
     }));
 
     for (const snapItem of orderItemsPayload) {

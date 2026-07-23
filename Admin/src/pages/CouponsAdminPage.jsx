@@ -41,8 +41,7 @@ const CouponsAdminPage = () => {
     setModalOpen(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to permanently delete this coupon? This action cannot be undone.')) return;
+  const executeDelete = async (id) => {
     try {
       await api.delete(`/coupons/${id}`);
       toast.success('Coupon deleted successfully.');
@@ -51,6 +50,34 @@ const CouponsAdminPage = () => {
       console.error(err);
       toast.error(err.response?.data?.message || 'Failed to delete coupon');
     }
+  };
+
+  const handleDelete = (id) => {
+    toast((t) => (
+      <div className="flex flex-col gap-2 p-1">
+        <p className="text-sm font-semibold text-neutral-800">Confirm Deletion</p>
+        <p className="text-xs text-neutral-600">
+          Are you sure you want to permanently delete this coupon? This action cannot be undone.
+        </p>
+        <div className="flex justify-end gap-2 mt-2">
+          <button
+            onClick={() => {
+              toast.dismiss(t.id);
+              executeDelete(id);
+            }}
+            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold uppercase tracking-wider transition-colors rounded shadow-sm"
+          >
+            Yes, Delete
+          </button>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-semibold uppercase tracking-wider transition-colors rounded border border-neutral-200"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    ), { duration: 10000, position: 'top-center', style: { minWidth: '350px' } });
   };
 
   const handleSave = async (e) => {

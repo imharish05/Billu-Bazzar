@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Eye } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
+import AdminOrderDetailsModal from '../components/AdminOrderDetailsModal';
 import { fetchAdminOrders, updateOrderStatus } from '../redux/slices/ordersSlice';
 import currencyJs from 'currency.js';
 
@@ -20,6 +21,7 @@ const OrdersAdminPage = () => {
   const dispatch = useDispatch();
   const { items: orders, loading, total } = useSelector(s => s.orders);
   const [activeStatus, setActiveStatus] = useState('All');
+  const [selectedOrderModal, setSelectedOrderModal] = useState(null);
 
   useEffect(() => {
     dispatch(fetchAdminOrders({ status: activeStatus === 'All' ? undefined : activeStatus }));
@@ -95,7 +97,14 @@ const OrdersAdminPage = () => {
                   </td>
                   <td className="px-4 py-3 text-brand-grey text-xs">{new Date(order.createdAt).toLocaleDateString('en-IN')}</td>
                   <td className="px-4 py-3">
-                    <button className="text-xs text-brand-gold hover:underline focus-visible:outline-brand-gold" id={`invoice-${order.id}`}>Invoice</button>
+                    <button
+                      onClick={() => setSelectedOrderModal(order)}
+                      className="p-1.5 bg-brand-gold/10 hover:bg-brand-gold hover:text-white text-brand-gold rounded-lg transition-all flex items-center gap-1 text-xs font-medium border border-brand-gold/20"
+                      title="View Order Details"
+                      id={`view-order-${order.id}`}
+                    >
+                      <Eye size={15} /> Details
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -106,6 +115,15 @@ const OrdersAdminPage = () => {
           )}
         </div>
       </div>
+
+      {/* Reusable Admin Order Details Modal */}
+      {selectedOrderModal && (
+        <AdminOrderDetailsModal
+          order={selectedOrderModal}
+          onClose={() => setSelectedOrderModal(null)}
+          onStatusUpdate={handleStatusUpdate}
+        />
+      )}
     </AdminLayout>
   );
 };

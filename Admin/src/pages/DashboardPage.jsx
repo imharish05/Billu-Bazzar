@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { ShoppingBag, Users, TrendingUp, Clock, Package, AlertTriangle, Plus, ArrowRight } from 'lucide-react';
+import { ShoppingBag, Users, TrendingUp, Clock, Package, AlertTriangle, Plus, ArrowRight, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
+import AdminOrderDetailsModal from '../components/AdminOrderDetailsModal';
 import { fetchStats } from '../redux/slices/dashboardSlice';
-import { fetchAdminOrders } from '../redux/slices/ordersSlice';
+import { fetchAdminOrders, updateOrderStatus } from '../redux/slices/ordersSlice';
 import currencyJs from 'currency.js';
 
 const fmt = (v) => currencyJs(v, { symbol: '₹', precision: 0 }).format();
@@ -75,11 +76,16 @@ const DashboardPage = () => {
   const dispatch = useDispatch();
   const { stats, revenueChart, loading } = useSelector(s => s.dashboard);
   const { items: orders } = useSelector(s => s.orders);
+  const [selectedOrderModal, setSelectedOrderModal] = useState(null);
 
   useEffect(() => {
     dispatch(fetchStats());
     dispatch(fetchAdminOrders({ limit: 5 }));
   }, [dispatch]);
+
+  const handleStatusUpdate = (id, status) => {
+    dispatch(updateOrderStatus({ id, status }));
+  };
 
   const statCards = [
     { icon: TrendingUp, label: 'Total Revenue', value: stats.totalRevenue, prefix: '₹', trend: 12 },
@@ -161,7 +167,7 @@ const DashboardPage = () => {
             <table className="w-full text-sm" aria-label="Recent orders">
               <thead>
                 <tr className="bg-brand-light/50 text-left">
-                  {['Order #', 'Customer', 'Amount', 'Payment', 'Status', 'Date'].map(h => (
+                  {['Order #', 'Customer', 'Amount', 'Payment', 'Status', 'Date', 'Actions'].map(h => (
                     <th key={h} className="px-4 py-3 text-xs font-semibold text-brand-grey uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -170,7 +176,7 @@ const DashboardPage = () => {
                 {loading ? (
                   [...Array(5)].map((_, i) => (
                     <tr key={i} className="border-b border-brand-light">
-                      {[...Array(6)].map((_, j) => <td key={j} className="px-4 py-3"><div className="skeleton h-4 w-20" /></td>)}
+                      {[...Array(7)].map((_, j) => <td key={j} className="px-4 py-3"><div className="skeleton h-4 w-20" /></td>)}
                     </tr>
                   ))
                 ) : orders.slice(0, 5).map(order => (
@@ -180,7 +186,17 @@ const DashboardPage = () => {
                     <td className="px-4 py-3 font-semibold">{fmt(order.totalAmount)}</td>
                     <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full ${order.paymentStatus === 'PAID' ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>{order.paymentStatus}</span></td>
                     <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[order.status] || 'bg-gray-100'}`}>{order.status ? order.status.replace(/_/g, ' ') : ''}</span></td>
-                    <td className="px-4 py-3 text-brand-grey">{new Date(order.createdAt).toLocaleDateString('en-IN')}</td>
+                    <td className="px-4 py-3 text-brand-grey text-xs">{new Date(order.createdAt).toLocaleDateString('en-IN')}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => setSelectedOrderModal(order)}
+                        className="p-1.5 bg-brand-gold/10 hover:bg-brand-gold hover:text-white text-brand-gold rounded-lg transition-all flex items-center gap-1 text-xs font-medium border border-brand-gold/20"
+                        title="View Order Details"
+                        id={`dashboard-view-order-${order.id}`}
+                      >
+                        <Eye size={14} /> Details
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -208,6 +224,15 @@ const DashboardPage = () => {
           ))}
         </div>
       </div>
+
+      {/* Admin Order Details Modal */}
+      {selectedOrderModal && (
+        <AdminOrderDetailsModal
+          order={selectedOrderModal}
+          onClose={() => setSelectedOrderModal(null)}
+          onStatusUpdate={handleStatusUpdate}
+        />
+      )}
     </AdminLayout>
   );
 };

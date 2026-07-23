@@ -1,4 +1,25 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import api from '../../services/api';
+
+const WISHLIST_STORAGE_KEY = 'billubazzar_wishlist';
+
+const loadWishlistFromStorage = () => {
+  try {
+    const data = localStorage.getItem(WISHLIST_STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch (err) {
+    console.error('Failed to load wishlist from localStorage:', err);
+    return [];
+  }
+};
+
+const saveWishlistToStorage = (items) => {
+  try {
+    localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(items));
+  } catch (err) {
+    console.error('Failed to save wishlist to localStorage:', err);
+  }
+};
 
 const areVariantsEqual = (varA, varB) => {
   const a = varA || {};
@@ -9,11 +30,61 @@ const areVariantsEqual = (varA, varB) => {
   return keysA.every(k => String(a[k]).toLowerCase() === String(b[k]).toLowerCase());
 };
 
+// Async Thunks for DB wishlist sync
+export const fetchWishlist = createAsyncThunk('wishlist/fetchWishlist', async (_, { rejectWithValue }) => {
+  try {
+    const res = await api.get('/customers/wishlist');
+    if (res.data.success && Array.isArray(res.data.wishlist)) {
+      const dbItems = res.data.wishlist.map(w => {
+        const prod = w.product || {};
+        const varItem = w.variant || {};
+        return {
+          id: prod.id || w.productId,
+          productId: prod.id || w.productId,
+          variantId: varItem.id || w.variantId || null,
+          selectedVariant: w.selectedVariant || {},
+          name: prod.productName || prod.name || 'Product',
+          slug: prod.slug || '',
+          image: varItem.image || prod.defaultProductImage || (prod.images && prod.images[0]) || '',
+          price: parseFloat(varItem.price || prod.price || 0),
+          comparePrice: varItem.mrp || prod.comparePrice ? parseFloat(varItem.mrp || prod.comparePrice) : null,
+          inStock: varItem.stock ? varItem.stock > 0 : (prod.stock > 0),
+          categoryName: prod.category?.name || 'Lifestyle',
+          rating: 4.5,
+          reviewCount: 10
+        };
+      });
+      saveWishlistToStorage(dbItems);
+      return dbItems;
+    }
+    return [];
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || err.message);
+  }
+});
+
+export const toggleWishlistApi = createAsyncThunk('wishlist/toggleWishlistApi', async (payload, { dispatch, getState }) => {
+  try {
+    dispatch(wishlistSlice.actions.toggleItem(payload));
+    const targetProductId = payload.productId || payload.id;
+    await api.post('/customers/wishlist', {
+      productId: targetProductId,
+      variantId: payload.variantId || null,
+      selectedVariant: payload.selectedVariant || {}
+    });
+  } catch (err) {
+    console.warn('DB Wishlist Sync note (stored locally):', err.message);
+  }
+});
+
 const wishlistSlice = createSlice({
   name: 'wishlist',
-  initialState: { items: [], loading: false },
+  initialState: { items: loadWishlistFromStorage(), loading: false },
   reducers: {
-    setWishlist: (state, action) => { state.items = action.payload; },
+    setWishlist: (state, action) => {
+      state.items = action.payload || [];
+      saveWishlistToStorage(state.items);
+    },
     toggleItem: (state, action) => {
       const payload = action.payload || {};
       const targetProductId = payload.productId || payload.id || payload;
@@ -26,7 +97,9 @@ const wishlistSlice = createSlice({
         if (targetVariantId || item.variantId) {
           return Number(item.variantId) === Number(targetVariantId);
         }
-        if (targetSelectedVariant || item.selectedVariant) {
+        const hasAttrsA = item.selectedVariant && Object.keys(item.selectedVariant).length > 0;
+        const hasAttrsB = targetSelectedVariant && Object.keys(targetSelectedVariant).length > 0;
+        if (hasAttrsA || hasAttrsB) {
           return areVariantsEqual(item.selectedVariant, targetSelectedVariant);
         }
         return true;
@@ -35,7 +108,6 @@ const wishlistSlice = createSlice({
       if (idx > -1) {
         state.items.splice(idx, 1);
       } else {
-        // Map product object to a unified format
         const price = payload.variantPrice || payload.priceAtAdd || payload.price || payload.product?.price || 0;
         const comparePrice = payload.comparePrice || payload.product?.comparePrice || null;
         const image = payload.image || payload.productImage || payload.product?.image || (payload.images && payload.images[0]) || (payload.product?.images && payload.product.images[0]) || '';
@@ -57,8 +129,23 @@ const wishlistSlice = createSlice({
         };
         state.items.push(unified);
       }
+      saveWishlistToStorage(state.items);
     },
   },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchWishlist.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchWishlist.fulfilled, (state, action) => {
+        state.loading = false;
+        state.items = action.payload;
+      })
+      .addCase(fetchWishlist.rejected, (state) => {
+        state.loading = false;
+      });
+  }
 });
+
 export const { setWishlist, toggleItem } = wishlistSlice.actions;
 export default wishlistSlice.reducer;

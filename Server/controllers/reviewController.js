@@ -1,0 +1,484 @@
+'use strict';
+const { Op } = require('sequelize');
+const { Review, Product, Customer, Order, OrderItem } = require('../models');
+
+/**
+ * Helper: Recalculates and updates average rating & review count for a product.
+ */
+const recalculateProductRating = async (productId) => {
+  const reviews = await Review.findAll({
+    where: { productId, isApproved: true },
+    attributes: ['rating'],
+  });
+
+  const reviewCount = reviews.length;
+  let avgRating = 0.0;
+
+  if (reviewCount > 0) {
+    const sum = reviews.reduce((acc, r) => acc + Number(r.rating), 0);
+    avgRating = parseFloat((sum / reviewCount).toFixed(2));
+  }
+
+  await Product.update(
+    { rating: avgRating, reviewCount },
+    { where: { id: productId } }
+  );
+
+  return { rating: avgRating, reviewCount };
+};
+
+/**
+ * GET /api/reviews/product/:productId
+ * Public/Optional Customer: Get all reviews for a product with breakdown & user eligibility.
+ */
+const getProductReviews = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const customerId = req.customer ? req.customer.id : null;
+
+    const reviews = await Review.findAll({
+      where: { productId, isApproved: true },
+      include: [
+        {
+          model: Customer,
+          as: 'customer',
+          attributes: ['id', 'name', 'email'],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+    });
+
+    // Calculate rating breakdown (counts of 1..5 stars)
+    const ratingBreakdown = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    let totalRatingSum = 0;
+
+    reviews.forEach((r) => {
+      const star = Math.min(5, Math.max(1, Math.round(r.rating)));
+      ratingBreakdown[star] = (ratingBreakdown[star] || 0) + 1;
+      totalRatingSum += Number(r.rating);
+    });
+
+    const totalCount = reviews.length;
+    const averageRating = totalCount > 0 ? parseFloat((totalRatingSum / totalCount).toFixed(2)) : 0.0;
+
+    // Check customer eligibility & user's existing review if authenticated
+    let userCanReview = false;
+    let userReview = null;
+    let eligibleOrderId = null;
+
+    if (customerId) {
+      // Find customer's existing review for this product
+      userReview = reviews.find((r) => r.customerId === customerId) || null;
+
+      // Find if customer has a delivered order for this product
+      const deliveredOrder = await Order.findOne({
+        where: { customerId, status: 'DELIVERED' },
+        include: [
+          {
+            model: OrderItem,
+            as: 'items',
+            where: { productId },
+            required: true,
+          },
+        ],
+      });
+
+      if (deliveredOrder) {
+        userCanReview = true;
+        eligibleOrderId = deliveredOrder.id;
+      }
+    }
+
+    return res.json({
+      success: true,
+      productId: Number(productId),
+      averageRating,
+      totalCount,
+      ratingBreakdown,
+      reviews: reviews.map((r) => ({
+        id: r.id,
+        productId: r.productId,
+        orderId: r.orderId,
+        rating: r.rating,
+        title: r.title,
+        body: r.body,
+        isVerifiedPurchase: r.isVerifiedPurchase,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+        reviewerName: r.customer ? (r.customer.name || 'Anonymous') : 'Verified Buyer',
+        isOwnReview: customerId ? r.customerId === customerId : false,
+      })),
+      userCanReview,
+      userReview,
+      eligibleOrderId,
+    });
+  } catch (error) {
+    console.error('[ReviewController] Error in getProductReviews:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch reviews' });
+  }
+};
+
+/**
+ * GET /api/reviews/my-delivered-items
+ * Customer authenticated: Fetch all items from customer's DELIVERED orders with their review status.
+ */
+const getMyDeliveredItems = async (req, res) => {
+  try {
+    const customerId = req.customer.id;
+
+    const deliveredOrders = await Order.findAll({
+      where: { customerId, status: 'DELIVERED' },
+      include: [
+        {
+          model: OrderItem,
+          as: 'items',
+          include: [{ model: Product, as: 'product', attributes: ['id', 'name', 'slug', 'defaultProductImage', 'images'] }],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+    });
+
+    const userReviews = await Review.findAll({
+      where: { customerId },
+    });
+
+    const reviewMap = new Map();
+    userReviews.forEach((rev) => {
+      reviewMap.set(`${rev.orderId}-${rev.productId}`, rev);
+    });
+
+    const deliveredItems = [];
+    deliveredOrders.forEach((order) => {
+      (order.items || []).forEach((item) => {
+        const existingReview = reviewMap.get(`${order.id}-${item.productId}`) || null;
+        deliveredItems.push({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          deliveredAt: order.updatedAt || order.createdAt,
+          productId: item.productId,
+          productName: item.productName || item.product?.name || 'Product',
+          productSlug: item.product?.slug || '',
+          productImage: item.productImage || item.product?.defaultProductImage || item.product?.images?.[0] || '',
+          existingReview,
+        });
+      });
+    });
+
+    return res.json({
+      success: true,
+      items: deliveredItems,
+    });
+  } catch (error) {
+    console.error('[ReviewController] Error in getMyDeliveredItems:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch delivered items' });
+  }
+};
+
+/**
+ * POST /api/reviews
+ * Customer authenticated: Submit a review for a product from a DELIVERED order.
+ */
+const createReview = async (req, res) => {
+  try {
+    const customerId = req.customer.id;
+    const { productId, orderId, rating, title, body } = req.body;
+
+    if (!productId || !rating || !body) {
+      return res.status(400).json({ success: false, message: 'Product ID, rating (1-5), and review text are required.' });
+    }
+
+    const numericRating = parseInt(rating, 10);
+    if (numericRating < 1 || numericRating > 5) {
+      return res.status(400).json({ success: false, message: 'Rating must be between 1 and 5.' });
+    }
+
+    // Check delivered order eligibility
+    let validOrderId = orderId;
+    if (!validOrderId) {
+      const deliveredOrder = await Order.findOne({
+        where: { customerId, status: 'DELIVERED' },
+        include: [
+          {
+            model: OrderItem,
+            as: 'items',
+            where: { productId },
+            required: true,
+          },
+        ],
+      });
+      if (!deliveredOrder) {
+        return res.status(403).json({ success: false, message: 'You can only review products from delivered orders.' });
+      }
+      validOrderId = deliveredOrder.id;
+    } else {
+      const targetOrder = await Order.findOne({
+        where: { id: validOrderId, customerId, status: 'DELIVERED' },
+        include: [
+          {
+            model: OrderItem,
+            as: 'items',
+            where: { productId },
+            required: true,
+          },
+        ],
+      });
+      if (!targetOrder) {
+        return res.status(403).json({ success: false, message: 'Order was not found or is not marked as Delivered.' });
+      }
+    }
+
+    // Check if user already reviewed this order item
+    const existing = await Review.findOne({
+      where: { customerId, productId, orderId: validOrderId },
+    });
+
+    if (existing) {
+      // Update existing review
+      existing.rating = numericRating;
+      existing.title = title || '';
+      existing.body = body;
+      await existing.save();
+
+      const updatedStats = await recalculateProductRating(productId);
+
+      return res.json({
+        success: true,
+        message: 'Review updated successfully!',
+        review: existing,
+        productStats: updatedStats,
+      });
+    }
+
+    // Create new review
+    const review = await Review.create({
+      productId: Number(productId),
+      customerId,
+      orderId: Number(validOrderId),
+      rating: numericRating,
+      title: title || '',
+      body,
+      isVerifiedPurchase: true,
+      isApproved: false,
+    });
+
+    const updatedStats = await recalculateProductRating(productId);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Review submitted successfully!',
+      review,
+      productStats: updatedStats,
+    });
+  } catch (error) {
+    console.error('[ReviewController] Error in createReview:', error);
+    return res.status(500).json({ success: false, message: 'Failed to submit review' });
+  }
+};
+
+/**
+ * PUT /api/reviews/:id
+ * Customer authenticated: Update customer's review.
+ */
+const updateReview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const customerId = req.customer.id;
+    const { rating, title, body } = req.body;
+
+    const review = await Review.findByPk(id);
+    if (!review) {
+      return res.status(404).json({ success: false, message: 'Review not found.' });
+    }
+
+    if (review.customerId !== customerId) {
+      return res.status(403).json({ success: false, message: 'You are not authorized to edit this review.' });
+    }
+
+    if (rating) {
+      const numericRating = parseInt(rating, 10);
+      if (numericRating >= 1 && numericRating <= 5) {
+        review.rating = numericRating;
+      }
+    }
+
+    if (title !== undefined) review.title = title;
+    if (body) review.body = body;
+
+    await review.save();
+
+    const updatedStats = await recalculateProductRating(review.productId);
+
+    return res.json({
+      success: true,
+      message: 'Review updated successfully!',
+      review,
+      productStats: updatedStats,
+    });
+  } catch (error) {
+    console.error('[ReviewController] Error in updateReview:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update review' });
+  }
+};
+
+/**
+ * DELETE /api/reviews/:id
+ * Customer or Admin authenticated: Delete review.
+ */
+const deleteReview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const customerId = req.customer?.id || null;
+    const isAdmin = !!req.admin;
+
+    const review = await Review.findByPk(id);
+    if (!review) {
+      return res.status(404).json({ success: false, message: 'Review not found.' });
+    }
+
+    if (!isAdmin && review.customerId !== customerId) {
+      return res.status(403).json({ success: false, message: 'You are not authorized to delete this review.' });
+    }
+
+    const productId = review.productId;
+    await review.destroy();
+
+    const updatedStats = await recalculateProductRating(productId);
+
+    return res.json({
+      success: true,
+      message: 'Review deleted successfully.',
+      productStats: updatedStats,
+    });
+  } catch (error) {
+    console.error('[ReviewController] Error in deleteReview:', error);
+    return res.status(500).json({ success: false, message: 'Failed to delete review' });
+  }
+};
+
+/**
+ * GET /api/reviews/admin/all
+ * Admin authenticated: Fetch all reviews across all products with approval status filter & search.
+ */
+const getAllReviewsAdmin = async (req, res) => {
+  try {
+    const { status, search } = req.query;
+    const whereClause = {};
+
+    if (status === 'approved') {
+      whereClause.isApproved = true;
+    } else if (status === 'pending') {
+      whereClause.isApproved = false;
+    }
+
+    const reviews = await Review.findAll({
+      where: whereClause,
+      include: [
+        {
+          model: Product,
+          as: 'product',
+          attributes: ['id', 'name', 'slug', 'defaultProductImage', 'images', 'rating', 'reviewCount'],
+        },
+        {
+          model: Customer,
+          as: 'customer',
+          attributes: ['id', 'name', 'email'],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+    });
+
+    let filtered = reviews;
+    if (search && search.trim() !== '') {
+      const q = search.toLowerCase().trim();
+      filtered = reviews.filter((r) => {
+        const prodName = r.product?.name?.toLowerCase() || '';
+        const custName = r.customer?.name?.toLowerCase() || '';
+        const title = r.title?.toLowerCase() || '';
+        const body = r.body?.toLowerCase() || '';
+        return prodName.includes(q) || custName.includes(q) || title.includes(q) || body.includes(q);
+      });
+    }
+
+    return res.json({
+      success: true,
+      count: filtered.length,
+      reviews: filtered.map((r) => ({
+        id: r.id,
+        productId: r.productId,
+        productName: r.product?.name || 'Product',
+        productImage: r.product?.defaultProductImage || r.product?.images?.[0] || '',
+        customerId: r.customerId,
+        reviewerName: r.customer?.name || r.customer?.email || 'Customer',
+        reviewerEmail: r.customer?.email || '',
+        orderId: r.orderId,
+        rating: r.rating,
+        title: r.title,
+        body: r.body,
+        isVerifiedPurchase: r.isVerifiedPurchase,
+        isApproved: r.isApproved,
+        createdAt: r.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error('[ReviewController] Error in getAllReviewsAdmin:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch reviews for admin' });
+  }
+};
+
+/**
+ * PATCH /api/reviews/admin/:id/status
+ * Admin authenticated: Approve or Reject a review.
+ */
+const updateReviewStatusAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isApproved } = req.body;
+
+    const review = await Review.findByPk(id);
+    if (!review) {
+      return res.status(404).json({ success: false, message: 'Review not found.' });
+    }
+
+    review.isApproved = isApproved === true || isApproved === 'true';
+    await review.save();
+
+    const updatedStats = await recalculateProductRating(review.productId);
+
+    return res.json({
+      success: true,
+      message: `Review ${review.isApproved ? 'Approved' : 'Rejected'} successfully!`,
+      review,
+      productStats: updatedStats,
+    });
+  } catch (error) {
+    console.error('[ReviewController] Error in updateReviewStatusAdmin:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update review status' });
+  }
+};
+
+/**
+ * Helper to sync ratings for all products based on actual approved reviews
+ */
+const syncAllProductRatings = async () => {
+  try {
+    const products = await Product.findAll();
+    for (const prod of products) {
+      await recalculateProductRating(prod.id);
+    }
+    console.log(`[RatingSync] Recalculated real ratings for ${products.length} products.`);
+  } catch (err) {
+    console.error('[RatingSync] Error syncing product ratings:', err.message);
+  }
+};
+
+module.exports = {
+  getProductReviews,
+  getMyDeliveredItems,
+  createReview,
+  updateReview,
+  deleteReview,
+  getAllReviewsAdmin,
+  updateReviewStatusAdmin,
+  recalculateProductRating,
+  syncAllProductRatings,
+};

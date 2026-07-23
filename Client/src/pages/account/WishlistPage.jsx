@@ -9,9 +9,12 @@ import { addLocal, openCart } from '../../redux/slices/cartSlice';
 
 const WishlistPage = () => {
   const dispatch = useDispatch();
+  const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
   
   // Real Redux Wishlist items (containing fully detailed product objects)
   const items = useSelector(s => s.wishlist.items) || [];
+
+  const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
 
   const remove = (item) => {
     dispatch(toggleItem(item));
@@ -166,25 +169,27 @@ const WishlistPage = () => {
 
                   <div className="mt-3">
                     {/* Star Rating */}
-                    <div className="flex items-center gap-0.5 mb-1.5">
-                      {[1, 2, 3, 4, 5].map(s => (
-                        <Star 
-                          key={s} 
-                          size={10} 
-                          className={s <= Math.round(item.rating) ? 'fill-brand-gold text-brand-gold' : 'fill-brand-light text-brand-light'} 
-                        />
-                      ))}
-                      <span className="text-[9px] text-brand-grey ml-1">({item.reviewCount})</span>
-                    </div>
+                    {Number(item.reviewCount) > 0 && Number(item.rating) > 0 && (
+                      <div className="flex items-center gap-0.5 mb-1.5">
+                        {[1, 2, 3, 4, 5].map(s => (
+                          <Star 
+                            key={s} 
+                            size={10} 
+                            className={s <= Math.round(Number(item.rating)) ? 'fill-brand-gold text-brand-gold' : 'fill-brand-light text-brand-light'} 
+                          />
+                        ))}
+                        <span className="text-[9px] text-brand-grey ml-1">({item.reviewCount})</span>
+                      </div>
+                    )}
 
                     {/* Price Grid */}
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-xs md:text-sm text-brand-text">
-                        {formatPrice(item.price)}
+                        {fmt(item.price)}
                       </span>
                       {item.comparePrice && Number(item.comparePrice) > Number(item.price) && (
                         <span className="text-brand-grey text-[10px] md:text-xs line-through">
-                          {formatPrice(item.comparePrice)}
+                          {fmt(item.comparePrice)}
                         </span>
                       )}
                     </div>

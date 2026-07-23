@@ -679,7 +679,7 @@ const Navbar = () => {
                         <p className="font-medium text-sm truncate">{customer?.name}</p>
                       </div>
                       <Link to="/account" className="block px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors">My Account</Link>
-                      <Link to="/account?tab=orders" className="block px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors">My Orders</Link>
+                      <Link to="/account/orders" className="block px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors">My Orders</Link>
                       <button onClick={() => { dispatch(logout()); navigate('/'); }} className="w-full text-left px-4 py-2 text-sm hover:bg-neutral-800 transition-colors text-red-400">Sign Out</button>
                     </div>
                   </div>

@@ -10,6 +10,8 @@ import uiReducer from './slices/uiSlice';
 import currencyReducer from './slices/currencySlice';
 import searchReducer from './slices/searchSlice';
 
+import reviewsReducer from './slices/reviewsSlice';
+
 const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -22,6 +24,7 @@ const store = configureStore({
     ui: uiReducer,
     currency: currencyReducer,
     search: searchReducer,
+    reviews: reviewsReducer,
   },
 });
 

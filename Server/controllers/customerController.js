@@ -27,6 +27,15 @@ const getOne = async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 };
 
+const areVariantsEqual = (varA, varB) => {
+  const a = varA || {};
+  const b = varB || {};
+  const keysA = Object.keys(a).sort();
+  const keysB = Object.keys(b).sort();
+  if (keysA.length !== keysB.length) return false;
+  return keysA.every(k => String(a[k]).toLowerCase() === String(b[k]).toLowerCase());
+};
+
 const getWishlist = async (req, res) => {
   try {
     const items = await Wishlist.findAll({
@@ -43,12 +52,21 @@ const getWishlist = async (req, res) => {
 const toggleWishlist = async (req, res) => {
   try {
     const { productId, variantId, selectedVariant } = req.body;
-    const whereClause = {
-      customerId: req.customer.id,
-      productId,
-      variantId: variantId || null,
-    };
-    const existing = await Wishlist.findOne({ where: whereClause });
+    const items = await Wishlist.findAll({
+      where: {
+        customerId: req.customer.id,
+        productId,
+      }
+    });
+
+    const targetVariantId = variantId ? Number(variantId) : null;
+    const existing = items.find(w => {
+      if (targetVariantId || w.variantId) {
+        return Number(w.variantId) === targetVariantId;
+      }
+      return areVariantsEqual(w.selectedVariant, selectedVariant);
+    });
+
     if (existing) {
       await existing.destroy();
       return res.json({ success: true, action: 'removed' });
@@ -56,7 +74,7 @@ const toggleWishlist = async (req, res) => {
     await Wishlist.create({
       customerId: req.customer.id,
       productId,
-      variantId: variantId || null,
+      variantId: targetVariantId,
       selectedVariant: selectedVariant || {}
     });
     res.json({ success: true, action: 'added' });

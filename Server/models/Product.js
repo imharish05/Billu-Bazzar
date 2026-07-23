@@ -19,6 +19,8 @@ const Product = sequelize.define('Product', {
   vendorId: { type: DataTypes.INTEGER },
   showAuthenticity: { type: DataTypes.BOOLEAN, defaultValue: false, allowNull: false },
   warehouseId: { type: DataTypes.INTEGER, allowNull: true },
+  lowStockThreshold: { type: DataTypes.INTEGER, defaultValue: 10, allowNull: true },
+  gstRate: { type: DataTypes.STRING(20), defaultValue: '18%', allowNull: true },
   defaultProductImage: { type: DataTypes.STRING(500), allowNull: true },
   has360View: { type: DataTypes.BOOLEAN, defaultValue: false },
   hasVideo: { type: DataTypes.BOOLEAN, defaultValue: false },
@@ -79,7 +81,7 @@ const Product = sequelize.define('Product', {
   isFeatured: { type: DataTypes.BOOLEAN, defaultValue: false },
   isNewArrival: { type: DataTypes.BOOLEAN, defaultValue: false },
   isBestSeller: { type: DataTypes.BOOLEAN, defaultValue: false },
-  rating: { type: DataTypes.DECIMAL(3, 2), defaultValue: 4.0 },
+  rating: { type: DataTypes.DECIMAL(3, 2), defaultValue: 0.00 },
   reviewCount: { type: DataTypes.INTEGER, defaultValue: 0 },
   weight: { type: DataTypes.DECIMAL(8, 2) },
   dimensions: {

@@ -303,21 +303,23 @@ const create = async (req, res) => {
             return '/' + normalizedPath.substring(uploadsIndex);
           });
 
-          const mainVarImg = newGalleryPaths[0] || null;
+          const mainVarImg = v.image || newGalleryPaths[0] || product.defaultProductImage || product.images?.[0] || null;
 
           const variant = await ProductVariant.create({
             productId: product.id,
             sku: v.sku ? v.sku.trim() : `PV-${product.id}-${i}-${Date.now()}`,
-            price: v.price === '' || v.price === undefined ? null : parseFloat(v.price),
-            mrp: v.mrp === '' || v.mrp === undefined ? null : parseFloat(v.mrp),
-            stock: v.stock === '' || v.stock === undefined ? 0 : parseInt(v.stock, 10),
+            price: (v.price !== undefined && v.price !== '') ? parseFloat(v.price) : parseFloat(product.price || 0),
+            mrp: (v.mrp !== undefined && v.mrp !== '') ? parseFloat(v.mrp) : (product.comparePrice ? parseFloat(product.comparePrice) : null),
+            stock: (v.stock !== undefined && v.stock !== '') ? parseInt(v.stock, 10) : parseInt(product.stock || 0, 10),
+            lowStockThreshold: v.lowStockThreshold ? parseInt(v.lowStockThreshold, 10) : (product.lowStockThreshold || 10),
+            gstRate: v.gstRate || product.gstRate || '18%',
             attributes: v.attributes || {},
             image: mainVarImg,
-            images: newGalleryPaths,
+            images: newGalleryPaths.length > 0 ? newGalleryPaths.slice(0, 5) : (v.images || []),
             warehouseId: v.warehouseId ? parseInt(v.warehouseId, 10) : (product.warehouseId ? parseInt(product.warehouseId, 10) : null),
           });
 
-          await syncWarehouseStock(product.id, variant.id, variant.stock, 10, variant.warehouseId);
+          await syncWarehouseStock(product.id, variant.id, variant.stock, variant.lowStockThreshold, variant.warehouseId);
         }
         await syncProductVariants(product.id);
       }
@@ -330,7 +332,7 @@ const create = async (req, res) => {
         { model: SubSubCategory, as: 'subsubcategory', attributes: ['id', 'name', 'slug'] },
         { model: Vendor, as: 'vendor', attributes: ['id', 'name', 'logo'] },
         { model: Warehouse, as: 'warehouse', attributes: ['id', 'name'] },
-        { model: ProductVariant, as: 'variants', attributes: ['id', 'sku', 'price', 'mrp', 'stock', 'attributes', 'image', 'images', 'warehouseId'], include: [{ model: Warehouse, as: 'warehouse', attributes: ['id', 'name'] }] }
+        { model: ProductVariant, as: 'variants', attributes: ['id', 'sku', 'price', 'mrp', 'stock', 'attributes', 'image', 'images', 'warehouseId', 'lowStockThreshold', 'gstRate'], include: [{ model: Warehouse, as: 'warehouse', attributes: ['id', 'name'] }] }
       ]
     });
 
@@ -380,17 +382,17 @@ const update = async (req, res) => {
           const v = parsedVariants[i];
           
           // Process uploaded files for this variant
-          const vGalleryFiles = req.files ? req.files.filter(f => f.fieldname === `variantGallery_${i}`) : [];
+          const vGalleryFiles = req.files ? req.files.filter(f => f.fieldname === `variantGallery_${i}` || f.fieldname === `variantFiles_${i}`) : [];
           const newGalleryPaths = vGalleryFiles.map(file => {
             const normalizedPath = file.path.replace(/\\/g, '/');
             const uploadsIndex = normalizedPath.indexOf('uploads');
             return '/' + normalizedPath.substring(uploadsIndex);
           });
 
-          // Concat existing variant images and new uploads
-          const existingGallery = v.images ? (typeof v.images === 'string' ? JSON.parse(v.images) : v.images) : [];
-          const vImages = [...existingGallery, ...newGalleryPaths];
-          const mainVarImg = v.image || vImages[0] || null;
+          // Concat existing variant images and new uploads (max 5)
+          const existingGallery = v.images ? (typeof v.images === 'string' ? JSON.parse(v.images) : v.images) : (v.existingImages || []);
+          const vImages = [...existingGallery, ...newGalleryPaths].slice(0, 5);
+          const mainVarImg = v.image || vImages[0] || product.defaultProductImage || null;
 
           let existingVariant = null;
           if (v.id && oldVariantMap.has(parseInt(v.id, 10))) {
@@ -398,33 +400,43 @@ const update = async (req, res) => {
           }
 
           const variantWarehouseId = v.warehouseId ? parseInt(v.warehouseId, 10) : (product.warehouseId ? parseInt(product.warehouseId, 10) : null);
+          const varPrice = (v.price !== undefined && v.price !== '') ? parseFloat(v.price) : parseFloat(product.price || 0);
+          const varMrp = (v.mrp !== undefined && v.mrp !== '') ? parseFloat(v.mrp) : (product.comparePrice ? parseFloat(product.comparePrice) : null);
+          const varStock = (v.stock !== undefined && v.stock !== '') ? parseInt(v.stock, 10) : parseInt(product.stock || 0, 10);
+          const varLowStock = v.lowStockThreshold ? parseInt(v.lowStockThreshold, 10) : (product.lowStockThreshold || 10);
+          const varGst = v.gstRate || product.gstRate || '18%';
+
           if (existingVariant) {
             await existingVariant.update({
               sku: v.sku ? v.sku.trim() : existingVariant.sku,
-              price: v.price === '' || v.price === undefined ? null : parseFloat(v.price),
-              mrp: v.mrp === '' || v.mrp === undefined ? null : parseFloat(v.mrp),
-              stock: v.stock === '' || v.stock === undefined ? 0 : parseInt(v.stock, 10),
+              price: varPrice,
+              mrp: varMrp,
+              stock: varStock,
+              lowStockThreshold: varLowStock,
+              gstRate: varGst,
               attributes: v.attributes || {},
               image: mainVarImg,
               images: vImages,
               warehouseId: variantWarehouseId,
             });
             activeVariantIds.add(existingVariant.id);
-            await syncWarehouseStock(product.id, existingVariant.id, existingVariant.stock, 10, existingVariant.warehouseId);
+            await syncWarehouseStock(product.id, existingVariant.id, existingVariant.stock, varLowStock, existingVariant.warehouseId);
           } else {
             const newVar = await ProductVariant.create({
               productId: product.id,
               sku: v.sku ? v.sku.trim() : `PV-${product.id}-${i}-${Date.now()}`,
-              price: v.price === '' || v.price === undefined ? null : parseFloat(v.price),
-              mrp: v.mrp === '' || v.mrp === undefined ? null : parseFloat(v.mrp),
-              stock: v.stock === '' || v.stock === undefined ? 0 : parseInt(v.stock, 10),
+              price: varPrice,
+              mrp: varMrp,
+              stock: varStock,
+              lowStockThreshold: varLowStock,
+              gstRate: varGst,
               attributes: v.attributes || {},
               image: mainVarImg,
               images: vImages,
               warehouseId: variantWarehouseId,
             });
             activeVariantIds.add(newVar.id);
-            await syncWarehouseStock(product.id, newVar.id, newVar.stock, 10, newVar.warehouseId);
+            await syncWarehouseStock(product.id, newVar.id, newVar.stock, varLowStock, newVar.warehouseId);
           }
         }
 

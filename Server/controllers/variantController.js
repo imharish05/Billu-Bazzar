@@ -165,20 +165,24 @@ const add = async (req, res) => {
       return res.status(400).json({ success: false, message: 'A variant with this combination of option attributes already exists for this product.' });
     }
 
+    const { lowStockThreshold, gstRate } = req.body;
+
     const variant = await ProductVariant.create({
       productId: parseInt(productId, 10),
       sku: finalSku,
       price: price === '' || price === undefined ? null : parseFloat(price),
       mrp: mrp === '' || mrp === undefined ? null : parseFloat(mrp),
       stock: stock === '' || stock === undefined ? 0 : parseInt(stock, 10),
+      lowStockThreshold: lowStockThreshold ? parseInt(lowStockThreshold, 10) : 10,
+      gstRate: gstRate || '18%',
       attributes: parsedAttributes,
       image: mainVarImg,
-      images: allImages,
+      images: allImages.slice(0, 5),
       warehouseId: warehouseId ? parseInt(warehouseId, 10) : null
     });
 
     // Sync warehouse stock
-    await syncWarehouseStock(variant.productId, variant.id, variant.stock, 10, variant.warehouseId);
+    await syncWarehouseStock(variant.productId, variant.id, variant.stock, variant.lowStockThreshold, variant.warehouseId);
 
     // Sync product price and stock
     await syncProductVariants(variant.productId);
@@ -195,7 +199,7 @@ const update = async (req, res) => {
     const variant = await ProductVariant.findByPk(req.params.id);
     if (!variant) return res.status(404).json({ success: false, message: 'Variant not found' });
 
-    const { sku, price, mrp, stock, attributes, warehouseId } = req.body;
+    const { sku, price, mrp, stock, attributes, warehouseId, lowStockThreshold, gstRate } = req.body;
 
     if (price !== undefined && Number(price) < 0) return res.status(400).json({ success: false, message: 'Price cannot be negative' });
     if (stock !== undefined && Number(stock) < 0) return res.status(400).json({ success: false, message: 'Stock cannot be negative' });
@@ -212,6 +216,8 @@ const update = async (req, res) => {
       ...(price !== undefined && { price: price === '' ? null : parseFloat(price) }),
       ...(mrp !== undefined && { mrp: mrp === '' ? null : parseFloat(mrp) }),
       ...(stock !== undefined && { stock: stock === '' ? 0 : parseInt(stock, 10) }),
+      ...(lowStockThreshold !== undefined && { lowStockThreshold: parseInt(lowStockThreshold, 10) }),
+      ...(gstRate !== undefined && { gstRate }),
       ...(warehouseId !== undefined && { warehouseId: warehouseId === '' || warehouseId === 'null' ? null : parseInt(warehouseId, 10) }),
     };
 
