@@ -757,39 +757,39 @@ const HomePage = () => {
 
       {/* ── SECTION 8: Dual Promo Tiles / Exclusive Collection Banner ───── */}
       {exclusiveBanners.length === 1 && (
-        <section className="py-8 bg-white" aria-label="Promotional offers">
-          <div className="max-w-site mx-auto px-4 sm:px-6 md:px-8 flex justify-center">
-            <ScrollReveal className="relative overflow-hidden w-full max-w-5xl aspect-[16/9] sm:aspect-[2/1] rounded-2xl shadow-xl border border-neutral-100 bg-neutral-950 group">
+        <section className="py-10 bg-white" aria-label="Promotional offers">
+          <div className="max-w-site mx-auto px-6 md:px-8 flex justify-center">
+            <ScrollReveal className="relative overflow-hidden w-full max-w-5xl aspect-[16/9] sm:aspect-[2.5/1] md:aspect-[3/1] shadow-lg group">
               <img
                 src={exclusiveBanners[0].image}
                 alt={exclusiveBanners[0].title || 'Exclusive Collection'}
-                className="w-full h-full object-contain sm:object-cover object-center transition-transform duration-500 transform-gpu"
+                className="w-full h-full object-cover object-center transform-gpu"
                 loading="lazy"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
-              <div className="absolute inset-0 flex flex-col justify-end p-6 md:p-10 promo-card-overlay pointer-events-auto">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent pointer-events-none" />
+              <div className="absolute inset-0 flex flex-col justify-end p-8 md:p-12 promo-card-overlay pointer-events-auto">
                 {exclusiveBanners[0].badgeText && (
-                  <span className="bg-brand-gold text-white text-xs font-bold px-3 py-1 self-start mb-2 rounded-sm shadow-xs">
+                  <span className="bg-brand-gold text-white text-sm font-bold px-3 py-1 self-start mb-3">
                     {exclusiveBanners[0].badgeText}
                   </span>
                 )}
                 {exclusiveBanners[0].title && (
-                  <h3 className="font-playfair text-xl sm:text-2xl md:text-3xl font-bold text-white mb-1.5 max-w-2xl">
+                  <h3 className="font-playfair text-2xl md:text-4xl font-bold text-white mb-2 max-w-2xl">
                     {exclusiveBanners[0].title}
                   </h3>
                 )}
                 {exclusiveBanners[0].subtitle && (
-                  <p className="text-white/80 text-xs md:text-sm mb-4 max-w-xl">
+                  <p className="text-white/70 text-sm md:text-base mb-6 max-w-xl">
                     {exclusiveBanners[0].subtitle}
                   </p>
                 )}
                 {exclusiveBanners[0].ctaText && (
                   <Link
                     to={exclusiveBanners[0].ctaLink || '/products'}
-                    className="text-brand-gold font-medium text-xs md:text-sm flex items-center gap-2 hover:gap-3 transition-all focus-visible:outline-white self-start"
+                    className="text-brand-gold font-medium text-sm md:text-base flex items-center gap-2 hover:gap-3 transition-all focus-visible:outline-white self-start"
                     id={`promo-deal-${exclusiveBanners[0].id}`}
                   >
-                    {exclusiveBanners[0].ctaText} <ArrowRight size={15} />
+                    {exclusiveBanners[0].ctaText} <ArrowRight size={16} />
                   </Link>
                 )}
               </div>
@@ -799,41 +799,41 @@ const HomePage = () => {
       )}
 
       {exclusiveBanners.length >= 2 && (
-        <section className="py-8 bg-white" aria-label="Promotional offers">
-          <div className="max-w-site mx-auto px-4 sm:px-6 md:px-8">
+        <section className="py-10 bg-white" aria-label="Promotional offers">
+          <div className="max-w-site mx-auto px-6 md:px-8">
             <div className="grid md:grid-cols-2 gap-6">
               {exclusiveBanners.map((banner, idx) => (
-                <ScrollReveal key={banner.id} delay={idx * 0.15} className="relative overflow-hidden aspect-[16/9] sm:aspect-[2/1] rounded-2xl shadow-xl border border-neutral-100 bg-neutral-950 group">
+                <ScrollReveal key={banner.id} delay={idx * 0.15} className="relative overflow-hidden aspect-[16/9] shadow-lg group">
                   <img
                     src={banner.image}
                     alt={banner.title || 'Exclusive Collection'}
-                    className="w-full h-full object-contain sm:object-cover object-center transition-transform duration-500 transform-gpu"
+                    className="w-full h-full object-cover object-center transform-gpu"
                     loading="lazy"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
-                  <div className="absolute inset-0 flex flex-col justify-end p-6 md:p-8 promo-card-overlay pointer-events-auto">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent pointer-events-none" />
+                  <div className="absolute inset-0 flex flex-col justify-end p-8 promo-card-overlay pointer-events-auto">
                     {banner.badgeText && (
-                      <span className="bg-brand-gold text-white text-xs font-bold px-3 py-1 self-start mb-2 rounded-sm shadow-xs">
+                      <span className="bg-brand-gold text-white text-sm font-bold px-3 py-1 self-start mb-3">
                         {banner.badgeText}
                       </span>
                     )}
                     {banner.title && (
-                      <h3 className="font-playfair text-xl md:text-2xl font-bold text-white mb-1.5">
+                      <h3 className="font-playfair text-2xl md:text-3xl font-bold text-white mb-2">
                         {banner.title}
                       </h3>
                     )}
                     {banner.subtitle && (
-                      <p className="text-white/80 text-xs mb-3">
+                      <p className="text-white/70 text-sm mb-4">
                         {banner.subtitle}
                       </p>
                     )}
                     {banner.ctaText && (
                       <Link
                         to={banner.ctaLink || '/products'}
-                        className="text-brand-gold font-medium text-xs flex items-center gap-2 hover:gap-3 transition-all focus-visible:outline-white self-start"
+                        className="text-brand-gold font-medium text-sm flex items-center gap-2 hover:gap-3 transition-all focus-visible:outline-white self-start"
                         id={`promo-deal-${banner.id}`}
                       >
-                        {banner.ctaText} <ArrowRight size={15} />
+                        {banner.ctaText} <ArrowRight size={16} />
                       </Link>
                     )}
                   </div>

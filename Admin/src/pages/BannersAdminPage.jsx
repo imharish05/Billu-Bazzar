@@ -51,11 +51,11 @@ const BANNER_SPECS = {
   },
   EXCLUSIVE_DEAL: {
     label: 'EXCLUSIVE DEAL',
-    recommended: '1600x800px',
-    aspectLabel: '2:1 Wide Landscape',
-    minWidth: 1000,
-    minRatio: 1.80,
-    maxRatio: 2.30,
+    recommended: '1920x640px',
+    aspectLabel: '3:1 Ultra-Wide Landscape',
+    minWidth: 1200,
+    minRatio: 2.60,
+    maxRatio: 3.40,
   },
   PROMO: {
     label: 'PROMO',
@@ -290,50 +290,15 @@ const BannersAdminPage = () => {
       if (file) {
         const dims = await checkImageDimensions(file);
         if (dims) {
-          const ratio = dims.width / dims.height;
-
-          // HERO (Landscape 16:9)
-          if (form.type === 'HERO') {
-            const MIN_WIDTH = 1200;
-            const MIN_RATIO = 1.6;
-            const MAX_RATIO = 2.2;
-            if (dims.width < MIN_WIDTH) {
-              setUploadError(`Hero banner image too small. Minimum width is ${MIN_WIDTH}px. Your image is ${dims.width}x${dims.height}px.`);
+          const spec = BANNER_SPECS[form.type];
+          if (spec) {
+            const ratio = dims.width / dims.height;
+            if (dims.width < spec.minWidth) {
+              setUploadError(`${spec.label} banner image too small. Minimum required width is ${spec.minWidth}px. Your image is ${dims.width}x${dims.height}px.`);
               setSaving(false); setUploadProgress(null); return;
             }
-            if (ratio < MIN_RATIO || ratio > MAX_RATIO) {
-              setUploadError(`Hero banner aspect ratio looks off (${ratio.toFixed(2)}:1). Recommended size is 1920x1080px (Landscape 16:9). Your image is ${dims.width}x${dims.height}px.`);
-              setSaving(false); setUploadProgress(null); return;
-            }
-          }
-
-          // COUNTDOWN & PROMO (Portrait 4:5)
-          if (form.type === 'COUNTDOWN' || form.type === 'PROMO') {
-            const MIN_WIDTH = 400;
-            const MIN_RATIO = 0.65;
-            const MAX_RATIO = 0.95;
-            const label = form.type === 'COUNTDOWN' ? 'Countdown' : 'Promo';
-            if (dims.width < MIN_WIDTH) {
-              setUploadError(`${label} banner image too small. Minimum width is ${MIN_WIDTH}px. Your image is ${dims.width}x${dims.height}px.`);
-              setSaving(false); setUploadProgress(null); return;
-            }
-            if (ratio < MIN_RATIO || ratio > MAX_RATIO) {
-              setUploadError(`${label} banner requires a Portrait image (${ratio.toFixed(2)}:1 aspect ratio looks off). Recommended size is 1080x1350px (Portrait 4:5 ratio). Your image is ${dims.width}x${dims.height}px.`);
-              setSaving(false); setUploadProgress(null); return;
-            }
-          }
-
-          // EXCLUSIVE_DEAL (Landscape 16:9 / 2:1)
-          if (form.type === 'EXCLUSIVE_DEAL') {
-            const MIN_WIDTH = 1000;
-            const MIN_RATIO = 1.5;
-            const MAX_RATIO = 2.2;
-            if (dims.width < MIN_WIDTH) {
-              setUploadError(`Exclusive deal banner image too small. Minimum width is ${MIN_WIDTH}px. Your image is ${dims.width}x${dims.height}px.`);
-              setSaving(false); setUploadProgress(null); return;
-            }
-            if (ratio < MIN_RATIO || ratio > MAX_RATIO) {
-              setUploadError(`Exclusive deal banner aspect ratio looks off (${ratio.toFixed(2)}:1). Recommended size is 1920x1080px (Landscape 16:9). Your image is ${dims.width}x${dims.height}px.`);
+            if (ratio < spec.minRatio || ratio > spec.maxRatio) {
+              setUploadError(`${spec.label} banner aspect ratio looks off (${ratio.toFixed(2)}:1). Recommended size is ${spec.recommended} (${spec.aspectLabel}). Your image is ${dims.width}x${dims.height}px.`);
               setSaving(false); setUploadProgress(null); return;
             }
           }
@@ -420,7 +385,14 @@ const BannersAdminPage = () => {
   };
 
   const handleToggle = async (b) => {
-    try { await api.put(`/banners/${b.id}`, { ...b, isActive: !b.isActive }); load(); } catch (err) { console.error(err); }
+    try {
+      await api.put(`/banners/${b.id}`, { ...b, isActive: !b.isActive });
+      toast.success(`Banner ${!b.isActive ? 'activated' : 'deactivated'}`);
+      load();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to update banner status');
+      console.error(err);
+    }
   };
 
   const filteredBanners = activeTab === 'All'
@@ -512,9 +484,26 @@ const BannersAdminPage = () => {
               </div>
 
               <form onSubmit={handleSave} className="p-6 space-y-4">
+                {/* Type + Position (Placed at top so specs update first) */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-brand-grey mb-1.5" htmlFor="ban-type">Banner Type *</label>
+                    <select id="ban-type" value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold bg-white rounded-sm font-medium">
+                      <option value="HERO">HERO</option>
+                      <option value="EXCLUSIVE_DEAL">EXCLUSIVE DEAL</option>
+                      <option value="PROMO">PROMO</option>
+                      <option value="COUNTDOWN">COUNTDOWN</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-brand-grey mb-1.5" htmlFor="ban-pos">Position (order)</label>
+                    <input id="ban-pos" type="number" value={form.position} onChange={e => setForm(p => ({ ...p, position: Number(e.target.value) }))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold rounded-sm" />
+                  </div>
+                </div>
+
                 {/* Image upload — file input only, no URL */}
                 <div>
-                  <label className="block text-xs font-medium text-brand-grey mb-1.5">Banner Image *</label>
+                  <label className="block text-xs font-semibold text-brand-grey mb-1.5">Banner Image *</label>
                   <div
                     className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${
                       imageInvalid
@@ -543,10 +532,10 @@ const BannersAdminPage = () => {
                     ) : (
                       <div className="py-6">
                         <Upload size={28} className="mx-auto text-brand-grey mb-2" />
-                        <p className="text-sm text-brand-grey">Drag & drop image here, or click to upload</p>
+                        <p className="text-sm text-brand-grey font-medium">Drag & drop image here, or click to upload</p>
                         <p className="text-xs text-brand-grey mt-1">JPEG, PNG, WebP — max 5MB</p>
-                        <p className="text-[10px] text-brand-gold mt-1">
-                          For {form.type}: recommended size is {BANNER_SPECS[form.type]?.recommended}
+                        <p className="text-[11px] text-brand-gold font-semibold mt-1.5">
+                          Recommended size for {form.type}: <span className="underline">{BANNER_SPECS[form.type]?.recommended}</span>
                         </p>
                       </div>
                     )}
@@ -562,51 +551,6 @@ const BannersAdminPage = () => {
                       </div>
                     </div>
                   )}
-                </div>
-
-                {/* Upload progress */}
-                {uploadProgress !== null && uploadProgress < 100 && (
-                  <div className="w-full bg-brand-light rounded-full h-2 overflow-hidden">
-                    <div className="bg-brand-gold h-full rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
-                  </div>
-                )}
-
-                {/* Upload error */}
-                {uploadError && (
-                  <div className="flex items-start gap-2 text-red-500 text-sm bg-red-50 p-3 rounded">
-                    <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
-                    <span>{uploadError}</span>
-                    <button type="button" onClick={() => setUploadError(null)} className="ml-auto flex-shrink-0"><X size={14} /></button>
-                  </div>
-                )}
-
-                {/* Title */}
-                <div>
-                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-title">Title {form.type !== 'HERO' && '*'}</label>
-                  <input id="ban-title" type="text" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} required={form.type !== 'HERO'} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
-                </div>
-
-                {/* Subtitle */}
-                <div>
-                  <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-subtitle">Subtitle {form.type !== 'HERO' && '*'}</label>
-                  <input id="ban-subtitle" type="text" value={form.subtitle} onChange={e => setForm(p => ({ ...p, subtitle: e.target.value }))} required={form.type !== 'HERO'} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
-                </div>
-
-                {/* Type + Position */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-type">Type</label>
-                    <select id="ban-type" value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold">
-                      <option value="HERO">HERO</option>
-                      <option value="COUNTDOWN">COUNTDOWN</option>
-                      <option value="PROMO">PROMO</option>
-                      <option value="EXCLUSIVE_DEAL">EXCLUSIVE DEAL</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-brand-grey mb-1.5" htmlFor="ban-pos">Position (order)</label>
-                    <input id="ban-pos" type="number" value={form.position} onChange={e => setForm(p => ({ ...p, position: Number(e.target.value) }))} className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold" />
-                  </div>
                 </div>
 
                 {/* Countdown Time */}

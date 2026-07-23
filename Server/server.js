@@ -193,12 +193,22 @@ const start = async () => {
       console.log('⚠️ Manual alter note (Customer reset columns already exist):', alterErr.message);
     }
 
-    // Migrate any legacy 'DEAL' banners to 'EXCLUSIVE_DEAL'
+    // Ensure Banners table columns exist and migrate legacy type
     try {
+      await sequelize.query("ALTER TABLE Banners MODIFY COLUMN type VARCHAR(50) NOT NULL DEFAULT 'PROMO'");
       await sequelize.query("UPDATE Banners SET type = 'EXCLUSIVE_DEAL' WHERE type = 'DEAL'");
-      console.log('✅ Migrated legacy DEAL banners to EXCLUSIVE_DEAL');
+      console.log('✅ Banners table type column updated');
     } catch (migErr) {
       console.log('⚠️ Migration note (or already migrated):', migErr.message);
+    }
+
+    try {
+      await sequelize.query("ALTER TABLE Banners ADD COLUMN badgeText VARCHAR(50) NULL");
+      await sequelize.query("ALTER TABLE Banners ADD COLUMN countdown DATETIME NULL");
+      await sequelize.query("ALTER TABLE Banners ADD COLUMN position INT DEFAULT 0");
+      console.log('✅ Banners extra columns added');
+    } catch (migErr) {
+      console.log('⚠️ Banners extra columns alter note:', migErr.message);
     }
 
     // 2.5 Run search keywords sync if empty

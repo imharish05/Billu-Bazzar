@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const handleDBError = (err, res, type = 'item') => {
+  console.error(`[Banner DB Error - ${type}]`, err);
   if (err.name === 'SequelizeUniqueConstraintError') {
     return res.status(400).json({ success: false, message: `A ${type} with this name or slug already exists.` });
   }
@@ -11,10 +12,10 @@ const handleDBError = (err, res, type = 'item') => {
     return res.status(400).json({ success: false, message: 'Foreign key constraint fails. Please verify that all parent links are valid.' });
   }
   if (err.name === 'SequelizeValidationError') {
-    const msg = err.errors.map(e => e.message).join(', ');
+    const msg = err.errors ? err.errors.map(e => e.message).join(', ') : err.message;
     return res.status(400).json({ success: false, message: msg });
   }
-  return res.status(500).json({ success: false, message: err.message });
+  return res.status(500).json({ success: false, message: err.message || 'Internal Server Error' });
 };
 
 // Helper to delete local file
@@ -47,9 +48,10 @@ const prepareBannerData = (rawData) => {
 const getAll = async (req, res) => {
   try {
     const { type, all } = req.query;
+    const showAll = (all === 'true' || all === true);
 
-    // Only auto-deactivate expired countdown banners when serving public site requests (!all)
-    if (!all) {
+    // Only auto-deactivate expired countdown banners when serving public site requests (!showAll)
+    if (!showAll) {
       const { Op } = require('sequelize');
       const now = new Date();
       const expiredBanners = await Banner.findAll({
@@ -64,7 +66,7 @@ const getAll = async (req, res) => {
         }
       });
 
-      if (expiredBanners.length > 0) {
+      if (expiredBanners && expiredBanners.length > 0) {
         for (const banner of expiredBanners) {
           banner.isActive = false;
           await banner.save();
@@ -74,7 +76,7 @@ const getAll = async (req, res) => {
     }
 
     const where = {};
-    if (!all) where.isActive = true;
+    if (!showAll) where.isActive = true;
     if (type) where.type = type;
     const banners = await Banner.findAll({ where, order: [['position', 'ASC']] });
     res.json({ success: true, banners });
