@@ -17,46 +17,35 @@ const CartPage = () => {
   const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
   const { isAuthenticated, customer } = useSelector(s => s.auth || {});
 
-  const [couponCode, setCouponCode] = useState('');
-  const [couponApplied, setCouponApplied] = useState(null);
-  const [availableCoupons, setAvailableCoupons] = useState([]);
   const [giftWrap, setGiftWrap] = useState(false);
   const [giftMessage, setGiftMessage] = useState('');
   const [redeemPoints, setRedeemPoints] = useState(false);
   const [giftService, setGiftService] = useState(null);
+  
+  const [loyaltySettings, setLoyaltySettings] = useState({
+    earnRate: 20,
+    redeemRate: 0.2,
+    maxRedeemAmount: 500
+  });
 
   const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
 
-  const getCouponDiscount = (coupon, totalVal) => {
-    if (!coupon) return 0;
-    if (totalVal < Number(coupon.minOrderValue || 0)) return 0;
-    
-    // Check usage limits and dates on frontend
-    if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) return 0;
-    const now = new Date();
-    if (coupon.validFrom && new Date(coupon.validFrom) > now) return 0;
-    if (coupon.validUntil && new Date(coupon.validUntil) < now) return 0;
 
-    const value = Number(coupon.value || 0);
-    if (coupon.type === 'PERCENT') {
-      const maxD = Number(coupon.maxDiscount || Infinity);
-      return Math.min((totalVal * value) / 100, maxD);
-    }
-    if (coupon.type === 'FLAT') {
-      return Math.min(value, totalVal);
-    }
-    return 0;
-  };
 
   const isGiftServiceActive = giftService ? giftService.isActive !== false : true;
   const giftWrapAmount = giftService ? Number(giftService.amount || 0) : 99;
   const giftWrapVal = (giftWrap && isGiftServiceActive) ? giftWrapAmount : 0;
 
   const shipping = subtotal >= FREE_SHIP ? 0 : 99;
-  const couponDiscountVal = couponApplied ? getCouponDiscount(couponApplied, subtotal) : 0;
-  const loyaltyDiscountVal = redeemPoints && customer ? Math.min(Number(customer.loyaltyPoints) * 0.1, subtotal * 0.2) : 0;
+  const couponDiscountVal = 0;
   
-  const total = subtotal - couponDiscountVal - loyaltyDiscountVal + giftWrapVal + shipping;
+  let loyaltyDiscountVal = 0;
+  if (redeemPoints && customer && customer.loyaltyPoints > 0) {
+    const possibleDiscount = Number(customer.loyaltyPoints) * Number(loyaltySettings.redeemRate);
+    loyaltyDiscountVal = Math.min(possibleDiscount, Number(loyaltySettings.maxRedeemAmount), subtotal);
+  }
+  
+  const total = subtotal - loyaltyDiscountVal + giftWrapVal + shipping;
 
   useEffect(() => { 
     document.title = 'Your Cart — Billu Bazaar'; 
@@ -71,50 +60,21 @@ const CartPage = () => {
         }
       })
       .catch(() => {});
-  }, []);
-
-  // Fetch active coupons
-  useEffect(() => {
-    const fetchCoupons = async () => {
-      try {
-        const res = await api.get('/coupons');
-        if (res.data?.success) {
-          const active = (res.data.coupons || []).filter(c => c.isActive);
-          setAvailableCoupons(active);
+      
+    api.get('/site-settings/loyalty')
+      .then(res => {
+        if (res.data?.success && res.data?.data) {
+          setLoyaltySettings({
+            earnRate: Number(res.data.data.earnRate) || 20,
+            redeemRate: Number(res.data.data.redeemRate) || 0.2,
+            maxRedeemAmount: Number(res.data.data.maxRedeemAmount) || 500
+          });
         }
-      } catch (err) {
-        console.error('Failed to load coupons:', err);
-      }
-    };
-    fetchCoupons();
+      })
+      .catch(err => console.warn('Failed to fetch loyalty settings', err));
   }, []);
 
-  // Auto-apply best available coupon when subtotal or available coupons change
-  useEffect(() => {
-    if (availableCoupons.length === 0 || subtotal <= 0) return;
 
-    let bestCoupon = null;
-    let maxDiscountVal = 0;
-
-    availableCoupons.forEach(coupon => {
-      const disc = getCouponDiscount(coupon, subtotal);
-      if (disc > maxDiscountVal) {
-        maxDiscountVal = disc;
-        bestCoupon = coupon;
-      }
-    });
-
-    if (bestCoupon) {
-      setCouponApplied(bestCoupon);
-      setCouponCode(bestCoupon.code);
-      localStorage.setItem('bb_applied_coupon', JSON.stringify(bestCoupon));
-    } else {
-      const saved = localStorage.getItem('bb_applied_coupon');
-      if (saved) {
-        try { setCouponApplied(JSON.parse(saved)); } catch {}
-      }
-    }
-  }, [availableCoupons, subtotal]);
 
   useEffect(() => {
     if (items && items.length > 0) {
@@ -125,42 +85,7 @@ const CartPage = () => {
     }
   }, [items, dispatch]);
 
-  const applyCoupon = async (codeToApply = couponCode) => {
 
-    const code = codeToApply.trim().toUpperCase();
-    if (!code) return;
-    
-    try {
-      const matched = availableCoupons.find(c => c.code === code);
-      if (matched) {
-        const disc = getCouponDiscount(matched, subtotal);
-        if (disc > 0) {
-          setCouponApplied(matched);
-          setCouponCode(matched.code);
-          localStorage.setItem('bb_applied_coupon', JSON.stringify(matched));
-          toast.success(`Coupon ${matched.code} applied successfully!`);
-        } else {
-          if (subtotal < Number(matched.minOrderValue || 0)) {
-            toast.error(`Minimum order value of ₹${matched.minOrderValue} required for this coupon.`);
-          } else {
-            toast.error(`This coupon is not applicable.`);
-          }
-        }
-      } else {
-        const res = await api.post('/coupons/validate', { code, subtotal });
-        if (res.data?.success && res.data?.valid) {
-          setCouponApplied(res.data.coupon);
-          setCouponCode(res.data.coupon.code);
-          localStorage.setItem('bb_applied_coupon', JSON.stringify(res.data.coupon));
-          toast.success(`Coupon ${res.data.coupon.code} applied successfully!`);
-        } else {
-          toast.error(res.data?.message || 'Invalid coupon code');
-        }
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Invalid coupon code');
-    }
-  };
 
   if (items.length === 0) {
     return (
@@ -343,7 +268,6 @@ const CartPage = () => {
               <h2 className="font-playfair text-xl font-semibold mb-5">Order Summary</h2>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between"><span className="text-brand-grey">Subtotal</span><span>{fmt(subtotal)}</span></div>
-                {couponDiscountVal > 0 && <div className="flex justify-between text-green-600"><span>Coupon Discount ({couponApplied?.code})</span><span>−{fmt(couponDiscountVal)}</span></div>}
                 {loyaltyDiscountVal > 0 && <div className="flex justify-between text-green-600"><span>Loyalty Discount</span><span>−{fmt(loyaltyDiscountVal)}</span></div>}
                 {giftWrap && isGiftServiceActive && <div className="flex justify-between text-brand-text"><span>Gift Wrapping</span><span>{fmt(giftWrapAmount)}</span></div>}
                 <div className="flex justify-between"><span className="text-brand-grey">Shipping</span><span>{shipping === 0 ? <span className="text-green-600">Free</span> : fmt(shipping)}</span></div>
@@ -378,10 +302,10 @@ const CartPage = () => {
                           className="w-4 h-4 accent-brand-gold rounded border-brand-light"
                         />
                         <span className="text-xs text-brand-text font-medium">
-                          Redeem points for discount of <strong>{fmt(Math.min(customer.loyaltyPoints * 0.1, subtotal * 0.2))}</strong>
+                          Redeem points for discount of <strong>{fmt(Math.min(customer.loyaltyPoints * loyaltySettings.redeemRate, loyaltySettings.maxRedeemAmount, subtotal))}</strong>
                         </span>
                       </label>
-                      <p className="text-[10px] text-brand-grey/80 mt-1">* 10 points = ₹1. Max redemption caps at 20% of subtotal.</p>
+                      <p className="text-[10px] text-brand-grey/80 mt-1">* {1 / loyaltySettings.redeemRate} points = {fmt(1)}. Max redemption caps at {fmt(loyaltySettings.maxRedeemAmount)} per order.</p>
                     </div>
                   ) : (
                     <p className="text-[11px] text-brand-grey/80">Shop more to accumulate loyalty points and unlock exclusive rewards!</p>
@@ -397,79 +321,7 @@ const CartPage = () => {
               </div>
             )}
 
-            {/* Coupon */}
-            <div className="bg-white shadow-sm p-6 border border-brand-light">
-              <h3 className="font-playfair text-base font-semibold flex items-center gap-2 mb-4">
-                <Tag size={16} className="text-brand-gold" /> Available Coupons
-              </h3>
-              
-              {/* List of Coupons */}
-              {availableCoupons.length > 0 ? (
-                <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1 mb-4">
-                  {availableCoupons.map(coupon => {
-                    const discountAmt = getCouponDiscount(coupon, subtotal);
-                    const isApplicable = discountAmt > 0;
-                    const isSelected = couponApplied?.code === coupon.code;
-                    
-                    return (
-                      <div 
-                        key={coupon.id} 
-                        onClick={() => isApplicable && applyCoupon(coupon.code)}
-                        className={`p-3 border rounded-sm transition-all flex flex-col justify-between relative overflow-hidden ${
-                          isSelected 
-                            ? 'border-brand-gold bg-brand-light/20 cursor-default' 
-                            : isApplicable 
-                              ? 'border-brand-light hover:border-brand-gold/50 cursor-pointer bg-white' 
-                              : 'border-neutral-100 bg-neutral-50/50 opacity-60 cursor-not-allowed'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start">
-                          <span className="font-mono text-xs font-bold text-[#0F2942] bg-brand-light px-2.5 py-0.5 rounded-sm">
-                            {coupon.code}
-                          </span>
-                          <span className="text-[10px] text-brand-gold font-semibold uppercase">
-                            {coupon.type === 'PERCENT' ? `${coupon.value}% OFF` : `₹${coupon.value} OFF`}
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-brand-grey mt-1.5 leading-relaxed">
-                          Min Order: ₹{coupon.minOrderValue || 0}
-                          {coupon.maxDiscount ? ` · Max Disc: ₹${coupon.maxDiscount}` : ''}
-                        </p>
-                        {isSelected && (
-                          <div className="absolute top-0 right-0 bg-brand-gold text-white text-[8px] font-bold px-2 py-0.5 rounded-bl-sm">
-                            Applied
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-xs text-brand-grey mb-4">No coupons available at the moment.</p>
-              )}
 
-              {/* Coupon input */}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={couponCode}
-                  onChange={e => setCouponCode(e.target.value.toUpperCase())}
-                  placeholder="Enter coupon code"
-                  className="flex-1 border border-brand-light px-3 py-2 text-sm focus:outline-none focus:border-brand-gold uppercase font-mono"
-                  aria-label="Coupon code"
-                  id="coupon-input"
-                />
-                <button onClick={() => applyCoupon()} className="bg-neutral-950 text-white px-4 py-2 text-sm font-medium hover:bg-neutral-800 transition-colors focus-visible:outline-brand-gold" id="apply-coupon">
-                  Apply
-                </button>
-              </div>
-              {couponApplied && (
-                <div className="mt-3 flex items-center justify-between bg-green-50/70 border border-green-200/60 p-2.5 rounded-sm">
-                  <p className="text-green-700 text-xs font-medium">✓ Coupon {couponApplied.code} applied!</p>
-                  <button onClick={() => { setCouponApplied(null); setCouponCode(''); localStorage.removeItem('bb_applied_coupon'); }} className="text-green-700 hover:text-red-500 text-xs font-semibold underline">Remove</button>
-                </div>
-              )}
-            </div>
           </div>
         </div>
       </div>

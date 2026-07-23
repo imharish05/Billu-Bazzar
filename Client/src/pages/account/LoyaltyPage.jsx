@@ -1,7 +1,9 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Wallet, TrendingUp, TrendingDown } from 'lucide-react';
-import { mockCustomer, mockLoyaltyLedger, loyaltyEarnRules } from '../../data/mockAccountData';
+import { mockCustomer, mockLoyaltyLedger, loyaltyEarnRules as defaultEarnRules } from '../../data/mockAccountData';
 import { formatPrice } from '../../utils/currency';
+import api from '../../services/api';
 
 /**
  * LoyaltyPage — /account/loyalty
@@ -11,6 +13,24 @@ import { formatPrice } from '../../utils/currency';
  */
 const LoyaltyPage = () => {
   const { loyaltyPoints, loyaltyTier, cashbackBalance } = mockCustomer;
+  const [earnRules, setEarnRules] = useState(defaultEarnRules);
+  const [loadingRules, setLoadingRules] = useState(true);
+
+  useEffect(() => {
+    const fetchLoyaltySettings = async () => {
+      try {
+        const res = await api.get('/site-settings/loyalty');
+        if (res.data?.success && res.data?.data?.earnRules?.length > 0) {
+          setEarnRules(res.data.data.earnRules);
+        }
+      } catch (err) {
+        console.error('Failed to fetch loyalty settings:', err);
+      } finally {
+        setLoadingRules(false);
+      }
+    };
+    fetchLoyaltySettings();
+  }, []);
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
@@ -33,12 +53,18 @@ const LoyaltyPage = () => {
         <div className="bg-white shadow-sm p-6">
           <h2 className="font-medium text-sm mb-4">How to earn more</h2>
           <div className="space-y-3">
-            {loyaltyEarnRules.map(({ action, points }) => (
-              <div key={action} className="flex justify-between text-sm py-2 border-b border-brand-light last:border-0">
-                <span className="text-brand-grey">{action}</span>
-                <span className="font-medium text-brand-gold">{points}</span>
-              </div>
-            ))}
+            {loadingRules ? (
+              <div className="text-sm text-brand-grey py-2">Loading...</div>
+            ) : earnRules.length > 0 ? (
+              earnRules.map((rule, idx) => (
+                <div key={rule.id || idx} className="flex justify-between text-sm py-2 border-b border-brand-light last:border-0">
+                  <span className="text-brand-grey">{rule.action}</span>
+                  <span className="font-medium text-brand-gold">{rule.points}</span>
+                </div>
+              ))
+            ) : (
+              <div className="text-sm text-brand-grey py-2">No rules configured.</div>
+            )}
           </div>
         </div>
 

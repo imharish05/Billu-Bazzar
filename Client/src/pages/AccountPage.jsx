@@ -7,6 +7,7 @@ import { fetchMyOrders } from '../redux/slices/ordersSlice';
 import { logout } from '../redux/slices/authSlice';
 import Footer from '../components/Footer';
 import { formatPrice } from '../utils/currency';
+import api from '../services/api';
 
 const STATUS_COLORS = {
   PENDING: 'bg-yellow-50 text-yellow-700',
@@ -35,12 +36,35 @@ const AccountPage = () => {
   const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
 
   const fmt = (v) => formatPrice(v, currencyCode, currencyRate);
-  const initialTab = searchParams.get('tab');
-  const [activeTab, setActiveTab] = useState(initialTab && initialTab !== 'wishlist' ? initialTab : 'profile');
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'profile');
   const [editing, setEditing] = useState(false);
+  const [loyaltySettings, setLoyaltySettings] = useState({
+    earnRate: 20,
+    redeemRate: 0.2,
+    maxRedeemAmount: 500,
+    earnRules: [
+      { action: 'Every ₹100 spent', points: '+1 point' },
+      { action: 'Write a review', points: '+50 points' },
+      { action: 'Refer a friend', points: '+200 points' },
+      { action: 'Birthday bonus', points: '+500 points' }
+    ]
+  });
 
   useEffect(() => {
-    if (isAuthenticated) dispatch(fetchMyOrders());
+    if (isAuthenticated) {
+      dispatch(fetchMyOrders());
+      api.get('/site-settings/loyalty')
+        .then(res => {
+          if (res.data?.success && res.data?.data) {
+            setLoyaltySettings(prev => ({
+              ...prev,
+              ...res.data.data,
+              earnRules: res.data.data.earnRules?.length > 0 ? res.data.data.earnRules : prev.earnRules
+            }));
+          }
+        })
+        .catch(err => console.warn('Failed to fetch loyalty settings', err));
+    }
   }, [isAuthenticated, dispatch]);
 
   if (!isAuthenticated) {
@@ -188,21 +212,18 @@ const AccountPage = () => {
                   <div className="bg-gradient-to-r from-brand-gold to-yellow-500 text-white p-6 mb-6">
                     <p className="text-sm opacity-80 mb-1">Total Balance</p>
                     <p className="font-playfair text-5xl font-bold">{customer?.loyaltyPoints || 0}</p>
-                    <p className="text-sm opacity-80 mt-1">Points · Worth ₹{(customer?.loyaltyPoints || 0) * 0.5}</p>
+                    <p className="text-sm opacity-80 mt-1">Points · Worth {formatPrice((customer?.loyaltyPoints || 0) * loyaltySettings.redeemRate, currencyCode, currencyRate)}</p>
                   </div>
                   <div className="space-y-3">
                     <h3 className="font-medium text-sm">How to earn more</h3>
-                    {[
-                      { action: 'Every ₹100 spent', points: '+1 point' },
-                      { action: 'Write a review', points: '+50 points' },
-                      { action: 'Refer a friend', points: '+200 points' },
-                      { action: 'Birthday bonus', points: '+500 points' },
-                    ].map(({ action, points }) => (
-                      <div key={action} className="flex justify-between text-sm py-2 border-b border-brand-light last:border-0">
-                        <span className="text-brand-grey">{action}</span>
-                        <span className="font-medium text-brand-gold">{points}</span>
+                    {loyaltySettings.earnRules && loyaltySettings.earnRules.length > 0 ? loyaltySettings.earnRules.map((rule, idx) => (
+                      <div key={idx} className="flex justify-between text-sm py-2 border-b border-brand-light last:border-0">
+                        <span className="text-brand-grey">{rule.action}</span>
+                        <span className="font-medium text-brand-gold">{rule.points}</span>
                       </div>
-                    ))}
+                    )) : (
+                      <div className="text-sm py-2 text-brand-grey">No rules configured.</div>
+                    )}
                   </div>
                 </div>
               )}

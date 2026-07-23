@@ -37,7 +37,7 @@ const ReturnsPage = () => {
           >
             <span className="text-xs font-semibold text-brand-gold tracking-widest uppercase block">Our Guarantee</span>
             <h2 className="font-playfair text-3xl font-bold text-brand-text">Returns & Refunds Policy</h2>
-            <p className="text-brand-grey text-sm md:text-base leading-relaxed">
+            <p className="text-brand-grey text-sm md:text-base leading-relaxed text-justify">
               We are committed to delivering products of the highest standard. However, if your order is damaged, incorrect, or deviates significantly from its description, we support returns within a strict 24-hour window from delivery. Below are the specific eligibility requirements, exclusions, and processing steps for returns and refunds.
             </p>
           </motion.div>
@@ -68,28 +68,28 @@ const ReturnsPage = () => {
           <div className="space-y-8">
             <section className="space-y-3">
               <h3 className="font-playfair text-xl font-semibold text-brand-text">1. Return Eligibility & Window</h3>
-              <p className="text-brand-grey text-xs md:text-sm leading-relaxed">
+              <p className="text-brand-grey text-xs md:text-sm leading-relaxed text-justify">
                 We offer a strict 24-hour return window from the date and time of successful delivery. Returns are accepted only if the product received is physically damaged or defective at the time of arrival, if a completely wrong product has been delivered, or if the product is significantly different from its description on our website. Customers must submit their return requests, accompanied by necessary proof (such as unboxing videos or images), within this 24-hour period.
               </p>
             </section>
 
             <section className="space-y-3">
               <h3 className="font-playfair text-xl font-semibold text-brand-text">2. Exclusions & Non-Returnable Items</h3>
-              <p className="text-brand-grey text-xs md:text-sm leading-relaxed font-light">
+              <p className="text-brand-grey text-xs md:text-sm leading-relaxed font-light text-justify">
                 Products are ineligible for return under any of the following conditions: if the product has been used, altered, or if the original Billu Bazaar security seal is broken; if the original packaging, brand tags, instruction manuals, or accessories are missing; or if the item belongs to a non-returnable category for hygiene reasons, which includes perfumes, innerwear, and personal care products. Additionally, any products explicitly designated as 'Non-Returnable' on their respective product details page cannot be returned.
               </p>
             </section>
 
             <section className="space-y-3">
               <h3 className="font-playfair text-xl font-semibold text-brand-text">3. Return Pickup & Logistics</h3>
-              <p className="text-brand-grey text-xs md:text-sm leading-relaxed">
+              <p className="text-brand-grey text-xs md:text-sm leading-relaxed text-justify">
                 Once your return request is validated and approved, our logistics team will coordinate the return shipment. Return pickup will be arranged and handled directly by Billu Bazaar's courier partners. Customers do not need to ship items independently. Please ensure the product is packed securely in its original packaging along with all documentation for the courier representative.
               </p>
             </section>
 
             <section className="space-y-3">
               <h3 className="font-playfair text-xl font-semibold text-brand-text">4. Refund Processing & Timelines</h3>
-              <p className="text-brand-grey text-xs md:text-sm leading-relaxed">
+              <p className="text-brand-grey text-xs md:text-sm leading-relaxed text-justify">
                 After the returned product is successfully received at our warehouse, it will undergo a comprehensive quality check and verification. Upon successful inspection, your refund will be processed within 5 to 7 business days. The refunded amount will be credited back to your original payment method (such as UPI, credit/debit card, or digital wallet). Cash on Delivery orders will be refunded via bank transfer to account details provided by the customer during the return workflow.
               </p>
             </section>

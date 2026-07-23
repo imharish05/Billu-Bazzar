@@ -51,26 +51,6 @@ const ProductDetailsPage = () => {
   const [reviewBody, setReviewBody] = useState('');
   const [editingReviewId, setEditingReviewId] = useState(null);
 
-  const [availableCoupons, setAvailableCoupons] = useState([]);
-
-  useEffect(() => {
-    api.get('/coupons')
-      .then(res => {
-        if (res.data?.success) {
-          const active = (res.data.coupons || []).filter(c => c.isActive);
-          setAvailableCoupons(active);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  const handleApplyProductCoupon = (coupon) => {
-    localStorage.setItem('bb_applied_coupon', JSON.stringify(coupon));
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(coupon.code).catch(() => {});
-    }
-    toast.success(`Coupon '${coupon.code}' saved & code copied!`);
-  };
 
   useEffect(() => {
     if (product && product.id) {
@@ -618,41 +598,6 @@ const ProductDetailsPage = () => {
 
             <p className="text-brand-grey text-sm leading-relaxed">{product.shortDescription}</p>
 
-            {/* Available Coupons Card */}
-            {availableCoupons.length > 0 && (
-              <div className="bg-amber-50/50 border border-amber-200/80 rounded-xl p-4 space-y-3 shadow-2xs">
-                <div className="flex items-center gap-2 text-xs font-bold text-amber-900 uppercase tracking-wider">
-                  <Tag size={15} className="text-brand-gold" />
-                  <span>Available Offers & Coupons</span>
-                </div>
-                <div className="grid gap-2">
-                  {availableCoupons.slice(0, 3).map(c => (
-                    <div key={c.id} className="flex items-center justify-between bg-white border border-amber-200/60 rounded-lg p-2.5">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded">
-                            {c.code}
-                          </span>
-                          <span className="text-xs font-bold text-emerald-700">
-                            {c.type === 'PERCENT' ? `${c.value}% OFF` : `₹${c.value} OFF`}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-neutral-500 mt-1">
-                          Min Order: ₹{c.minOrderValue || 0} {c.maxDiscount ? `· Max Disc: ₹${c.maxDiscount}` : ''}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleApplyProductCoupon(c)}
-                        className="flex items-center gap-1 text-xs font-semibold bg-neutral-900 text-white hover:bg-brand-gold px-3 py-1.5 rounded-md transition-colors"
-                      >
-                        <Copy size={12} /> Apply
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Dynamic Variant Attributes selectors (Amazon-Style Variant Matrix) */}
             {product.variants && product.variants.length > 0 && variantAttributeKeys.map(key => {

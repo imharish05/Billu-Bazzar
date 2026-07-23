@@ -169,7 +169,7 @@ const AboutPage = () => {
                 {data.hero.titleGold}
               </span>
             </h1>
-            <p className="text-white/70 max-w-2xl mx-auto text-sm md:text-base font-light leading-relaxed">
+            <p className="text-white/70 max-w-2xl mx-auto text-sm md:text-base font-light leading-relaxed text-justify">
               {data.hero.description}
             </p>
           </motion.div>
@@ -204,11 +204,11 @@ const AboutPage = () => {
             </h2>
             <div className="h-[2px] w-20 bg-brand-gold" />
             
-            <p className="text-brand-grey text-sm md:text-base leading-relaxed">
+            <p className="text-brand-grey text-sm md:text-base leading-relaxed text-justify">
               {renderFormattedText(data.story.description1)}
             </p>
             
-            <p className="text-brand-grey text-sm md:text-base leading-relaxed">
+            <p className="text-brand-grey text-sm md:text-base leading-relaxed text-justify">
               {renderFormattedText(data.story.description2)}
             </p>
 
@@ -351,7 +351,7 @@ const AboutPage = () => {
           <span className="text-xs font-semibold tracking-widest text-brand-gold uppercase block">{data.philosophy.subtitle}</span>
           <h2 className="font-playfair text-3xl md:text-4xl lg:text-5xl font-bold text-brand-text">{data.philosophy.title}</h2>
           <div className="h-[2px] w-20 bg-brand-gold mx-auto" />
-          <p className="text-brand-grey text-sm max-w-lg mx-auto">
+          <p className="text-brand-grey text-sm max-w-lg mx-auto text-justify">
             {data.philosophy.description}
           </p>
         </div>
@@ -381,7 +381,7 @@ const AboutPage = () => {
                   <h4 className="font-playfair text-xl font-bold text-brand-text mb-3">
                     {val.title}
                   </h4>
-                  <p className="text-brand-grey text-xs md:text-sm leading-relaxed">
+                  <p className="text-brand-grey text-xs md:text-sm leading-relaxed text-justify">
                     {val.description}
                   </p>
                 </div>
@@ -401,7 +401,7 @@ const AboutPage = () => {
           <h3 className="font-playfair text-2xl font-bold text-brand-text">
             {data.concierge.title}
           </h3>
-          <p className="text-brand-grey text-sm leading-relaxed">
+          <p className="text-brand-grey text-sm leading-relaxed text-justify">
             {data.concierge.description}
           </p>
           <div className="pt-2 flex flex-col sm:flex-row justify-center items-center gap-4">

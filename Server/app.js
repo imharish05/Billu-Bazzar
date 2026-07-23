@@ -55,6 +55,7 @@ app.use('/api/coupons',     require('./routes/couponRoutes'));
 app.use('/api/site-settings', require('./routes/siteSettingRoutes'));
 app.use('/api/gift-service',  require('./routes/giftServiceRoutes'));
 app.use('/api/reviews',       require('./routes/reviewRoutes'));
+app.use('/api/loyalty',       require('./routes/loyaltyRoutes'));
 
 // ── Health Check ──────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));

@@ -394,6 +394,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--color-gold); ou
 @media (max-width: 1023px) {
   .promo-card-overlay {
     padding: 1rem !important;
+    padding-bottom: 1.5rem !important;
   }
   .promo-card-overlay h3 {
     font-size: 1.15rem !important;

@@ -157,22 +157,23 @@ const HomePage = () => {
   }, [banners]);
 
   useEffect(() => {
-    if (exclusiveBanners.length < 3 || isScrolling) {
-      if (exclusiveBanners.length < 3) setCurrentExclusiveSlide(0);
+    const maxIdx = isMobileViewport ? exclusiveBanners.length - 1 : exclusiveBanners.length - 2;
+    if (maxIdx <= 0 || isScrolling) {
+      if (maxIdx <= 0) setCurrentExclusiveSlide(0);
       return;
     }
     const interval = setInterval(() => {
-      setCurrentExclusiveSlide(prev => {
-        const maxIdx = isMobileViewport ? exclusiveBanners.length - 1 : exclusiveBanners.length - 2;
-        return prev >= maxIdx ? 0 : prev + 1;
-      });
+      setCurrentExclusiveSlide(prev => prev >= maxIdx ? 0 : prev + 1);
     }, 6500);
     return () => clearInterval(interval);
   }, [exclusiveBanners.length, isMobileViewport, isScrolling]);
 
   useEffect(() => {
-    if (exclusiveBanners.length < 3) return;
     const maxIdx = isMobileViewport ? exclusiveBanners.length - 1 : exclusiveBanners.length - 2;
+    if (maxIdx < 0) {
+      setCurrentExclusiveSlide(0);
+      return;
+    }
     if (currentExclusiveSlide > maxIdx) {
       setCurrentExclusiveSlide(maxIdx);
     }
@@ -479,7 +480,7 @@ const HomePage = () => {
             </div>
 
             {/* Product Preview (Responsive across Mobile, Tablet & Desktop) */}
-            <div className="relative w-48 h-48 sm:w-56 sm:h-56 lg:w-60 lg:h-60 flex-shrink-0 rounded-xl overflow-hidden shadow-xl border border-white/20 bg-black my-2 md:my-0">
+            <div className="hidden md:block relative w-48 h-48 sm:w-56 sm:h-56 lg:w-60 lg:h-60 flex-shrink-0 rounded-xl overflow-hidden shadow-xl border border-white/20 bg-black my-2 md:my-0">
               <img
                 src={countdownBanner.image}
                 alt={countdownBanner.title || 'Deal of the week'}
@@ -798,53 +799,7 @@ const HomePage = () => {
         </section>
       )}
 
-      {exclusiveBanners.length === 2 && (
-        <section className="py-10 bg-white" aria-label="Promotional offers">
-          <div className="max-w-site mx-auto px-6 md:px-8">
-            <div className="grid md:grid-cols-2 gap-6">
-              {exclusiveBanners.map((banner, idx) => (
-                <ScrollReveal key={banner.id} delay={idx * 0.15} className="relative overflow-hidden aspect-[16/9] shadow-lg group">
-                  <img
-                    src={banner.image}
-                    alt={banner.title || 'Exclusive Collection'}
-                    className="w-full h-full object-cover object-center transform-gpu"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent pointer-events-none" />
-                  <div className="absolute inset-0 flex flex-col justify-end p-4 md:p-8 promo-card-overlay pointer-events-auto">
-                    {banner.badgeText && (
-                      <span className="bg-brand-gold text-white text-[10px] md:text-sm font-bold px-2 py-1 md:px-3 self-start mb-2 md:mb-3">
-                        {banner.badgeText}
-                      </span>
-                    )}
-                    {banner.title && (
-                      <h3 className="font-playfair text-xl md:text-3xl font-bold text-white mb-1 md:mb-2 line-clamp-2">
-                        {banner.title}
-                      </h3>
-                    )}
-                    {banner.subtitle && (
-                      <p className="text-white/70 text-xs md:text-sm mb-2 md:mb-4 line-clamp-2">
-                        {banner.subtitle}
-                      </p>
-                    )}
-                    {banner.ctaText && (
-                      <Link
-                        to={banner.ctaLink || '/products'}
-                        className="text-brand-gold font-medium text-xs md:text-sm flex items-center gap-1.5 md:gap-2 hover:gap-3 transition-all focus-visible:outline-white self-start"
-                        id={`promo-deal-${banner.id}`}
-                      >
-                        {banner.ctaText} <ArrowRight size={14} className="md:w-4 md:h-4" />
-                      </Link>
-                    )}
-                  </div>
-                </ScrollReveal>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {exclusiveBanners.length >= 3 && (
+      {exclusiveBanners.length >= 2 && (
         <section className="py-10 bg-white overflow-hidden" aria-label="Promotional offers">
           <div className="max-w-site mx-auto px-6 md:px-8">
             <ScrollReveal className="relative group/carousel">
@@ -854,28 +809,30 @@ const HomePage = () => {
                   <h2 className="font-playfair text-2xl md:text-3xl font-bold text-brand-text">Exclusive Deals</h2>
                 </div>
                 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setCurrentExclusiveSlide(prev => {
-                      const maxIdx = isMobileViewport ? exclusiveBanners.length - 1 : exclusiveBanners.length - 2;
-                      return prev === 0 ? maxIdx : prev - 1;
-                    })}
-                    className="p-2 border border-brand-text text-brand-text hover:bg-brand-text hover:text-white transition-colors active:scale-95"
-                    aria-label="Previous deal"
-                  >
-                    <ChevronLeft size={18} strokeWidth={1.5} />
-                  </button>
-                  <button
-                    onClick={() => setCurrentExclusiveSlide(prev => {
-                      const maxIdx = isMobileViewport ? exclusiveBanners.length - 1 : exclusiveBanners.length - 2;
-                      return prev >= maxIdx ? 0 : prev + 1;
-                    })}
-                    className="p-2 border border-brand-text text-brand-text hover:bg-brand-text hover:text-white transition-colors active:scale-95"
-                    aria-label="Next deal"
-                  >
-                    <ChevronRight size={18} strokeWidth={1.5} />
-                  </button>
-                </div>
+                {(isMobileViewport ? exclusiveBanners.length > 1 : exclusiveBanners.length > 2) && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentExclusiveSlide(prev => {
+                        const maxIdx = isMobileViewport ? exclusiveBanners.length - 1 : exclusiveBanners.length - 2;
+                        return prev === 0 ? maxIdx : prev - 1;
+                      })}
+                      className="p-2 border border-brand-text text-brand-text hover:bg-brand-text hover:text-white transition-colors active:scale-95"
+                      aria-label="Previous deal"
+                    >
+                      <ChevronLeft size={18} strokeWidth={1.5} />
+                    </button>
+                    <button
+                      onClick={() => setCurrentExclusiveSlide(prev => {
+                        const maxIdx = isMobileViewport ? exclusiveBanners.length - 1 : exclusiveBanners.length - 2;
+                        return prev >= maxIdx ? 0 : prev + 1;
+                      })}
+                      className="p-2 border border-brand-text text-brand-text hover:bg-brand-text hover:text-white transition-colors active:scale-95"
+                      aria-label="Next deal"
+                    >
+                      <ChevronRight size={18} strokeWidth={1.5} />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="overflow-hidden -mx-2 px-2">
@@ -899,7 +856,7 @@ const HomePage = () => {
                         loading="lazy"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-                      <div className="absolute inset-0 flex flex-col justify-end p-4 md:p-8 promo-card-overlay">
+                      <div className="absolute inset-0 flex flex-col justify-end p-4 pb-6 md:p-8 md:pb-10 promo-card-overlay">
                         {banner.badgeText && (
                           <span className="bg-brand-gold text-white text-[10px] md:text-sm font-bold px-2 py-1 md:px-3 self-start mb-2 md:mb-3">
                             {banner.badgeText}
@@ -917,7 +874,7 @@ const HomePage = () => {
                         )}
                         <Link
                           to={banner.ctaLink}
-                          className="group/btn inline-flex items-center gap-1.5 md:gap-2 px-4 py-2 md:px-5 md:py-2.5 border border-brand-gold/60 hover:border-brand-gold bg-black/40 hover:bg-brand-gold text-brand-gold hover:text-neutral-950 text-[10px] md:text-xs font-semibold uppercase tracking-widest transition-all duration-300 rounded-none self-start"
+                          className="group/btn inline-flex items-center gap-1.5 md:gap-2 px-4 py-2 md:px-5 md:py-2.5 border border-brand-gold/60 hover:border-brand-gold bg-black/40 hover:bg-brand-gold text-brand-gold hover:text-neutral-950 text-[10px] md:text-xs font-semibold uppercase tracking-widest transition-all duration-300 rounded-none self-start mt-1"
                           id={`promo-deal-${banner.id}`}
                         >
                           <span>{banner.ctaText || 'Shop Now'}</span>
@@ -929,18 +886,20 @@ const HomePage = () => {
                 </div>
               </div>
 
-              <div className="flex justify-center gap-1.5 mt-8">
-                {exclusiveBanners.slice(0, isMobileViewport ? exclusiveBanners.length : exclusiveBanners.length - 1).map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setCurrentExclusiveSlide(idx)}
-                    className={`h-2 rounded-full transition-all duration-300 ${
-                      currentExclusiveSlide === idx ? 'bg-brand-gold w-4' : 'bg-brand-light w-2 hover:bg-brand-text'
-                    }`}
-                    aria-label={`Go to slide ${idx + 1}`}
-                  />
-                ))}
-              </div>
+              {(isMobileViewport ? exclusiveBanners.length > 1 : exclusiveBanners.length > 2) && (
+                <div className="flex justify-center gap-1.5 mt-8">
+                  {exclusiveBanners.slice(0, isMobileViewport ? exclusiveBanners.length : exclusiveBanners.length - 1).map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentExclusiveSlide(idx)}
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        currentExclusiveSlide === idx ? 'bg-brand-gold w-4' : 'bg-brand-light w-2 hover:bg-brand-text'
+                      }`}
+                      aria-label={`Go to slide ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
             </ScrollReveal>
           </div>
         </section>

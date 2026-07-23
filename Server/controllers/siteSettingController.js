@@ -52,6 +52,19 @@ const defaultOtpSettings = {
   requireCodOtp: true,
 };
 
+const defaultLoyaltySettings = {
+  earnRate: 20,
+  redeemRate: 0.2,
+  maxRedeemAmount: 500,
+  expiryMonths: 2,
+  earnRules: [
+    { id: '1', action: 'Every ₹100 spent', points: '+5 points' },
+    { id: '2', action: 'Write a review', points: '+50 points' },
+    { id: '3', action: 'Refer a friend', points: '+200 points' },
+    { id: '4', action: 'Birthday bonus', points: '+500 points' }
+  ]
+};
+
 const getSetting = async (req, res) => {
   try {
     const { key } = req.params;
@@ -62,6 +75,9 @@ const getSetting = async (req, res) => {
       }
       if (key === 'otp_threshold' || key === 'security') {
         return res.json({ success: true, key, data: defaultOtpSettings });
+      }
+      if (key === 'loyalty') {
+        return res.json({ success: true, key, data: defaultLoyaltySettings });
       }
       return res.json({ success: true, key, data: {} });
     }

@@ -1,5 +1,5 @@
 'use strict';
-const { sequelize, Order, OrderItem, Product, ProductVariant, Customer, Coupon, Affiliate, Cart, CartItem, InventoryMovementLog, Warehouse, WarehouseStock } = require('../models');
+const { sequelize, Order, OrderItem, Product, ProductVariant, Customer, Coupon, Affiliate, Cart, CartItem, InventoryMovementLog, Warehouse, WarehouseStock, SiteSetting, LoyaltyLedger } = require('../models');
 const { v4: uuidv4 } = require('uuid');
 
 // Helper to push order details to Shiprocket shipping API
@@ -130,7 +130,7 @@ const placeOrder = async (req, res) => {
     // 1. Force session lock wait timeout to protect against locking bottlenecks
     await sequelize.query('SET SESSION innodb_lock_wait_timeout = 5', { transaction });
 
-    const { shippingAddress, billingAddress, paymentMethod, couponCode, referralCode } = req.body;
+    const { shippingAddress, billingAddress, paymentMethod, couponCode, referralCode, redeemPoints } = req.body;
 
     // 2. Fetch server-side cart based on customer or guest sessionId (NEVER trust req.body.items)
     let cartWhere = {};
@@ -287,7 +287,35 @@ const placeOrder = async (req, res) => {
 
     const shippingAmount = subtotal > 1499 ? 0 : 99;
     const taxAmount = subtotal * 0.05;
-    const totalAmount = subtotal - discountAmount + shippingAmount + taxAmount;
+
+    // --- Loyalty Points Calculation ---
+    let loyaltyDiscount = 0;
+    let earnedPoints = 0;
+    let loyaltySettings = { earnRate: 20, redeemRate: 0.2, maxRedeemAmount: 500 };
+    
+    const settingsRec = await SiteSetting.findOne({ where: { key: 'loyalty' }, transaction });
+    if (settingsRec) {
+      loyaltySettings = { ...loyaltySettings, ...JSON.parse(settingsRec.value) };
+    }
+
+    if (req.customer && req.customer.id) {
+      const user = await Customer.findByPk(req.customer.id, { transaction });
+      if (user) {
+        if (redeemPoints && user.loyaltyPoints > 0) {
+          const possibleDiscount = user.loyaltyPoints * Number(loyaltySettings.redeemRate);
+          loyaltyDiscount = Math.min(possibleDiscount, Number(loyaltySettings.maxRedeemAmount), subtotal - discountAmount);
+          if (loyaltyDiscount < 0) loyaltyDiscount = 0;
+        }
+        
+        // Earn points based on subtotal (or totalAmount after discount)
+        const amountForEarn = subtotal - discountAmount - loyaltyDiscount;
+        if (amountForEarn > 0) {
+           earnedPoints = Math.floor(amountForEarn / Number(loyaltySettings.earnRate));
+        }
+      }
+    }
+
+    const totalAmount = subtotal - discountAmount - loyaltyDiscount + shippingAmount + taxAmount;
 
     const isCod = paymentMethod === 'COD';
 
@@ -332,7 +360,7 @@ const placeOrder = async (req, res) => {
       paymentStatus: 'UNPAID',
       paymentMethod,
       subtotal,
-      discountAmount,
+      discountAmount: discountAmount + loyaltyDiscount,
       shippingAmount,
       taxAmount,
       totalAmount,
@@ -395,6 +423,38 @@ const placeOrder = async (req, res) => {
           type: 'ORDER_DEDUCTION',
           reason: `COD order placement: ${order.orderNumber}`
         }, { transaction });
+      }
+    }
+
+    // 10. Process Loyalty Ledger and Points Balance
+    if (req.customer && req.customer.id) {
+      const user = await Customer.findByPk(req.customer.id, { transaction });
+      if (user) {
+        if (loyaltyDiscount > 0) {
+          const pointsRedeemed = Math.ceil(loyaltyDiscount / Number(loyaltySettings.redeemRate));
+          await LoyaltyLedger.create({
+            customerId: user.id,
+            orderId: order.id,
+            type: 'REDEEM',
+            points: -pointsRedeemed,
+            balance: user.loyaltyPoints - pointsRedeemed,
+            description: `Redeemed at checkout for Order ${order.orderNumber}`
+          }, { transaction });
+          await user.decrement('loyaltyPoints', { by: pointsRedeemed, transaction });
+          user.loyaltyPoints -= pointsRedeemed; // update local instance for next calculation
+        }
+        
+        if (earnedPoints > 0) {
+          await LoyaltyLedger.create({
+            customerId: user.id,
+            orderId: order.id,
+            type: 'EARN',
+            points: earnedPoints,
+            balance: user.loyaltyPoints + earnedPoints,
+            description: `Earned from Order ${order.orderNumber}`
+          }, { transaction });
+          await user.increment('loyaltyPoints', { by: earnedPoints, transaction });
+        }
       }
     }
 

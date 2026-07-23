@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -40,6 +40,7 @@ const CheckoutPage = () => {
   const { code: currencyCode, rate: currencyRate } = useSelector(s => s.currency);
 
   const items = isBuyNowMode && buyNowItem ? [buyNowItem] : cartItems;
+  const orderCompletedRef = useRef(false);
 
   const subtotal = items.reduce((sum, item) => {
     const price = parseFloat(item.priceAtAdd || item.price || item.product?.price || 0);
@@ -76,6 +77,13 @@ const CheckoutPage = () => {
     requireCodOtp: true,
   });
 
+  // Loyalty Settings
+  const [loyaltySettings, setLoyaltySettings] = useState({
+    earnRate: 20,
+    redeemRate: 0.2,
+    maxRedeemAmount: 500
+  });
+
   useEffect(() => {
     api.get('/settings/otp_threshold')
       .then(res => {
@@ -90,6 +98,18 @@ const CheckoutPage = () => {
       .catch(err => {
         console.warn('[Checkout] Using default OTP thresholds (INR 20,000 / AED 800):', err.message);
       });
+
+    api.get('/site-settings/loyalty')
+      .then(res => {
+        if (res.data?.success && res.data?.data) {
+          setLoyaltySettings({
+            earnRate: Number(res.data.data.earnRate) || 20,
+            redeemRate: Number(res.data.data.redeemRate) || 0.2,
+            maxRedeemAmount: Number(res.data.data.maxRedeemAmount) || 500
+          });
+        }
+      })
+      .catch(err => console.warn('[Checkout] Failed to fetch loyalty settings', err));
   }, []);
 
   const getItemDetails = (item) => {
@@ -229,12 +249,11 @@ const CheckoutPage = () => {
   // Guard: don't let an empty cart (e.g. from a page reload wiping in-memory
   // guest state) sit on checkout and silently reach handlePlaceOrder.
   useEffect(() => {
-    if (items.length === 0) {
+    if (items.length === 0 && !orderCompletedRef.current) {
       toast.error('Your cart is empty. Add something before checking out.');
       navigate('/cart');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.length]);
+  }, [items, navigate]);
 
   const [appliedCoupon, setAppliedCoupon] = useState(() => {
     try {
@@ -244,22 +263,46 @@ const CheckoutPage = () => {
   });
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [availableCoupons, setAvailableCoupons] = useState([]);
 
-  const couponDiscount = appliedCoupon ? (() => {
-    const value = Number(appliedCoupon.value || 0);
-    if (subtotal < Number(appliedCoupon.minOrderValue || 0)) return 0;
-    if (appliedCoupon.type === 'PERCENT') {
-      const maxD = Number(appliedCoupon.maxDiscount || Infinity);
-      return Math.min((subtotal * value) / 100, maxD);
+  useEffect(() => {
+    const fetchCoupons = async () => {
+      try {
+        const res = await api.get('/coupons');
+        if (res.data?.success) {
+          const active = (res.data.coupons || []).filter(c => c.isActive);
+          setAvailableCoupons(active);
+        }
+      } catch (err) {
+        console.error('Failed to load coupons:', err);
+      }
+    };
+    fetchCoupons();
+  }, []);
+
+  const getCouponDiscount = (coupon, totalVal) => {
+    if (!coupon) return 0;
+    if (totalVal < Number(coupon.minOrderValue || 0)) return 0;
+    if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) return 0;
+    const now = new Date();
+    if (coupon.validFrom && new Date(coupon.validFrom) > now) return 0;
+    if (coupon.validUntil && new Date(coupon.validUntil) < now) return 0;
+
+    const value = Number(coupon.value || 0);
+    if (coupon.type === 'PERCENT') {
+      const maxD = Number(coupon.maxDiscount || Infinity);
+      return Math.min((totalVal * value) / 100, maxD);
     }
-    if (appliedCoupon.type === 'FLAT') {
-      return Math.min(value, subtotal);
+    if (coupon.type === 'FLAT') {
+      return Math.min(value, totalVal);
     }
     return 0;
-  })() : 0;
+  };
 
-  const handleApplyCheckoutCoupon = async () => {
-    const code = couponCodeInput.trim().toUpperCase();
+  const couponDiscount = appliedCoupon ? getCouponDiscount(appliedCoupon, subtotal) : 0;
+
+  const handleApplyCheckoutCoupon = async (overrideCode = null) => {
+    const code = (typeof overrideCode === 'string' ? overrideCode : couponCodeInput).trim().toUpperCase();
     if (!code) return;
     setValidatingCoupon(true);
     try {
@@ -290,7 +333,15 @@ const CheckoutPage = () => {
   const shipping = subtotal >= 1499 ? 0 : 99;
   const taxableSubtotal = Math.max(0, subtotal - couponDiscount);
   const tax = taxableSubtotal * 0.05;
-  const total = taxableSubtotal + shipping + tax + giftWrapPrice;
+
+  const redeemPoints = Boolean(location.state?.redeemPoints);
+  let loyaltyDiscountVal = 0;
+  if (redeemPoints && customer && customer.loyaltyPoints > 0) {
+    const possibleDiscount = customer.loyaltyPoints * loyaltySettings.redeemRate;
+    loyaltyDiscountVal = Math.min(possibleDiscount, loyaltySettings.maxRedeemAmount, taxableSubtotal);
+  }
+
+  const total = taxableSubtotal - loyaltyDiscountVal + shipping + tax + giftWrapPrice;
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -392,9 +443,11 @@ const CheckoutPage = () => {
         billingAddress: billingAddress,
         paymentMethod, referralCode,
         couponCode: appliedCoupon ? appliedCoupon.code : undefined,
+        redeemPoints,
       })).unwrap();
 
       const finishOrderClear = () => {
+        orderCompletedRef.current = true;
         localStorage.removeItem('bb_referral');
         localStorage.removeItem('bb_applied_coupon');
         if (isBuyNowMode) {
@@ -408,6 +461,7 @@ const CheckoutPage = () => {
       const isCod = paymentMethod === 'Cash on Delivery (COD)';
       if (isCod) {
         finishOrderClear();
+        if (customer) toast.success('Reward points added for this order!');
         navigate(`/order-confirmation?gateway=cod&orderId=${order.id}&status=success`);
         return;
       }
@@ -452,6 +506,7 @@ const CheckoutPage = () => {
               });
               if (verifyRes.data?.success) {
                 finishOrderClear();
+                if (customer) toast.success('Reward points added for this order!');
                 navigate(`/order-confirmation?gateway=razorpay&orderId=${order.id}&status=success`);
               } else {
                 toast.error(verifyRes.data?.message || 'Payment verification failed. Please contact support.');
@@ -1083,6 +1138,12 @@ const CheckoutPage = () => {
                   <span>-{fmt(couponDiscount)}</span>
                 </div>
               )}
+              {loyaltyDiscountVal > 0 && (
+                <div className="flex justify-between text-green-600 font-medium">
+                  <span className="flex items-center gap-1">Loyalty Discount</span>
+                  <span>-{fmt(loyaltyDiscountVal)}</span>
+                </div>
+              )}
               {isGiftWrap && (
                 <div className="flex justify-between text-brand-text font-medium">
                   <span>Gift Wrapping</span>
@@ -1096,18 +1157,72 @@ const CheckoutPage = () => {
               </div>
             </div>
 
-            {/* Applied Coupon Badge (if applied prior in Cart/Product page) */}
-            {appliedCoupon && (
-              <div className="mt-4 pt-4 border-t border-neutral-100">
-                <div className="flex items-center justify-between bg-green-50 border border-green-200 p-2.5 rounded text-xs">
+            {/* Coupon Section */}
+            <div className="mt-4 pt-4 border-t border-neutral-100">
+              <h3 className="font-playfair text-base font-semibold flex items-center gap-2 mb-3">
+                <Tag size={16} className="text-brand-gold" /> Apply Coupon
+              </h3>
+
+              {!appliedCoupon && availableCoupons.length > 0 && (
+                <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1 mb-4">
+                  {availableCoupons.map(coupon => {
+                    const discountAmt = getCouponDiscount(coupon, subtotal);
+                    const isApplicable = discountAmt > 0;
+                    
+                    return (
+                      <div 
+                        key={coupon.id} 
+                        onClick={() => isApplicable && handleApplyCheckoutCoupon(coupon.code)}
+                        className={`p-3 border rounded-sm transition-all flex flex-col justify-between relative overflow-hidden ${
+                          isApplicable 
+                            ? 'border-brand-light hover:border-brand-gold/50 cursor-pointer bg-white' 
+                            : 'border-neutral-100 bg-neutral-50/50 opacity-60 cursor-not-allowed'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <span className="font-mono text-xs font-bold text-[#0F2942] bg-brand-light px-2.5 py-0.5 rounded-sm">
+                            {coupon.code}
+                          </span>
+                          <span className="text-[10px] text-brand-gold font-semibold uppercase">
+                            {coupon.type === 'PERCENT' ? `${coupon.value}% OFF` : `₹${coupon.value} OFF`}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-brand-grey mt-1.5 leading-relaxed">
+                          Min Order: ₹{coupon.minOrderValue || 0}
+                          {coupon.maxDiscount ? ` · Max Disc: ₹${coupon.maxDiscount}` : ''}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {!appliedCoupon && (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponCodeInput}
+                    onChange={e => setCouponCodeInput(e.target.value.toUpperCase())}
+                    placeholder="Enter coupon code"
+                    className="flex-1 border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:border-brand-gold uppercase font-mono rounded"
+                    aria-label="Coupon code"
+                  />
+                  <button onClick={() => handleApplyCheckoutCoupon()} disabled={validatingCoupon} className="bg-neutral-950 text-white px-4 py-2 text-sm font-medium hover:bg-neutral-800 transition-colors focus-visible:outline-brand-gold rounded">
+                    {validatingCoupon ? '...' : 'Apply'}
+                  </button>
+                </div>
+              )}
+              
+              {appliedCoupon && (
+                <div className="flex items-center justify-between bg-green-50 border border-green-200 p-2.5 rounded text-xs mt-2">
                   <div className="flex items-center gap-1.5 font-medium text-green-700">
                     <Tag size={14} />
-                    <span>Coupon <strong>{appliedCoupon.code}</strong> Applied</span>
+                    <span>Coupon <strong>{appliedCoupon.code}</strong> Applied!</span>
                   </div>
                   <button onClick={handleRemoveCheckoutCoupon} className="text-red-500 hover:underline font-semibold text-[11px]">Remove</button>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Delivery estimate in sidebar */}
             <div className="mt-4 pt-4 border-t border-neutral-100">
