@@ -6,6 +6,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { fetchOrderById, cancelCustomerOrder } from '../../redux/slices/ordersSlice';
 import { createReview } from '../../redux/slices/reviewsSlice';
 import { formatPrice } from '../../utils/currency';
+import { printInvoice } from '../../utils/invoiceGenerator';
 import toast from 'react-hot-toast';
 
 const STATUS_COLORS = {
@@ -107,7 +108,12 @@ const OrderDetailPage = () => {
   };
 
   const handleDownloadInvoice = () => {
-    toast.success('Tax invoice PDF download starting...');
+    if (order) {
+      printInvoice(order);
+      toast.success('Tax invoice generated!');
+    } else {
+      toast.error('Order details not ready for invoice printing.');
+    }
   };
 
   if (loading && !order) {

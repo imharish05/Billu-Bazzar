@@ -19,8 +19,15 @@ const CartPage = () => {
 
   const [giftWrap, setGiftWrap] = useState(false);
   const [giftMessage, setGiftMessage] = useState('');
-  const [redeemPoints, setRedeemPoints] = useState(false);
+  const [redeemPoints, setRedeemPoints] = useState(Boolean(customer && customer.loyaltyPoints > 0));
   const [giftService, setGiftService] = useState(null);
+
+  // Auto-apply loyalty points if customer has available points
+  useEffect(() => {
+    if (customer && customer.loyaltyPoints > 0) {
+      setRedeemPoints(true);
+    }
+  }, [customer]);
   
   const [loyaltySettings, setLoyaltySettings] = useState({
     earnRate: 20,

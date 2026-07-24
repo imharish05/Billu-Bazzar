@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, MapPin, CreditCard, Package, ChevronRight, Eye, EyeOff, Tag } from 'lucide-react';
 import { placeOrder } from '../redux/slices/ordersSlice';
 import { clearLocal, syncCart, clearBuyNowItem } from '../redux/slices/cartSlice';
-import { loginCustomer, registerCustomer } from '../redux/slices/authSlice';
+import { loginCustomer, registerCustomer, fetchProfile } from '../redux/slices/authSlice';
 import { setCurrency } from '../redux/slices/currencySlice';
 import api from '../services/api';
 import Footer from '../components/Footer';
@@ -77,12 +77,24 @@ const CheckoutPage = () => {
     requireCodOtp: true,
   });
 
-  // Loyalty Settings
+  // Loyalty Settings & Auto-Apply state
   const [loyaltySettings, setLoyaltySettings] = useState({
     earnRate: 20,
     redeemRate: 0.2,
     maxRedeemAmount: 500
   });
+
+  const [redeemPoints, setRedeemPoints] = useState(
+    location.state?.redeemPoints !== undefined
+      ? Boolean(location.state.redeemPoints)
+      : true
+  );
+
+  useEffect(() => {
+    if (location.state?.redeemPoints === undefined && customer && customer.loyaltyPoints > 0) {
+      setRedeemPoints(true);
+    }
+  }, [customer, location.state?.redeemPoints]);
 
   useEffect(() => {
     api.get('/settings/otp_threshold')
@@ -217,7 +229,7 @@ const CheckoutPage = () => {
     city: '',
     state: '',
     pincode: '',
-    country: 'India',
+    country: '',
   };
 
   const [billingAddress, setBillingAddress] = useState({ ...emptyAddr });
@@ -230,19 +242,13 @@ const CheckoutPage = () => {
     if (!checked) setAddress({ ...billingAddress });
   };
 
-  // Sync currency state when shipping country changes
+  // Auto-suggest AED currency when UAE shipping country is entered
   useEffect(() => {
     const activeAddress = deliverySameAsBilling ? billingAddress : address;
     const country = (activeAddress.country || '').trim().toLowerCase();
     const isUaeCountry = ['uae', 'united arab emirates', 'dubai', 'abu dhabi', 'sharjah'].includes(country);
-    if (isUaeCountry) {
-      if (currencyCode !== 'AED') {
-        dispatch(setCurrency('AED'));
-      }
-    } else {
-      if (currencyCode !== 'INR') {
-        dispatch(setCurrency('INR'));
-      }
+    if (isUaeCountry && currencyCode !== 'AED') {
+      dispatch(setCurrency('AED'));
     }
   }, [billingAddress.country, address.country, deliverySameAsBilling, currencyCode, dispatch]);
 
@@ -334,7 +340,6 @@ const CheckoutPage = () => {
   const taxableSubtotal = Math.max(0, subtotal - couponDiscount);
   const tax = taxableSubtotal * 0.05;
 
-  const redeemPoints = Boolean(location.state?.redeemPoints);
   let loyaltyDiscountVal = 0;
   if (redeemPoints && customer && customer.loyaltyPoints > 0) {
     const possibleDiscount = customer.loyaltyPoints * loyaltySettings.redeemRate;
@@ -455,6 +460,7 @@ const CheckoutPage = () => {
         } else {
           dispatch(clearLocal());
         }
+        dispatch(fetchProfile());
       };
 
       // 3. COD: skip payment gateway entirely, go straight to confirmation
@@ -569,8 +575,9 @@ const CheckoutPage = () => {
       { key: 'email', label: 'Email Address' },
       { key: 'flatHouse', label: 'Street / House No.' },
       { key: 'city', label: 'City' },
-      { key: 'state', label: 'State' },
-      { key: 'pincode', label: 'Pincode' },
+      { key: 'state', label: 'State / Province' },
+      { key: 'pincode', label: 'Postal / Zip code' },
+      { key: 'country', label: 'Country' },
     ];
     for (const f of requiredFields) {
       if (!billingAddress[f.key]?.trim()) {
@@ -587,8 +594,8 @@ const CheckoutPage = () => {
       toast.error('Please enter a valid email address');
       return false;
     }
-    if (billingAddress.pincode.trim().length !== 6) {
-      toast.error('Please enter a valid 6-digit pincode');
+    if (billingAddress.pincode.trim().length < 3) {
+      toast.error('Please enter a valid postal or zip code');
       return false;
     }
     if (!deliverySameAsBilling) {
@@ -785,23 +792,20 @@ const CheckoutPage = () => {
                           placeholder="City" className={inputCls} required />
                       </div>
 
-                      {/* State dropdown */}
+                      {/* State Input */}
                       <div>
-                        <label className={labelCls} htmlFor="state">State <span className="text-red-400">*</span></label>
-                        <select id="state" value={billingAddress.state}
+                        <label className={labelCls} htmlFor="state">State / Province / Region <span className="text-red-400">*</span></label>
+                        <input id="state" type="text" value={billingAddress.state}
                           onChange={e => setBillingAddress(p => ({ ...p, state: e.target.value }))}
-                          className={`${inputCls} appearance-none cursor-pointer`} required>
-                          <option value="">Select State</option>
-                          {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                          placeholder="State / Province / Region" className={inputCls} required />
                       </div>
 
-                      {/* Pincode */}
+                      {/* Pincode / Zipcode */}
                       <div>
-                        <label className={labelCls} htmlFor="pincode">Pincode <span className="text-red-400">*</span></label>
+                        <label className={labelCls} htmlFor="pincode">Pincode / Zipcode <span className="text-red-400">*</span></label>
                         <input id="pincode" type="text" value={billingAddress.pincode}
-                          onChange={e => setBillingAddress(p => ({ ...p, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
-                          placeholder="6-digit pincode" maxLength={6} className={inputCls} required />
+                          onChange={e => setBillingAddress(p => ({ ...p, pincode: e.target.value }))}
+                          placeholder="Postal / Zip code" className={inputCls} required />
                         {billingAddress.pincode.length === 6 && (
                           <p className="text-[11px] text-brand-gold mt-1 font-semibold">
                             🚚 Est. Delivery: {getEstimatedDeliveryRange(billingAddress.pincode)}
@@ -811,13 +815,10 @@ const CheckoutPage = () => {
 
                       {/* Country */}
                       <div>
-                        <label className={labelCls} htmlFor="country">Country</label>
-                        <select id="country" value={billingAddress.country}
+                        <label className={labelCls} htmlFor="country">Country <span className="text-red-400">*</span></label>
+                        <input id="country" type="text" value={billingAddress.country}
                           onChange={e => setBillingAddress(p => ({ ...p, country: e.target.value }))}
-                          className={`${inputCls} appearance-none cursor-pointer`} required>
-                          <option value="India">India</option>
-                          <option value="United Arab Emirates">United Arab Emirates</option>
-                        </select>
+                          placeholder="Country" className={inputCls} required />
                       </div>
                     </div>
 
@@ -848,7 +849,7 @@ const CheckoutPage = () => {
                               </div>
                               <div>
                                 <label className={labelCls} htmlFor="d-phone">Mobile *</label>
-                                <input id="d-phone" type="tel" value={address.phone} onChange={e => setAddress(p => ({...p, phone: e.target.value.replace(/\D/g,'').slice(0,10)}))} placeholder="10-digit mobile" className={inputCls} />
+                                <input id="d-phone" type="tel" value={address.phone} onChange={e => setAddress(p => ({...p, phone: e.target.value.replace(/\D/g,'').slice(0,10)}))} placeholder="Mobile number" className={inputCls} />
                               </div>
                             </div>
                             <div className="sm:col-span-2">
@@ -868,27 +869,21 @@ const CheckoutPage = () => {
                               <input id="d-city" type="text" value={address.city} onChange={e => setAddress(p => ({...p, city: e.target.value}))} placeholder="City" className={inputCls} />
                             </div>
                             <div>
-                              <label className={labelCls} htmlFor="d-state">State *</label>
-                              <select id="d-state" value={address.state} onChange={e => setAddress(p => ({...p, state: e.target.value}))} className={`${inputCls} appearance-none cursor-pointer`}>
-                                <option value="">Select State</option>
-                                {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                              </select>
+                              <label className={labelCls} htmlFor="d-state">State / Province / Region *</label>
+                              <input id="d-state" type="text" value={address.state} onChange={e => setAddress(p => ({...p, state: e.target.value}))} placeholder="State / Province / Region" className={inputCls} />
                             </div>
                             <div>
-                              <label className={labelCls} htmlFor="d-pincode">Pincode *</label>
-                              <input id="d-pincode" type="text" value={address.pincode} onChange={e => setAddress(p => ({...p, pincode: e.target.value.replace(/\D/g,'').slice(0,6)}))} placeholder="6-digit pincode" maxLength={6} className={inputCls} />
+                              <label className={labelCls} htmlFor="d-pincode">Pincode / Zipcode *</label>
+                              <input id="d-pincode" type="text" value={address.pincode} onChange={e => setAddress(p => ({...p, pincode: e.target.value}))} placeholder="Postal / Zip code" className={inputCls} />
                               {address.pincode.length === 6 && (
                                 <p className="text-[11px] text-brand-gold mt-1 font-semibold">🚚 Est. Delivery: {getEstimatedDeliveryRange(address.pincode)}</p>
                               )}
                             </div>
-                             <div>
-                              <label className={labelCls} htmlFor="d-country">Country</label>
-                              <select id="d-country" value={address.country}
+                            <div>
+                              <label className={labelCls} htmlFor="d-country">Country *</label>
+                              <input id="d-country" type="text" value={address.country}
                                 onChange={e => setAddress(p => ({...p, country: e.target.value}))}
-                                className={`${inputCls} appearance-none cursor-pointer`}>
-                                <option value="India">India</option>
-                                <option value="United Arab Emirates">United Arab Emirates</option>
-                              </select>
+                                placeholder="Country" className={inputCls} />
                             </div>
                           </div>
                         </motion.div>
@@ -1129,7 +1124,25 @@ const CheckoutPage = () => {
 
           {/* ── Order Summary Sidebar ── */}
           <div className="lg:col-span-1 bg-white border border-neutral-200 rounded-lg p-5 md:p-6 self-start sticky top-24">
-            <h2 className="font-playfair text-lg font-semibold mb-4">Order Summary</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-playfair text-lg font-semibold">Order Summary</h2>
+              <div className="flex items-center gap-1 text-xs bg-neutral-100 p-1 rounded-full border border-neutral-200">
+                <button
+                  type="button"
+                  onClick={() => dispatch(setCurrency('INR'))}
+                  className={`px-2 py-0.5 rounded-full font-bold transition-all ${currencyCode === 'INR' ? 'bg-brand-gold text-white shadow-xs' : 'text-neutral-600 hover:text-neutral-900'}`}
+                >
+                  INR ₹
+                </button>
+                <button
+                  type="button"
+                  onClick={() => dispatch(setCurrency('AED'))}
+                  className={`px-2 py-0.5 rounded-full font-bold transition-all ${currencyCode === 'AED' ? 'bg-brand-gold text-white shadow-xs' : 'text-neutral-600 hover:text-neutral-900'}`}
+                >
+                  AED
+                </button>
+              </div>
+            </div>
             <div className="space-y-2.5 text-sm">
               <div className="flex justify-between"><span className="text-brand-grey">Subtotal ({items.length} items)</span><span>{fmt(subtotal)}</span></div>
               {appliedCoupon && couponDiscount > 0 && (
@@ -1156,6 +1169,37 @@ const CheckoutPage = () => {
                 <span>Total</span><span className="text-brand-gold">{fmt(total)}</span>
               </div>
             </div>
+
+            {/* Loyalty Points Section */}
+            {isAuthenticated && customer && customer.loyaltyPoints > 0 && (
+              <div className="mt-4 pt-4 border-t border-neutral-100">
+                <div className="bg-amber-50/60 border border-amber-200/70 rounded-md p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-amber-700 font-semibold text-xs flex items-center gap-1">👑 Loyalty Points</span>
+                      <span className="text-[11px] bg-amber-200/60 text-amber-900 px-1.5 py-0.5 rounded font-semibold">{customer.loyaltyPoints} pts</span>
+                    </div>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={redeemPoints}
+                        onChange={(e) => setRedeemPoints(e.target.checked)}
+                        className="w-4 h-4 accent-brand-gold rounded border-brand-light cursor-pointer"
+                        id="checkout-auto-loyalty"
+                      />
+                      <span className="text-xs text-neutral-700 font-medium">{redeemPoints ? 'Applied' : 'Apply'}</span>
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-neutral-600 mt-1.5">
+                    {redeemPoints ? (
+                      <span className="text-green-700 font-medium">✓ Auto-applied discount: -{fmt(loyaltyDiscountVal)}</span>
+                    ) : (
+                      <span className="text-neutral-500">Check to redeem points for discount</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Coupon Section */}
             <div className="mt-4 pt-4 border-t border-neutral-100">

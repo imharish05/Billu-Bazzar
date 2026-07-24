@@ -14,11 +14,27 @@ class TelrService extends PaymentGatewayInterface {
    */
   async createOrder({ amount, currency = 'AED', receipt }) {
     try {
-      const storeId = process.env.TELR_STORE_ID || 'mock_store_id';
-      const authKey = process.env.TELR_AUTH_KEY || 'mock_auth_key';
-      const isTestMode = process.env.TELR_TEST_MODE === '1' ? '1' : '0';
-      const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+      // ── TELR CREDENTIAL CHECK & FALLBACK ─────────────────────────────────────
+      // If real Telr keys are not configured in .env, run in simulation mode.
+      // Once real TELR_STORE_ID & TELR_AUTH_KEY are added to .env, this will
+      // automatically execute the live Telr gateway request below.
+      const hasRealKeys = process.env.TELR_STORE_ID && process.env.TELR_STORE_ID !== 'mock_store_id' &&
+                          process.env.TELR_AUTH_KEY && process.env.TELR_AUTH_KEY !== 'mock_auth_key';
 
+      if (!hasRealKeys) {
+        console.log('[TelrService] TELR_STORE_ID/AUTH_KEY not set in .env. Running Telr in simulation mode.');
+        return {
+          success: true,
+          gatewayRef: `telr_sim_${Date.now()}`,
+          amount,
+          currency,
+          status: 'CREATED',
+          redirectUrl: `${clientUrl}/order-confirmation?gateway=telr&status=success&cartId=${receipt}`,
+          raw: { isSimulation: true, note: 'Add TELR_STORE_ID & TELR_AUTH_KEY to .env for live Telr payment redirect' },
+        };
+      }
+
+      // ── LIVE TELR GATEWAY REQUEST (Active when credentials exist in .env) ────
       const payload = {
         ivp_method: 'create',
         ivp_store: storeId,

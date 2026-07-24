@@ -3,7 +3,7 @@ import { NavLink, Outlet, useSearchParams, useLocation } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux';
 import { User, Package, Heart, Star, Gift, Headphones, LogOut, Lock, Mail, Eye, EyeOff, Phone, ArrowLeft, CheckCircle, RefreshCw, MessageSquare } from 'lucide-react';
 import Footer from '../../components/Footer';
-import { loginCustomer, registerCustomer, logout, clearError } from '../../redux/slices/authSlice';
+import { loginCustomer, registerCustomer, logout, clearError, fetchProfile } from '../../redux/slices/authSlice';
 import toast from 'react-hot-toast';
 import { validatePhoneNumber, validateEmail, validatePassword } from '../../utils/validation';
 import api from '../../services/api';
@@ -32,10 +32,13 @@ const AccountLayout = () => {
   const { isAuthenticated, customer, loading, error } = useSelector(s => s.auth);
   const otpRefs = useRef([]);
 
-  // Auto scroll to top on account route change
+  // Auto scroll to top on account route change and refresh customer profile (loyalty points, balance, etc.)
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [pathname]);
+    if (isAuthenticated) {
+      dispatch(fetchProfile());
+    }
+  }, [pathname, isAuthenticated, dispatch]);
 
   // ── Auth form state ─────────────────────────────────────────────────────────
   const [view, setView]             = useState(VIEW_LOGIN);

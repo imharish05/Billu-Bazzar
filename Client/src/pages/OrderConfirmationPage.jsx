@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CheckCircle, Package, Download, MessageCircle, MapPin } from 'lucide-react';
 import Footer from '../components/Footer';
-import { formatPrice } from '../utils/currency';
+import { printInvoice } from '../utils/invoiceGenerator';
 
 /* Mock tracking steps */
 const trackingSteps = [
@@ -105,7 +105,7 @@ const OrderConfirmationPage = () => {
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3">
-          <button className="btn-outline flex items-center justify-center gap-2 flex-1" id="download-invoice">
+          <button onClick={() => printInvoice(order)} className="btn-outline flex items-center justify-center gap-2 flex-1" id="download-invoice">
             <Download size={16} /> Download Invoice
           </button>
           <Link to="/account?tab=orders" className="btn-primary flex items-center justify-center gap-2 flex-1" id="view-orders">

@@ -226,102 +226,26 @@ const seedAll = async () => {
   if (await isTableEmpty(Customer)) {
     const hash = (pw) => bcrypt.hash(pw, 10);
     const customers = await Customer.bulkCreate([
-      { name: 'Priya Nair', email: 'priya.nair@gmail.com', password: await hash('Pass@123'), phone: '9876543200', loyaltyPoints: 1450, isVerified: true, referralCode: 'PRIYA001', whatsappOptIn: true, address: { line1: '14 Palm Beach Road', city: 'Mumbai', state: 'Maharashtra', pincode: '400001' } },
-      { name: 'Aisha Sharma', email: 'aisha.sharma@outlook.com', password: await hash('Pass@123'), phone: '9765432100', loyaltyPoints: 2300, isVerified: true, referralCode: 'AISHA002', whatsappOptIn: false, address: { line1: '22 Rajpur Road', city: 'Delhi', state: 'Delhi', pincode: '110001' } },
-      { name: 'Kavya Reddy', email: 'kavya.reddy@yahoo.com', password: await hash('Pass@123'), phone: '9654321000', loyaltyPoints: 890, isVerified: true, referralCode: 'KAVYA003', whatsappOptIn: true, address: { line1: '5 Jubilee Hills', city: 'Hyderabad', state: 'Telangana', pincode: '500033' } },
-      { name: 'Sunita Patel', email: 'sunita.patel@gmail.com', password: await hash('Pass@123'), phone: '9543210900', loyaltyPoints: 3200, isVerified: true, referralCode: 'SUNIT004', whatsappOptIn: true, address: { line1: '9 Paldi', city: 'Ahmedabad', state: 'Gujarat', pincode: '380007' } },
-      { name: 'Nisha Menon', email: 'nisha.menon@gmail.com', password: await hash('Pass@123'), phone: '9432109800', loyaltyPoints: 540, isVerified: true, referralCode: 'NISHA005', whatsappOptIn: false, address: { line1: '3 Marine Drive', city: 'Kochi', state: 'Kerala', pincode: '682001' } },
-      { name: 'Ritu Agarwal', email: 'ritu.agarwal@gmail.com', password: await hash('Pass@123'), phone: '9321098700', loyaltyPoints: 1800, isVerified: true, referralCode: 'RITU006', whatsappOptIn: true, address: { line1: '17 MG Road', city: 'Jaipur', state: 'Rajasthan', pincode: '302001' } },
-      { name: 'Deepa Krishnan', email: 'deepa.krishnan@gmail.com', password: await hash('Pass@123'), phone: '9210987600', loyaltyPoints: 650, isVerified: false, referralCode: 'DEEPA007', whatsappOptIn: false, address: { line1: '8 Anna Nagar', city: 'Chennai', state: 'Tamil Nadu', pincode: '600040' } },
-      { name: 'Anjali Singh', email: 'anjali.singh@hotmail.com', password: await hash('Pass@123'), phone: '9109876500', loyaltyPoints: 4100, isVerified: true, referralCode: 'ANJAL008', whatsappOptIn: true, address: { line1: '24 Hazratganj', city: 'Lucknow', state: 'Uttar Pradesh', pincode: '226001' } },
-      { name: 'Meenakshi Pillai', email: 'meenakshi.pillai@gmail.com', password: await hash('Pass@123'), phone: '9098765400', loyaltyPoints: 920, isVerified: true, referralCode: 'MEENA009', whatsappOptIn: false, address: { line1: '6 Adyar', city: 'Chennai', state: 'Tamil Nadu', pincode: '600020' } },
-      { name: 'Lakshmi Iyer', email: 'lakshmi.iyer@gmail.com', password: await hash('Pass@123'), phone: '8987654300', loyaltyPoints: 2700, isVerified: true, referralCode: 'LAKSH010', whatsappOptIn: true, address: { line1: '11 Indiranagar', city: 'Bangalore', state: 'Karnataka', pincode: '560038' } },
-      { name: 'Pooja Chopra', email: 'pooja.chopra@gmail.com', password: await hash('Pass@123'), phone: '8876543200', loyaltyPoints: 380, isVerified: true, referralCode: 'POOJA011', whatsappOptIn: true, address: { line1: '32 Sector 15', city: 'Chandigarh', state: 'Punjab', pincode: '160015' } },
-      { name: 'Divya Bhat', email: 'divya.bhat@gmail.com', password: await hash('Pass@123'), phone: '8765432100', loyaltyPoints: 1100, isVerified: false, referralCode: 'DIVYA012', whatsappOptIn: false, address: { line1: '7 Malad West', city: 'Mumbai', state: 'Maharashtra', pincode: '400095' } },
-      { name: 'Shruti Verma', email: 'shruti.verma@gmail.com', password: await hash('Pass@123'), phone: '8654321000', loyaltyPoints: 1650, isVerified: true, referralCode: 'SHRUT013', whatsappOptIn: true, address: { line1: '19 Dwarka', city: 'Delhi', state: 'Delhi', pincode: '110075' } },
-      { name: 'Archana Desai', email: 'archana.desai@gmail.com', password: await hash('Pass@123'), phone: '8543210900', loyaltyPoints: 2100, isVerified: true, referralCode: 'ARCHA014', whatsappOptIn: true, address: { line1: '4 FC Road', city: 'Pune', state: 'Maharashtra', pincode: '411004' } },
-      { name: 'Pallavi Kulkarni', email: 'pallavi.kulkarni@gmail.com', password: await hash('Pass@123'), phone: '8432109800', loyaltyPoints: 760, isVerified: true, referralCode: 'PALLA015', whatsappOptIn: false, address: { line1: '13 Koramangala', city: 'Bangalore', state: 'Karnataka', pincode: '560034' } },
+      { name: 'Priya Nair', email: 'priya.nair@gmail.com', password: await hash('Pass@123'), phone: '9876543200', loyaltyPoints: 0, isVerified: true, referralCode: 'PRIYA001', whatsappOptIn: true, address: { line1: '14 Palm Beach Road', city: 'Mumbai', state: 'Maharashtra', pincode: '400001' } },
+      { name: 'Aisha Sharma', email: 'aisha.sharma@outlook.com', password: await hash('Pass@123'), phone: '9765432100', loyaltyPoints: 0, isVerified: true, referralCode: 'AISHA002', whatsappOptIn: false, address: { line1: '22 Rajpur Road', city: 'Delhi', state: 'Delhi', pincode: '110001' } },
+      { name: 'Kavya Reddy', email: 'kavya.reddy@yahoo.com', password: await hash('Pass@123'), phone: '9654321000', loyaltyPoints: 0, isVerified: true, referralCode: 'KAVYA003', whatsappOptIn: true, address: { line1: '5 Jubilee Hills', city: 'Hyderabad', state: 'Telangana', pincode: '500033' } },
+      { name: 'Sunita Patel', email: 'sunita.patel@gmail.com', password: await hash('Pass@123'), phone: '9543210900', loyaltyPoints: 0, isVerified: true, referralCode: 'SUNIT004', whatsappOptIn: true, address: { line1: '9 Paldi', city: 'Ahmedabad', state: 'Gujarat', pincode: '380007' } },
+      { name: 'Nisha Menon', email: 'nisha.menon@gmail.com', password: await hash('Pass@123'), phone: '9432109800', loyaltyPoints: 0, isVerified: true, referralCode: 'NISHA005', whatsappOptIn: false, address: { line1: '3 Marine Drive', city: 'Kochi', state: 'Kerala', pincode: '682001' } },
+      { name: 'Ritu Agarwal', email: 'ritu.agarwal@gmail.com', password: await hash('Pass@123'), phone: '9321098700', loyaltyPoints: 0, isVerified: true, referralCode: 'RITU006', whatsappOptIn: true, address: { line1: '17 MG Road', city: 'Jaipur', state: 'Rajasthan', pincode: '302001' } },
+      { name: 'Deepa Krishnan', email: 'deepa.krishnan@gmail.com', password: await hash('Pass@123'), phone: '9210987600', loyaltyPoints: 0, isVerified: false, referralCode: 'DEEPA007', whatsappOptIn: false, address: { line1: '8 Anna Nagar', city: 'Chennai', state: 'Tamil Nadu', pincode: '600040' } },
+      { name: 'Anjali Singh', email: 'anjali.singh@hotmail.com', password: await hash('Pass@123'), phone: '9109876500', loyaltyPoints: 0, isVerified: true, referralCode: 'ANJAL008', whatsappOptIn: true, address: { line1: '24 Hazratganj', city: 'Lucknow', state: 'Uttar Pradesh', pincode: '226001' } },
+      { name: 'Meenakshi Pillai', email: 'meenakshi.pillai@gmail.com', password: await hash('Pass@123'), phone: '9098765400', loyaltyPoints: 0, isVerified: true, referralCode: 'MEENA009', whatsappOptIn: false, address: { line1: '6 Adyar', city: 'Chennai', state: 'Tamil Nadu', pincode: '600020' } },
+      { name: 'Lakshmi Iyer', email: 'lakshmi.iyer@gmail.com', password: await hash('Pass@123'), phone: '8987654300', loyaltyPoints: 0, isVerified: true, referralCode: 'LAKSH010', whatsappOptIn: true, address: { line1: '11 Indiranagar', city: 'Bangalore', state: 'Karnataka', pincode: '560038' } },
+      { name: 'Pooja Chopra', email: 'pooja.chopra@gmail.com', password: await hash('Pass@123'), phone: '8876543200', loyaltyPoints: 0, isVerified: true, referralCode: 'POOJA011', whatsappOptIn: true, address: { line1: '32 Sector 15', city: 'Chandigarh', state: 'Punjab', pincode: '160015' } },
+      { name: 'Divya Bhat', email: 'divya.bhat@gmail.com', password: await hash('Pass@123'), phone: '8765432100', loyaltyPoints: 0, isVerified: false, referralCode: 'DIVYA012', whatsappOptIn: false, address: { line1: '7 Malad West', city: 'Mumbai', state: 'Maharashtra', pincode: '400095' } },
+      { name: 'Shruti Verma', email: 'shruti.verma@gmail.com', password: await hash('Pass@123'), phone: '8654321000', loyaltyPoints: 0, isVerified: true, referralCode: 'SHRUT013', whatsappOptIn: true, address: { line1: '19 Dwarka', city: 'Delhi', state: 'Delhi', pincode: '110075' } },
+      { name: 'Archana Desai', email: 'archana.desai@gmail.com', password: await hash('Pass@123'), phone: '8543210900', loyaltyPoints: 0, isVerified: true, referralCode: 'ARCHA014', whatsappOptIn: true, address: { line1: '4 FC Road', city: 'Pune', state: 'Maharashtra', pincode: '411004' } },
+      { name: 'Pallavi Kulkarni', email: 'pallavi.kulkarni@gmail.com', password: await hash('Pass@123'), phone: '8432109800', loyaltyPoints: 0, isVerified: true, referralCode: 'PALLA015', whatsappOptIn: false, address: { line1: '13 Koramangala', city: 'Bangalore', state: 'Karnataka', pincode: '560034' } },
     ]);
 
     // Create carts for each customer
     await Cart.bulkCreate(customers.map(c => ({ customerId: c.id })));
     console.log('✅ Customers seeded (15 total) + carts created');
-  }
-
-  // ─── Orders ───────────────────────────────────────────────────────────────
-  if (await isTableEmpty(Order)) {
-    const customers = await Customer.findAll();
-    const products = await Product.findAll();
-    const statuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
-    const payStatuses = { PENDING: 'UNPAID', CONFIRMED: 'PAID', PROCESSING: 'PAID', SHIPPED: 'PAID', DELIVERED: 'PAID', CANCELLED: 'REFUNDED' };
-    const payMethods = ['Razorpay UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'COD'];
-    const orders = [];
-    const orderItems = [];
-
-    for (let i = 0; i < 32; i++) {
-      const cust = customers[i % customers.length];
-      const status = statuses[i % statuses.length];
-      const numItems = (i % 3) + 1;
-      const items = [];
-      let subtotal = 0;
-
-      for (let j = 0; j < numItems; j++) {
-        const prod = products[(i * 3 + j) % products.length];
-        const qty = (j % 2) + 1;
-        const price = parseFloat(prod.price);
-        items.push({ productId: prod.id, productName: prod.name, productImage: prod.images[0], quantity: qty, unitPrice: price, totalPrice: price * qty, selectedVariant: { size: 'M', color: 'Default' } });
-        subtotal += price * qty;
-      }
-
-      const discount = i % 4 === 0 ? subtotal * 0.1 : 0;
-      const shipping = subtotal > 1499 ? 0 : 99;
-      const tax = subtotal * 0.05;
-      const total = subtotal - discount + shipping + tax;
-      const daysAgo = (i + 1) * 2;
-
-      orders.push({
-        orderNumber: `BB${String(1000 + i).padStart(6, '0')}`,
-        customerId: cust.id,
-        status,
-        paymentStatus: payStatuses[status],
-        paymentMethod: payMethods[i % payMethods.length],
-        paymentGatewayRef: `pay_${uuidv4().slice(0, 14)}`,
-        subtotal,
-        discountAmount: discount,
-        shippingAmount: shipping,
-        taxAmount: tax,
-        totalAmount: total,
-        shippingAddress: cust.address || { line1: 'Test Address', city: 'Mumbai', state: 'Maharashtra', pincode: '400001' },
-        trackingNumber: status === 'SHIPPED' || status === 'DELIVERED' ? `AWB${Date.now() + i}` : null,
-        createdAt: new Date(Date.now() - daysAgo * 86400000),
-        _items: items,
-      });
-    }
-
-    for (const orderData of orders) {
-      const items = orderData._items;
-      delete orderData._items;
-      const created = await Order.create(orderData);
-      for (const item of items) {
-        orderItems.push({ ...item, orderId: created.id });
-      }
-    }
-
-    await OrderItem.bulkCreate(orderItems);
-    console.log('✅ Orders seeded (32 total) + order items created');
-
-    // LoyaltyLedger entries
-    const allOrders = await Order.findAll({ where: { paymentStatus: 'PAID' } });
-    const ledgerEntries = allOrders.map(o => ({
-      customerId: o.customerId,
-      type: 'EARN',
-      points: Math.floor(o.totalAmount / 100),
-      balance: Math.floor(o.totalAmount / 100),
-      description: `Points earned on order ${o.orderNumber}`,
-      orderId: o.id,
-    }));
-    await LoyaltyLedger.bulkCreate(ledgerEntries);
-    console.log('✅ Loyalty ledger seeded');
   }
 
   // ─── Marketing Messages ───────────────────────────────────────────────────

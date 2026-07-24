@@ -76,10 +76,30 @@ const LoyaltyAdminPage = () => {
     setSettings({ ...settings, earnRules: newRules });
   };
 
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredLedger = ledger.filter(entry => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase().trim();
+    const custId = String(entry.customerId || entry.customer?.id || '');
+    const custName = (entry.customer?.name || '').toLowerCase();
+    const custEmail = (entry.customer?.email || '').toLowerCase();
+    const desc = (entry.description || '').toLowerCase();
+    return custId.includes(q) || custName.includes(q) || custEmail.includes(q) || desc.includes(q);
+  });
+
   return (
     <AdminLayout title="Loyalty Program">
-      <div className="flex justify-end mb-4">
-        <button onClick={() => setShowSettings(true)} className="bg-brand-text text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-brand-gold transition-colors">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="font-playfair text-2xl font-bold">Loyalty & Rewards</h1>
+          <p className="text-sm text-brand-grey">Manage customer points, redemption rates, and ledger history.</p>
+        </div>
+        <button
+          onClick={() => setShowSettings(true)}
+          className="bg-brand-text text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-brand-gold transition-colors"
+          id="configure-loyalty-btn"
+        >
           Configure Loyalty Settings
         </button>
       </div>
@@ -87,23 +107,41 @@ const LoyaltyAdminPage = () => {
       <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-8">
         <div className="px-5 py-3 border-b border-brand-light flex items-center justify-between">
           <p className="text-sm font-medium">Loyalty Ledger</p>
-          <input type="text" placeholder="Filter by customer..." className="text-sm border border-brand-light px-3 py-1.5 focus:outline-none focus:border-brand-gold w-48" id="loyalty-search" aria-label="Filter by customer" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Filter by Customer ID or name..."
+            className="text-sm border border-brand-light px-3 py-1.5 focus:outline-none focus:border-brand-gold w-64 rounded"
+            id="loyalty-search"
+            aria-label="Filter by customer ID or name"
+          />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm" aria-label="Loyalty ledger">
             <thead>
               <tr className="bg-brand-light/40 text-left">
-                {['Customer', 'Type', 'Points', 'Balance', 'Description', 'Date'].map(h => (
+                {['Customer ID', 'Customer Name', 'Type', 'Points', 'Balance', 'Description', 'Date'].map(h => (
                   <th key={h} className="px-4 py-3 text-xs font-semibold text-brand-grey uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="6" className="text-center py-4 text-brand-grey">Loading...</td></tr>
-              ) : ledger.map(entry => (
+                <tr><td colSpan="7" className="text-center py-4 text-brand-grey">Loading...</td></tr>
+              ) : filteredLedger.length === 0 ? (
+                <tr><td colSpan="7" className="text-center py-4 text-brand-grey">No transactions found.</td></tr>
+              ) : filteredLedger.map(entry => (
                 <tr key={entry.id} className="border-b border-brand-light hover:bg-brand-light/20 transition-colors">
-                  <td className="px-4 py-3 font-medium">{entry.customer?.name || 'Unknown'}</td>
+                  <td className="px-4 py-3">
+                    <span className="font-mono text-xs bg-amber-100/80px-2 py-0.5 rounded font-bold">
+                      {entry.customerId || entry.customer?.id || '—'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 font-medium">
+                    <div>{entry.customer?.name || 'Unknown'}</div>
+                    {entry.customer?.email && <div className="text-[11px] text-brand-grey font-normal">{entry.customer.email}</div>}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TYPE_COLORS[entry.type] || TYPE_COLORS.BONUS}`}>
                       {entry.type}
@@ -112,9 +150,9 @@ const LoyaltyAdminPage = () => {
                   <td className="px-4 py-3 font-semibold" style={{ color: entry.points > 0 ? '#16a34a' : '#dc2626' }}>
                     {entry.points > 0 ? '+' : ''}{entry.points}
                   </td>
-                  <td className="px-4 py-3 text-brand-grey">{entry.balance}</td>
+                  <td className="px-4 py-3 text-brand-grey font-medium">{entry.balance}</td>
                   <td className="px-4 py-3 text-brand-grey text-xs">{entry.description}</td>
-                  <td className="px-4 py-3 text-brand-grey text-xs">
+                  <td className="px-4 py-3 text-brand-grey text-xs whitespace-nowrap">
                     {new Date(entry.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </td>
                 </tr>
